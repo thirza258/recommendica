@@ -1,0 +1,6 @@
+.env
+env/
+__pycache__/
+db.sqlite3
+test.ipynb
+arXiv_scientific dataset.csv
