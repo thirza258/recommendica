@@ -1,6 +1,6 @@
-# Luminoso Hackathon Project
+# Recommendica
 
-This project is set up to create a virtual environment, install dependencies, and run a Django server for the Luminoso Hackathon project.
+This project is set up to create a virtual environment, install dependencies, and run a Django server for the Recommendica.
 
 ## Setup Instructions
 
