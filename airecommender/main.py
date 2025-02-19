@@ -2,9 +2,8 @@ import faiss
 import numpy as np
 import json
 from langchain.docstore.document import Document
-from langchain.embeddings import OpenAIEmbeddings
-from .models import ResearchInfo  # Adjust based on your app structure
-from .serializers import ResearchInfoSerializer  # Your Django serializer
+from langchain_openai import OpenAIEmbeddings
+
 
 class RAGIndex:
     def __init__(self):
@@ -16,6 +15,15 @@ class RAGIndex:
     def load_data(self):
         """Load and index documents at startup"""
         try:
+            try:
+                from .models import ResearchInfo  
+                from .serializers import ResearchInfoSerializer
+            except Exception as e:
+                ResearchInfo = None
+                ResearchInfoSerializer = None
+                
+            if ResearchInfo is None:
+                return  #
             research_info = ResearchInfo.objects.all()
             if not research_info.exists():
                 return

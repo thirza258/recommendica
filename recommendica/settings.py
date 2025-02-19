@@ -22,7 +22,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-os.environ["LANGSMITH_TRACING"] = True
+os.environ["LANGSMITH_TRACING"] = "True"
 os.environ["LANGSMITH_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT")
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGSMITH_PROJECT")
