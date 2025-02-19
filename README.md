@@ -35,7 +35,12 @@ This project is set up to create a virtual environment, install dependencies, an
     python manage.py import_research
     ```
 
-6. **Run the Django Development Server:**
+6. **Apply Migrations:**
+    ```sh
+    python manage.py migrate
+    ```
+
+7. **Run the Django Development Server:**
     ```sh
     python manage.py runserver
     ```
