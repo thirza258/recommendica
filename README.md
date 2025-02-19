@@ -47,6 +47,7 @@ This project is set up to create a virtual environment, install dependencies, an
     ```
 
 ## Input Prompt Configuration
+- localhost:8000/api/v1/prompt/
 
 ```json
 {
@@ -73,3 +74,5 @@ The return response will be the top 5 most relevant research papers to the input
     }
 }
 ```
+## API Documentation
+- localhost:8000/docs/
