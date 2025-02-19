@@ -1,5 +1,6 @@
 # Recommendica
 
+Recommendica is a research recommendation API powered by AI and Retrieval-Augmented Generation (RAG). It helps users find the most relevant research papers based on their input queries.
 This project is set up to create a virtual environment, install dependencies, and run a Django server for the Recommendica.
 
 ## Setup Instructions
