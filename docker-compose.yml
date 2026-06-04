@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DEBUG: "${DEBUG:-True}"
+      DEVELOPMENT_MODE: "${DEVELOPMENT_MODE:-True}"
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      LANGSMITH_TRACING: "${LANGSMITH_TRACING:-True}"
+      LANGSMITH_ENDPOINT: "${LANGSMITH_ENDPOINT:-}"
+      LANGSMITH_API_KEY: "${LANGSMITH_API_KEY:-}"
+      LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-}"
+    ports:
+      - "8056:8000"
+    volumes:
+      - .:/app
+      - backend_static:/app/staticfiles
+
+  frontend:
+    build:
+      context: ./recommendica_frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    environment:
+      VITE_API_PROXY_TARGET: "http://backend:8000"
+    ports:
+      - "5156:5173"
+    volumes:
+      - ./recommendica_frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  backend_static:
+  frontend_node_modules:

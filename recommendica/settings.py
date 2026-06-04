@@ -21,11 +21,17 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-os.environ["LANGSMITH_TRACING"] = "True"
-os.environ["LANGSMITH_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT")
-os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
-os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGSMITH_PROJECT")
+for env_name in (
+    "OPENAI_API_KEY",
+    "LANGSMITH_ENDPOINT",
+    "LANGSMITH_API_KEY",
+    "LANGSMITH_PROJECT",
+):
+    env_value = os.getenv(env_name)
+    if env_value is not None:
+        os.environ[env_name] = env_value
+
+os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "True")
 
 SECRET_KEY = "django-insecure-@y3pyxbz+aq2z1$3oqsbhi%lb)zxztz@2uew8z2s1lxj$r8pb%"
 
@@ -108,7 +114,7 @@ if DEVELOPMENT_MODE is True:
         }
     }
 else :
-    if len(sys.argv) > 0 and sys.argv[1] != 'collectstatic':
+    if len(sys.argv) > 1 and sys.argv[1] != 'collectstatic':
         if os.getenv("DATABASE_URL", None) is None:
             raise Exception("DATABASE_URL environment variable not defined")
         DATABASES = {

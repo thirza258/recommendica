@@ -76,3 +76,27 @@ The return response will be the top 5 most relevant research papers to the input
 ```
 ## API Documentation
 - localhost:8000/docs/
+
+## Docker Setup
+
+The project can run with Docker Compose using Python 3.11 for the Django backend and Node 22 for the Vite frontend.
+
+1. **Create an environment file when you need API keys:**
+    ```sh
+    cp .env.example .env
+    ```
+
+2. **Start the backend and frontend:**
+    ```sh
+    docker compose up --build
+    ```
+
+3. **Open the services:**
+    - Frontend: localhost:5173
+    - Backend API: localhost:8000/api/v1/
+    - API docs: localhost:8000/docs/
+
+4. **Optionally import the sample research data after the backend is running:**
+    ```sh
+    docker compose exec backend python manage.py import_research
+    ```
