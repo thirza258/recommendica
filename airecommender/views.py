@@ -23,11 +23,18 @@ class RecommendationSystem(APIView):
             
             # Format retrieved documents as context
             context = "\n\n".join([
-                f"Title: {json.loads(doc)['title']}\nCategory: {json.loads(doc)['category']}\n"
-                f"Summary: {json.loads(doc)['summary']}\nAuthors: {json.loads(doc)['authors']}"
+                f"""
+            Title: {doc['metadata'].get('title', '')}
+            Authors: {doc['metadata'].get('authors_parsed', '')}
+            Categories: {doc['metadata'].get('categories', '')}
+            DOI: {doc['metadata'].get('doi', '')}
+            Journal: {doc['metadata'].get('journal_ref', '')}
+
+            Content:
+            {doc['document']}
+            """
                 for doc in retrieved_docs
             ])
-            
             
             parser = JsonOutputParser(pydantic_object=AIResponse)
 

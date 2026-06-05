@@ -1,8 +1,20 @@
 services:
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "${RE_CHROMA_PORT:-8001}:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      - chromadb
     environment:
       DEBUG: "${DEBUG:-True}"
       DEVELOPMENT_MODE: "${DEVELOPMENT_MODE:-True}"
@@ -12,6 +24,8 @@ services:
       LANGSMITH_ENDPOINT: "${LANGSMITH_ENDPOINT:-}"
       LANGSMITH_API_KEY: "${LANGSMITH_API_KEY:-}"
       LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-}"
+      RE_CHROMA_HOST: "${RE_CHROMA_HOST:-chromadb}"
+      RE_CHROMA_PORT: "${RE_CHROMA_PORT:-8000}"
     ports:
       - "8056:8000"
     volumes:
@@ -35,3 +49,4 @@ services:
 volumes:
   backend_static:
   frontend_node_modules:
+  chroma_data:

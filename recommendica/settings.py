@@ -14,11 +14,10 @@ from pathlib import Path
 import os
 import sys
 import dj_database_url
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 for env_name in (
@@ -30,10 +29,13 @@ for env_name in (
     env_value = os.getenv(env_name)
     if env_value is not None:
         os.environ[env_name] = env_value
+        
+os.environ["RE_CHROMA_HOST"] = os.getenv("RE_CHROMA_HOST", "localhost")
+os.environ["RE_CHROMA_PORT"] = os.getenv("RE_CHROMA_PORT", "8040")
 
 os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "True")
 
-SECRET_KEY = "django-insecure-@y3pyxbz+aq2z1$3oqsbhi%lb)zxztz@2uew8z2s1lxj$r8pb%"
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
@@ -41,6 +43,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
 
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
+
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 # Application definition
 
 INSTALLED_APPS = [

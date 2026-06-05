@@ -3,6 +3,6 @@ from django.dispatch import receiver
 from .main import rag_index
 
 @receiver(post_migrate)
-def load_faiss_index(sender, **kwargs):
-    """Load FAISS index setelah Django selesai melakukan migrasi."""
+def load_chroma_index(sender, **kwargs):
+    """Load ChromaDB index after Django finishes running migrations."""
     rag_index.load_data()
