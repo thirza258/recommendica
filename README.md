@@ -79,12 +79,16 @@ The return response will be the top 5 most relevant research papers to the input
 
 ## Docker Setup
 
-The project can run with Docker Compose using Python 3.11 for the Django backend and Node 22 for the Vite frontend.
+The project can run with Docker Compose using Python 3.11 for the Django backend and a built frontend served by nginx.
 
 1. **Create an environment file when you need API keys:**
     ```sh
     cp .env.example .env
     ```
+   If you run the frontend locally with Vite, copy the frontend example too:
+   ```sh
+   cp recommendica_frontend/.env.example recommendica_frontend/.env
+   ```
 
 2. **Start the backend and frontend:**
     ```sh
@@ -92,7 +96,7 @@ The project can run with Docker Compose using Python 3.11 for the Django backend
     ```
 
 3. **Open the services:**
-    - Frontend: localhost:5173
+    - Frontend: localhost:5156
     - Backend API: localhost:8000/api/v1/
     - API docs: localhost:8000/docs/
 

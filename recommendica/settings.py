@@ -29,9 +29,10 @@ for env_name in (
     env_value = os.getenv(env_name)
     if env_value is not None:
         os.environ[env_name] = env_value
-        
-os.environ["RE_CHROMA_HOST"] = os.getenv("RE_CHROMA_HOST", "localhost")
-os.environ["RE_CHROMA_PORT"] = os.getenv("RE_CHROMA_PORT", "8040")
+    
+
+CHROMA_HOST = os.getenv("RE_CHROMA_HOST", "localhost")
+CHROMA_PORT = os.getenv("RE_CHROMA_PORT", "8040")
 
 os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "True")
 
@@ -45,6 +46,7 @@ ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split("
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+
 # Application definition
 
 INSTALLED_APPS = [
