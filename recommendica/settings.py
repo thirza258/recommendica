@@ -32,13 +32,50 @@ for env_name in (
     
 
 CHROMA_HOST = os.getenv("RE_CHROMA_HOST", "localhost")
-CHROMA_PORT = os.getenv("RE_CHROMA_PORT", "8040")
+CHROMA_PORT = int(os.getenv("RE_CHROMA_PORT", "8040"))
 
 os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "True")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# SECURITY WARNING: don't run with debug turned on in production!
+DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "google/gemma-4-26b-a4b-it")
+
+# ── AI / RAG Pipeline Settings ─────────────────────────────────────────────
+
+# Embedding
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "embeddinggemma")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "embeddinggemma")
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "100"))
+
+# LLM
+DENSE_LLM_MODEL = os.getenv("DENSE_LLM_MODEL", "google/gemma-4-26b-a4b-it")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0"))
+
+# Retrieval
+TOP_K = int(os.getenv("TOP_K", "5"))
+CANDIDATE_MULTIPLIER = int(os.getenv("CANDIDATE_MULTIPLIER", "4"))
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5"))
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "arxiv_collection")
+
+# Rerank (None = disabled)
+RERANK_MODEL = os.getenv("RERANK_MODEL") or None
+RERANK_TOP_N = os.getenv("RERANK_TOP_N") or None
+
+# Query-transform models
+HYDE_MODEL = os.getenv("HYDE_MODEL", "mistralai/mistral-nemo")
+STEP_BACK_MODEL = os.getenv("STEP_BACK_MODEL","mistralai/mistral-nemo")
+RAG_FUSION_MODEL = os.getenv("RAG_FUSION_MODEL", "mistralai/mistral-nemo")
+RAG_FUSION_N_VARIANTS = int(os.getenv("RAG_FUSION_N_VARIANTS", "4"))
+
+# Confidence gate
+CONFIDENCE_ALPHA = float(os.getenv("CONFIDENCE_ALPHA", "0.5"))
+CONFIDENCE_BETA = float(os.getenv("CONFIDENCE_BETA", "0.3"))
+CONFIDENCE_GAMMA = float(os.getenv("CONFIDENCE_GAMMA", "0.2"))
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
+
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
