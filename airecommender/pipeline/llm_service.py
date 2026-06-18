@@ -1,7 +1,7 @@
 from langchain_openrouter import ChatOpenRouter
 from django.conf import settings
 from typing import Optional
-from langchain_core import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 import logging
 import json
@@ -12,15 +12,18 @@ class OpenRouterService():
     default_model = settings.DEFAULT_LLM_MODEL
     base_url = settings.OPENROUTER_BASE_URL
     
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: Optional[str] = None, api_key: Optional[str] = None):
         if api_key is None:
             api_key = settings.OPENROUTER_API_KEY
             if not api_key:
                 raise ValueError("OPENROUTER_API_KEY not found in environment variables.")
-        
+
         self.api_key = api_key
         self.model = model or self.default_model
         self.llm = self._build_llm(api_key=self.api_key, model=self.model)
+        
+    def from_settings(self):
+        return self.__class__(model=self.model, api_key=self.api_key)
 
     def _build_llm(self, api_key: str, model: Optional[str] = None):
         model_name = self.normalize_model(model)
@@ -30,7 +33,7 @@ class OpenRouterService():
                 try:
                     return ChatOpenRouter(
                         model=model_name,
-                        temperature=0,
+                        temperature=settings.LLM_TEMPERATURE,
                         **{key_name: api_key},
                     )
                 except Exception:
@@ -38,7 +41,7 @@ class OpenRouterService():
 
         base_kwargs = {
             "model": model_name,
-            "temperature": 0,
+            "temperature": settings.LLM_TEMPERATURE,
         }
 
         for base_url_key in ("base_url", "openai_api_base"):
@@ -53,6 +56,25 @@ class OpenRouterService():
 
         return ChatOpenAI(**base_kwargs)
     
+    def normalize_model(self, model: Optional[str] = None) -> str:
+        """Return the model name, falling back to the default."""
+        return model or self.model or self.default_model
+
+    def build_response_instruction(
+        self,
+        system_instruction: str,
+        response_schema: Optional[list[str]] = None,
+    ) -> str:
+        """Build the system instruction, optionally appending schema hints."""
+        if response_schema:
+            schema_hint = (
+                "Respond with a JSON object containing these keys: "
+                + ", ".join(response_schema)
+                + "."
+            )
+            return f"{system_instruction}\n\n{schema_hint}"
+        return system_instruction
+
     def coerce_text(self, response) -> str:
         if response is None:
             return ""
@@ -80,8 +102,11 @@ class OpenRouterService():
         self,
         response_text: str,
         response_schema_param=None,
+        mime_type: str = "application/json",
     ) -> str:
-        json.loads(response_text)
+        # Only validate / parse as JSON when the caller expects JSON
+        if "json" in mime_type:
+            json.loads(response_text)
         return response_text
 
     def generate_response(
@@ -106,7 +131,11 @@ class OpenRouterService():
                     ]
                 )
                 response_text = self.coerce_text(response)
-                return self.ensure_json_response(response_text, response_schema_param)
+                return self.ensure_json_response(
+                    response_text,
+                    response_schema_param,
+                    mime_type=response_mime_type_param,
+                )
             except Exception as e:
                 logger.error(f"An error occurred during OpenRouter API call: {e}")
                 raise 

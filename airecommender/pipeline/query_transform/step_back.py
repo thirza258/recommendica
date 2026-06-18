@@ -22,31 +22,31 @@ Why: "make my BERT model faster" is too specific and colloquial.
 Paper: Zheng et al. 2023 — arXiv:2310.06117
 """
 
+from __future__ import annotations
+
 import json
-from collections import defaultdict
-from anthropic import Anthropic
-import chromadb
-from chromadb.utils import embedding_functions
+import logging
+from typing import TYPE_CHECKING
+from django.conf import settings
 
-# ── clients ────────────────────────────────────────────────────────────────────
-anthropic = Anthropic()
+if TYPE_CHECKING:
+    from airecommender.pipeline.llm_service import OpenRouterService
 
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+logger = logging.getLogger(__name__)
 
-embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="BAAI/bge-small-en-v1.5"
-)
+# ── lazy singleton ─────────────────────────────────────────────────────────────
+_llm_service: "OpenRouterService | None" = None
 
-collection = chroma_client.get_or_create_collection(
-    name="arxiv_papers",
-    embedding_function=embed_fn,
-    metadata={
-        "hnsw:space": "cosine",
-        "hnsw:construction_ef": 200,
-        "hnsw:M": 32,
-        "hnsw:search_ef": 150,
-    },
-)
+
+def _get_llm():
+    """Return the module-level cached OpenRouterService, creating it on first use."""
+    global _llm_service
+    if _llm_service is None:
+        from airecommender.pipeline.llm_service import OpenRouterService
+
+        _llm_service = OpenRouterService()
+    return _llm_service
+
 
 # ── arxiv category map ─────────────────────────────────────────────────────────
 # subset of most common categories in a typical arxiv ML/CS dataset
@@ -111,9 +111,18 @@ Category rules:
 
 
 # ── core functions ─────────────────────────────────────────────────────────────
-def step_back(query: str) -> dict:
+def step_back(
+    query: str,
+    llm_service: "OpenRouterService | None" = None,
+    model: str | None = None,
+) -> dict:
     """
     Abstract the user query and extract arxiv category hints.
+
+    Pass an existing *llm_service* instance to reuse a cached client
+    (e.g. from RAGIndex).  When omitted a module-level lazy singleton
+    is used instead.
+    Use *model* to override the default step-back model from settings.
 
     Returns:
         {
@@ -123,14 +132,27 @@ def step_back(query: str) -> dict:
             reasoning: str
         }
     """
-    response = anthropic.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=256,
-        system=STEP_BACK_SYSTEM,
-        messages=[{"role": "user", "content": f"User query: {query}"}],
-    )
+    if llm_service is None:
+        llm_service = _get_llm()
 
-    text = response.content[0].text.strip()
+    try:
+        response = llm_service.generate_response(
+            prompt=f"User query: {query}",
+            model=model or settings.STEP_BACK_MODEL,
+            system_instruction_string=STEP_BACK_SYSTEM,
+            response_mime_type_param="application/json",
+        )
+    except Exception as exc:
+        logger.error(f"[Step-back] LLM call failed: {exc}")
+        return {
+            "abstracted_query": query,
+            "categories": [],
+            "confidence": "low",
+            "reasoning": f"LLM error — falling back: {exc}",
+        }
+
+    # Clean up the response and parse JSON
+    text = response.strip()
     text = text.replace("```json", "").replace("```", "").strip()
 
     try:
@@ -139,7 +161,8 @@ def step_back(query: str) -> dict:
         assert "abstracted_query" in result
         assert "categories" in result
         assert "confidence" in result
-    except (json.JSONDecodeError, AssertionError, KeyError):
+    except (json.JSONDecodeError, AssertionError, KeyError) as exc:
+        logger.warning(f"[Step-back] Parse error: {exc}; falling back")
         # safe fallback — no category filter, use query as-is
         result = {
             "abstracted_query": query,
@@ -149,168 +172,3 @@ def step_back(query: str) -> dict:
         }
 
     return result
-
-
-def build_where_clause(categories: list[str], confidence: str) -> dict | None:
-    """
-    Build a ChromaDB where clause from category hints.
-
-    Only apply filter when confidence is high or medium.
-    Low confidence → no filter (don't risk excluding relevant papers).
-    Empty categories → no filter (query is out-of-scope or unclear).
-    """
-    if not categories or confidence == "low":
-        return None
-
-    if len(categories) == 1:
-        # single category — simple contains check
-        return {"categories": {"$contains": categories[0]}}
-
-    # multiple categories — $or so paper only needs to match ONE
-    return {
-        "$or": [
-            {"categories": {"$contains": cat}}
-            for cat in categories
-        ]
-    }
-
-
-def rrf_merge(
-    results_a: dict,
-    results_b: dict,
-    k: int = 60,
-    top_n: int = 20,
-) -> list[dict]:
-    """
-    Merge two ranked result sets (original query + abstracted query) with RRF.
-
-    This gives papers that are relevant to both the specific query AND
-    the broader research question a higher combined score.
-    """
-    rrf_scores: dict[str, float] = defaultdict(float)
-    doc_store: dict[str, dict] = {}
-
-    for result_set in [results_a, results_b]:
-        ids       = result_set["ids"][0]
-        docs      = result_set["documents"][0]
-        metas     = result_set["metadatas"][0]
-        distances = result_set["distances"][0]
-
-        for rank, (doc_id, doc, meta, dist) in enumerate(
-            zip(ids, docs, metas, distances)
-        ):
-            rrf_scores[doc_id] += 1.0 / (k + rank + 1)
-
-            if doc_id not in doc_store:
-                doc_store[doc_id] = {
-                    "id": doc_id,
-                    "title": meta.get("title", ""),
-                    "abstract": doc,
-                    "categories": meta.get("categories", ""),
-                    "year": meta.get("year", ""),
-                    "best_distance": dist,
-                }
-            else:
-                doc_store[doc_id]["best_distance"] = min(
-                    doc_store[doc_id]["best_distance"], dist
-                )
-
-    ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-
-    return [
-        {
-            **doc_store[doc_id],
-            "rrf_score": round(score, 6),
-            "best_similarity": round(1 - doc_store[doc_id]["best_distance"], 4),
-        }
-        for doc_id, score in ranked[:top_n]
-    ]
-
-
-def step_back_retrieve(
-    query: str,
-    top_k: int = 10,
-    candidates: int = 50,
-) -> dict:
-    """
-    Full Step-Back retrieval pipeline.
-
-    Args:
-        query:      raw user query
-        top_k:      number of final results to return
-        candidates: how many candidates to pull per query (before RRF)
-
-    Returns:
-        dict with keys:
-            query               — original
-            abstracted_query    — step-back abstraction
-            categories          — inferred arxiv categories
-            confidence          — how confident the category mapping is
-            reasoning           — why those categories were chosen
-            filter_applied      — True if ChromaDB filter was used
-            results             — final RRF-ranked papers
-    """
-    # step 1: abstract query and extract category hints
-    sb = step_back(query)
-    abstracted   = sb["abstracted_query"]
-    categories   = sb["categories"]
-    confidence   = sb["confidence"]
-    where_clause = build_where_clause(categories, confidence)
-
-    # step 2: retrieve using BOTH original and abstracted query
-    shared_kwargs = {
-        "n_results": candidates,
-        "include": ["documents", "metadatas", "distances"],
-    }
-    if where_clause:
-        shared_kwargs["where"] = where_clause
-
-    results_original   = collection.query(query_texts=[query],       **shared_kwargs)
-    results_abstracted = collection.query(query_texts=[abstracted],   **shared_kwargs)
-
-    # step 3: merge with RRF
-    fused = rrf_merge(results_original, results_abstracted, top_n=top_k)
-
-    return {
-        "query":            query,
-        "abstracted_query": abstracted,
-        "categories":       categories,
-        "confidence":       confidence,
-        "reasoning":        sb.get("reasoning", ""),
-        "filter_applied":   where_clause is not None,
-        "results":          fused,
-    }
-
-
-def print_results(output: dict) -> None:
-    print(f"\n{'='*70}")
-    print(f"Query:            {output['query']}")
-    print(f"Abstracted:       {output['abstracted_query']}")
-    print(f"Categories:       {output['categories']}  [{output['confidence']}]")
-    print(f"Reasoning:        {output['reasoning']}")
-    print(f"Category filter:  {'applied' if output['filter_applied'] else 'skipped (low confidence)'}")
-    print(f"\nTop {len(output['results'])} papers:")
-    for i, r in enumerate(output["results"], 1):
-        print(f"\n  [{i}] {r['title']}")
-        print(f"       RRF: {r['rrf_score']}  |  similarity: {r['best_similarity']}")
-        print(f"       Categories: {r['categories']}")
-        print(f"       Abstract: {r['abstract'][:120]}...")
-
-
-# ── example usage ──────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    queries = [
-        # colloquial / vague
-        "make my BERT model smaller and faster",
-        # cross-domain
-        "use AI to discover new drug compounds",
-        # specific technique
-        "LoRA fine-tuning for large language models",
-        # out-of-scope test
-        "best recipe for sourdough bread",
-    ]
-
-    for query in queries:
-        output = step_back_retrieve(query, top_k=5, candidates=50)
-        print_results(output)
-        print()
