@@ -18,14 +18,41 @@ services:
     environment:
       DEBUG: "${DEBUG:-True}"
       DEVELOPMENT_MODE: "${DEVELOPMENT_MODE:-True}"
+      SECRET_KEY: "${SECRET_KEY:-your-secret-key}"
       DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5173}"
+      DATABASE_URL: "${DATABASE_URL:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      DEFAULT_LLM_MODEL: "${DEFAULT_LLM_MODEL:-google/gemma-4-26b-a4b-it}"
       LANGSMITH_TRACING: "${LANGSMITH_TRACING:-True}"
       LANGSMITH_ENDPOINT: "${LANGSMITH_ENDPOINT:-}"
       LANGSMITH_API_KEY: "${LANGSMITH_API_KEY:-}"
       LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-}"
       RE_CHROMA_HOST: "${RE_CHROMA_HOST:-chromadb}"
       RE_CHROMA_PORT: "${RE_CHROMA_PORT:-8000}"
+      # AI / RAG Pipeline
+      OLLAMA_EMBEDDING_MODEL: "${OLLAMA_EMBEDDING_MODEL:-embeddinggemma}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://localhost:11434}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-embeddinggemma}"
+      EMBEDDING_BATCH_SIZE: "${EMBEDDING_BATCH_SIZE:-100}"
+      DENSE_LLM_MODEL: "${DENSE_LLM_MODEL:-google/gemma-4-26b-a4b-it}"
+      LLM_TEMPERATURE: "${LLM_TEMPERATURE:-0}"
+      TOP_K: "${TOP_K:-5}"
+      CANDIDATE_MULTIPLIER: "${CANDIDATE_MULTIPLIER:-4}"
+      CHUNK_SIZE: "${CHUNK_SIZE:-5}"
+      COLLECTION_NAME: "${COLLECTION_NAME:-arxiv_collection}"
+      RERANK_MODEL: "${RERANK_MODEL:-}"
+      RERANK_TOP_N: "${RERANK_TOP_N:-}"
+      HYDE_MODEL: "${HYDE_MODEL:-mistralai/mistral-nemo}"
+      STEP_BACK_MODEL: "${STEP_BACK_MODEL:-mistralai/mistral-nemo}"
+      RAG_FUSION_MODEL: "${RAG_FUSION_MODEL:-mistralai/mistral-nemo}"
+      RAG_FUSION_N_VARIANTS: "${RAG_FUSION_N_VARIANTS:-4}"
+      CONFIDENCE_ALPHA: "${CONFIDENCE_ALPHA:-0.5}"
+      CONFIDENCE_BETA: "${CONFIDENCE_BETA:-0.3}"
+      CONFIDENCE_GAMMA: "${CONFIDENCE_GAMMA:-0.2}"
+      CONFIDENCE_THRESHOLD: "${CONFIDENCE_THRESHOLD:-0.75}"
     ports:
       - "8056:8000"
     volumes:
@@ -34,7 +61,7 @@ services:
 
   frontend:
     build:
-      context: ./recommendica_frontend
+      context: ./frontend
       dockerfile: Dockerfile
     depends_on:
       - backend
