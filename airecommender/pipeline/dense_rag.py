@@ -1,4 +1,5 @@
 import json
+import time
 import requests
 import numpy as np
 from typing import List, Dict, Optional
@@ -23,7 +24,6 @@ class DenseRAG:
             timeout=120
         )
 
-        self.llm_model = settings.DENSE_LLM_MODEL
         self.top_k = settings.TOP_K
         self.candidate_multiplier = settings.CANDIDATE_MULTIPLIER
 
@@ -139,6 +139,7 @@ class DenseRAG:
         return candidates
 
     def retrieve(self, query: str, keyword: str = None, where_filter: Dict = None) -> tuple[List[str], List[Dict]]:
+        t_start = time.monotonic()
         logger.info(f"[RETRIEVE] Query: '{query[:80]}' | where_filter={where_filter} | keyword={keyword}")
         if hasattr(self, 'emitter') and self.emitter:
             self.emitter.emit("dense_retrieval", f"Starting retrieval for query: '{query[:80]}'")
@@ -153,7 +154,11 @@ class DenseRAG:
         # Dense retrieval – fetch more candidates than needed
         dense_n = self.top_k * self.candidate_multiplier
         logger.info(f"[RETRIEVE] Dense retrieval: fetching {dense_n} candidates.")
+
+        t_embed = time.monotonic()
         query_embeddings = self._get_embeddings([query])
+        logger.info("[RETRIEVE] Embedding took %.1fs", time.monotonic() - t_embed)
+
         if not query_embeddings:
             logger.warning(f"[RETRIEVE] Embedding returned empty for query: '{query[:80]}'")
             return [], []
@@ -171,12 +176,15 @@ class DenseRAG:
                 count = available
 
         n_results = min(dense_n, count)
+
+        t_query = time.monotonic()
         results = self.collection.query(
             query_embeddings=query_embeddings,
             n_results=n_results,
             where=where_filter,
             include=["documents", "metadatas", "distances"]
         )
+        logger.info("[RETRIEVE] ChromaDB query took %.1fs", time.monotonic() - t_query)
 
         dense_docs = results["documents"][0] if results["documents"] else []
         dense_metas = results["metadatas"][0] if results["metadatas"] else []
@@ -193,10 +201,14 @@ class DenseRAG:
         # ---- Re-ranking ----
         if self.rerank_model:
             logger.info("[RETRIEVE] Re-ranking with OpenRouter rerank API.")
+            t_rerank = time.monotonic()
             final_candidates = self._openrouter_rerank(query, candidates)
+            logger.info("[RETRIEVE] Rerank took %.1fs", time.monotonic() - t_rerank)
         elif self.cross_encoder:
             logger.info("[RETRIEVE] Re-ranking with local cross-encoder.")
+            t_rerank = time.monotonic()
             final_candidates = self._cross_encoder_rerank(query, candidates)[:self.top_k]
+            logger.info("[RETRIEVE] Cross-encoder rerank took %.1fs", time.monotonic() - t_rerank)
         else:
             final_candidates = candidates[:self.top_k]
 
@@ -204,7 +216,11 @@ class DenseRAG:
         docs = [item["document"] for item in final_candidates]
         metas = [item.get("meta", {}) for item in final_candidates]
 
-        logger.info(f"[RETRIEVE] Returning {len(docs)} chunks after reranking.")
+        logger.info(
+            "[RETRIEVE] Done — %s chunks in %.1fs total",
+            len(docs),
+            time.monotonic() - t_start,
+        )
         return docs, metas
 
     def set_collection(self, collection_name: str):
