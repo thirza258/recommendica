@@ -6,3 +6,6 @@ test.ipynb
 arXiv_scientific dataset.csv
 
 venv/
+
+.env.development
+.env.production

@@ -12,13 +12,27 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
-import sys
-import dj_database_url
-from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_project_env():
+    """
+    Load the environment file that matches the current mode.
+
+    Development is the default for local commands. Production is selected
+    when DEVELOPMENT_MODE is explicitly false, which is how docker compose
+    and the deploy target run.
+    """
+
+    development_mode = os.getenv("DEVELOPMENT_MODE", "True").lower() == "true"
+    env_file = ".env.development" if development_mode else ".env.production"
+    load_dotenv(BASE_DIR / env_file, override=False)
+
+
+load_project_env()
 
 for env_name in (
     "OPENAI_API_KEY",
@@ -80,7 +94,6 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
 
-DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False") == "True"
 
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
@@ -108,7 +121,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Research Recommender API',
-    'DESCRIPTION': 'Your project description',
+    'DESCRIPTION': 'Arxiv Research Recommender API with Advanced RAG pipeline',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     # OTHER SETTINGS
@@ -146,22 +159,40 @@ TEMPLATES = [
 WSGI_APPLICATION = "recommendica.wsgi.application"
 
 
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False").lower() == "true"
 
-if DEVELOPMENT_MODE is True:
+if not DEVELOPMENT_MODE:
+    required_vars = [
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+    ]
+
+    missing = [var for var in required_vars if not os.getenv(var)]
+
+    if missing:
+        raise Exception(
+            f"Missing required database environment variables: {', '.join(missing)}"
+        )
+
+if DEVELOPMENT_MODE:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
         }
     }
-else :
-    if len(sys.argv) > 1 and sys.argv[1] != 'collectstatic':
-        if os.getenv("DATABASE_URL", None) is None:
-            raise Exception("DATABASE_URL environment variable not defined")
-        DATABASES = {
-            "default": dj_database_url.parse(os.environ.get("DATABASE_URL")),
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST", "db"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
     }
 
 # Password validation

@@ -19,7 +19,8 @@ class DenseRAG:
         self.embedding_model = settings.EMBEDDING_MODEL
 
         self.client = Client(
-            host=settings.OLLAMA_BASE_URL  # e.g. http://localhost:11434
+            host=settings.OLLAMA_BASE_URL,
+            timeout=120
         )
 
         self.llm_model = settings.DENSE_LLM_MODEL
@@ -35,6 +36,8 @@ class DenseRAG:
         self.documents: List[str] = []
         self.cross_encoder = None  # placeholder for optional local cross-encoder
         self.collection = get_chroma_client(collection_name=settings.COLLECTION_NAME)
+        
+        print("Ollama client initialized in URL", settings.OLLAMA_BASE_URL)
 
     def _get_embeddings(self, texts: List[str], batch_size: Optional[int] = None) -> List[List[float]]:
         if batch_size is None:

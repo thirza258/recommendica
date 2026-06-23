@@ -5,46 +5,48 @@ This project is set up to create a virtual environment, install dependencies, an
 
 ## Setup Instructions
 
-1. **Create a Virtual Environment:**
-    ```sh
-    python -m venv env
-    ```
+1. Create a virtual environment:
+   ```sh
+   python -m venv env
+   ```
 
-2. **Activate the Virtual Environment:**
-    - On macOS and Linux:
-      ```sh
-      source env/bin/activate
-      ```
-    - On Windows:
-      ```sh
-      .\env\Scripts\activate
-      ```
+2. Activate the virtual environment:
+   - On macOS and Linux:
+     ```sh
+     source env/bin/activate
+     ```
+   - On Windows:
+     ```sh
+     .\env\Scripts\activate
+     ```
 
-3. **Install Dependencies:**
-    ```sh
-    pip install -r requirements.txt
-    ```
+3. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
 
-4. **Configure Environment Variables:**
-    - Copy the example environment file to create your own environment configuration:
-      ```sh
-      cp env.example .env
-      ```
+4. Configure local environment variables:
+   - Development uses `.env.development`.
+   - Production uses `.env.production`.
 
-5. **Import Research Data:**
-    ```sh
-    python manage.py import_research
-    ```
+5. Import research data:
+   ```sh
+   python manage.py import_research
+   ```
 
-6. **Apply Migrations:**
-    ```sh
-    python manage.py migrate
-    ```
+6. Apply migrations:
+   ```sh
+   python manage.py migrate
+   ```
 
-7. **Run the Django Development Server:**
-    ```sh
-    python manage.py runserver
-    ```
+7. Run the app locally:
+   ```sh
+   make run
+   ```
+   To run both backend and frontend dev servers together:
+   ```sh
+   make dev
+   ```
 
 ## Input Prompt Configuration
 - localhost:8000/api/v1/prompt/
@@ -77,30 +79,27 @@ The return response will be the top 5 most relevant research papers to the input
 ## API Documentation
 - localhost:8000/docs/
 
+## Makefile
+
+- `make run`: start the Django backend with the development env file.
+- `make run-frontend`: start the Vite frontend dev server.
+- `make dev`: start backend and frontend together.
+- `make deploy`: start the Docker Compose stack with the production env file.
+
 ## Docker Setup
 
-The project can run with Docker Compose using Python 3.11 for the Django backend and a built frontend served by nginx.
+The production stack uses Docker Compose with the frontend served by nginx.
 
-1. **Create an environment file when you need API keys:**
-    ```sh
-    cp .env.example .env
-    ```
-   If you run the frontend locally with Vite, copy the frontend example too:
+1. Make sure `.env.production` has the production values you want to deploy.
+2. Start the stack:
    ```sh
-   cp recommendica_frontend/.env.example recommendica_frontend/.env
+   make deploy
    ```
-
-2. **Start the backend and frontend:**
-    ```sh
-    docker compose up --build
-    ```
-
-3. **Open the services:**
-    - Frontend: localhost:5156
-    - Backend API: localhost:8000/api/v1/
-    - API docs: localhost:8000/docs/
-
-4. **Optionally import the sample research data after the backend is running:**
-    ```sh
-    docker compose exec backend python manage.py import_research
-    ```
+3. Open the services:
+   - Frontend: localhost:5156
+   - Backend API: localhost:8000/api/v1/
+   - API docs: localhost:8000/docs/
+4. Optionally import the sample research data after the backend is running:
+   ```sh
+   docker compose exec backend python manage.py import_research
+   ```

@@ -1,27 +1,20 @@
 services:
-  chromadb:
-    image: chromadb/chroma:latest
-    ports:
-      - "${RE_CHROMA_PORT:-8001}:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-    environment:
-      IS_PERSISTENT: "TRUE"
-      ANONYMIZED_TELEMETRY: "FALSE"
-
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - chromadb
+    restart: unless-stopped
     environment:
-      DEBUG: "${DEBUG:-True}"
-      DEVELOPMENT_MODE: "${DEVELOPMENT_MODE:-True}"
+      DEBUG: "${DEBUG:-False}"
+      DEVELOPMENT_MODE: "${DEVELOPMENT_MODE:-False}"
       SECRET_KEY: "${SECRET_KEY:-your-secret-key}"
+      DB_NAME: "${DB_NAME:-ragdb}"
+      DB_USER: "${DB_USER:-raguser}"
+      DB_PASSWORD: "${DB_PASSWORD:-ragpassword}"
+      DB_HOST: "${DB_HOST:-db}"
+      DB_PORT: "${DB_PORT:-5432}"
       DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}"
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5173}"
-      DATABASE_URL: "${DATABASE_URL:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
@@ -32,9 +25,8 @@ services:
       LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-}"
       RE_CHROMA_HOST: "${RE_CHROMA_HOST:-chromadb}"
       RE_CHROMA_PORT: "${RE_CHROMA_PORT:-8000}"
-      # AI / RAG Pipeline
       OLLAMA_EMBEDDING_MODEL: "${OLLAMA_EMBEDDING_MODEL:-embeddinggemma}"
-      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://localhost:11434}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       EMBEDDING_MODEL: "${EMBEDDING_MODEL:-embeddinggemma}"
       EMBEDDING_BATCH_SIZE: "${EMBEDDING_BATCH_SIZE:-100}"
       DENSE_LLM_MODEL: "${DENSE_LLM_MODEL:-google/gemma-4-26b-a4b-it}"
@@ -58,11 +50,34 @@ services:
     volumes:
       - .:/app
       - backend_static:/app/staticfiles
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: "${DB_NAME:-ragdb}"
+      POSTGRES_USER: "${DB_USER:-raguser}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-ragpassword}"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-raguser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    restart: unless-stopped 
     depends_on:
       - backend
     ports:
@@ -70,4 +85,4 @@ services:
 
 volumes:
   backend_static:
-  chroma_data:
+  postgres_data:

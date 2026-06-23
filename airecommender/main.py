@@ -33,14 +33,21 @@ class RAGIndex:
 
     def _init_chroma_client(self):
         """Initialize ChromaDB client — remote if host/port are set, otherwise in-memory."""
-        if settings.CHROMA_HOST and settings.CHROMA_PORT:
-            self.chroma_client = chromadb.HttpClient(
-                host=settings.CHROMA_HOST,
-                port=settings.CHROMA_PORT,
-                settings=Settings(anonymized_telemetry=False),
+        try:
+            if settings.CHROMA_HOST and settings.CHROMA_PORT:
+                print(f"Initializing ChromaDB HTTP client at {settings.CHROMA_HOST}:{settings.CHROMA_PORT}")
+                self.chroma_client = chromadb.HttpClient(
+                    host=settings.CHROMA_HOST,
+                    port=settings.CHROMA_PORT,
+                    settings=Settings(anonymized_telemetry=False),
+                )
+            else:
+                raise ValueError("Chroma host/port not configured")
+        except Exception as exc:
+            logger.warning(
+                "[CHROMA] Falling back to EphemeralClient because the HTTP client could not be initialized: %s",
+                exc,
             )
-        else:
-            # Fallback to in-memory client for local development
             self.chroma_client = chromadb.EphemeralClient(
                 settings=Settings(anonymized_telemetry=False),
             )
@@ -178,8 +185,6 @@ class RAGIndex:
             "chunk_size": settings.CHUNK_SIZE,
             "responses": responses,
         }
-
-    # ── Per-chunk LLM generation ─────────────────────────────────────────────
 
     def _generate_chunk_response(
         self,
