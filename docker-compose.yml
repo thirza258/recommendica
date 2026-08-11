@@ -23,20 +23,56 @@ services:
       LANGSMITH_ENDPOINT: "${LANGSMITH_ENDPOINT:-}"
       LANGSMITH_API_KEY: "${LANGSMITH_API_KEY:-}"
       LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-}"
+      # NOTE: this compose file does not define a `chromadb` service — point
+      # RE_CHROMA_HOST/PORT at wherever your indexed collection actually lives.
+      # If Chroma is unreachable the API now answers 503 with a clear reason
+      # (see GET /api/v1/health/ready/) instead of silently returning no results.
       RE_CHROMA_HOST: "${RE_CHROMA_HOST:-chromadb}"
       RE_CHROMA_PORT: "${RE_CHROMA_PORT:-8000}"
+      CHROMA_ALLOW_EPHEMERAL_FALLBACK: "${CHROMA_ALLOW_EPHEMERAL_FALLBACK:-False}"
       OLLAMA_EMBEDDING_MODEL: "${OLLAMA_EMBEDDING_MODEL:-embeddinggemma}"
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       EMBEDDING_MODEL: "${EMBEDDING_MODEL:-embeddinggemma}"
       EMBEDDING_BATCH_SIZE: "${EMBEDDING_BATCH_SIZE:-100}"
+      EMBEDDING_TIMEOUT: "${EMBEDDING_TIMEOUT:-60}"
       DENSE_LLM_MODEL: "${DENSE_LLM_MODEL:-google/gemma-4-26b-a4b-it}"
       LLM_TEMPERATURE: "${LLM_TEMPERATURE:-0}"
+      LLM_REQUEST_TIMEOUT: "${LLM_REQUEST_TIMEOUT:-120}"
+      LLM_TRANSFORM_TIMEOUT: "${LLM_TRANSFORM_TIMEOUT:-30}"
+      LLM_MAX_RETRIES: "${LLM_MAX_RETRIES:-2}"
+      LLM_CACHE_TTL: "${LLM_CACHE_TTL:-900}"
       TOP_K: "${TOP_K:-5}"
       CANDIDATE_MULTIPLIER: "${CANDIDATE_MULTIPLIER:-4}"
       CHUNK_SIZE: "${CHUNK_SIZE:-5}"
       COLLECTION_NAME: "${COLLECTION_NAME:-arxiv_collection}"
+      ENABLE_HYDE: "${ENABLE_HYDE:-True}"
+      ENABLE_STEP_BACK: "${ENABLE_STEP_BACK:-True}"
+      ENABLE_RAG_FUSION: "${ENABLE_RAG_FUSION:-True}"
+      VARIANT_STAGE_TIMEOUT: "${VARIANT_STAGE_TIMEOUT:-45}"
+      RRF_K: "${RRF_K:-60}"
+      MAX_CONTEXT_DOCS: "${MAX_CONTEXT_DOCS:-12}"
+      MAX_DOC_CHARS_IN_PROMPT: "${MAX_DOC_CHARS_IN_PROMPT:-1500}"
+      GENERATION_MAX_WORKERS: "${GENERATION_MAX_WORKERS:-3}"
+      # Relevance agent: grades retrieved papers, drops unrelated ones, and
+      # retries with a refined query when too few are related.
+      ENABLE_RELEVANCE_AGENT: "${ENABLE_RELEVANCE_AGENT:-True}"
+      AGENT_MODEL: "${AGENT_MODEL:-}"
+      AGENT_TIMEOUT: "${AGENT_TIMEOUT:-30}"
+      AGENT_MAX_ITERATIONS: "${AGENT_MAX_ITERATIONS:-2}"
+      AGENT_MIN_RELEVANT_DOCS: "${AGENT_MIN_RELEVANT_DOCS:-3}"
+      AGENT_GRADE_CANDIDATES: "${AGENT_GRADE_CANDIDATES:-20}"
+      AGENT_RELEVANCE_THRESHOLD: "${AGENT_RELEVANCE_THRESHOLD:-0.5}"
+      AGENT_DEADLINE: "${AGENT_DEADLINE:-90}"
+      ENABLE_ANSWER_EVALUATION: "${ENABLE_ANSWER_EVALUATION:-False}"
+      ANSWER_EVALUATION_TIMEOUT: "${ANSWER_EVALUATION_TIMEOUT:-45}"
+      MAX_CONCURRENT_QUERIES: "${MAX_CONCURRENT_QUERIES:-8}"
+      SSE_HEARTBEAT_SECONDS: "${SSE_HEARTBEAT_SECONDS:-15}"
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-2}"
+      GUNICORN_THREADS: "${GUNICORN_THREADS:-8}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-900}"
       RERANK_MODEL: "${RERANK_MODEL:-}"
       RERANK_TOP_N: "${RERANK_TOP_N:-}"
+      RERANK_TIMEOUT: "${RERANK_TIMEOUT:-15}"
       HYDE_MODEL: "${HYDE_MODEL:-mistralai/mistral-nemo}"
       STEP_BACK_MODEL: "${STEP_BACK_MODEL:-mistralai/mistral-nemo}"
       RAG_FUSION_MODEL: "${RAG_FUSION_MODEL:-mistralai/mistral-nemo}"
@@ -52,6 +88,16 @@ services:
       - backend_static:/app/staticfiles
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Liveness only — deliberately does not depend on Chroma/Ollama/OpenRouter,
+    # so a dependency outage does not trigger a restart loop of a healthy app.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=5).status == 200 else 1)\""
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       db:
         condition: service_healthy

@@ -32,18 +32,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── lazy singleton ─────────────────────────────────────────────────────────────
-_llm_service: "OpenRouterService | None" = None
-
 
 def _get_llm():
-    """Return the module-level cached OpenRouterService, creating it on first use."""
-    global _llm_service
-    if _llm_service is None:
-        from airecommender.pipeline.llm_service import OpenRouterService
+    """Return the process-wide OpenRouterService (shared cache + connections)."""
+    from airecommender.pipeline.llm_service import get_llm_service
 
-        _llm_service = OpenRouterService()
-    return _llm_service
+    return get_llm_service()
 
 
 # ── prompts ────────────────────────────────────────────────────────────────────
@@ -70,6 +64,8 @@ def generate_query_variants(
     n: int | None = None,
     llm_service: "OpenRouterService | None" = None,
     model: str | None = None,
+    timeout: int | None = None,
+    max_retries: int | None = None,
 ) -> list[str]:
     """
     Generate N query variants from a single user query.
@@ -93,6 +89,8 @@ def generate_query_variants(
             model=model or settings.RAG_FUSION_MODEL,
             system_instruction_string=FUSION_SYSTEM.format(n=effective_n),
             response_mime_type_param="application/json",
+            timeout=timeout,
+            max_retries=max_retries,
         )
     except Exception as exc:
         logger.error(f"[RAG Fusion] LLM call failed: {exc}")

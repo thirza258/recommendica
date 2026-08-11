@@ -18,6 +18,22 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+#: Single source of truth for the mode.  This used to be read twice with two
+#: different defaults ("True" when picking the env file, "False" when deciding
+#: whether to require DB_* variables), so running with no DEVELOPMENT_MODE set
+#: looked for .env.development and then refused to start over missing Postgres
+#: credentials.  Production is opt-out: unset means development.
+DEVELOPMENT_MODE = _env_bool("DEVELOPMENT_MODE", True)
+
+
 def load_project_env():
     """
     Load the environment file that matches the current mode.
@@ -27,8 +43,7 @@ def load_project_env():
     and the deploy target run.
     """
 
-    development_mode = os.getenv("DEVELOPMENT_MODE", "True").lower() == "true"
-    env_file = ".env.development" if development_mode else ".env.production"
+    env_file = ".env.development" if DEVELOPMENT_MODE else ".env.production"
     load_dotenv(BASE_DIR / env_file, override=False)
 
 
@@ -48,6 +63,17 @@ for env_name in (
 CHROMA_HOST = os.getenv("RE_CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.getenv("RE_CHROMA_PORT", "8040"))
 
+# When ChromaDB is unreachable the pipeline fails loudly by default.  The old
+# behaviour — silently substituting an empty in-memory collection — made a
+# misconfigured deployment look healthy while every search returned nothing.
+CHROMA_ALLOW_EPHEMERAL_FALLBACK = _env_bool("CHROMA_ALLOW_EPHEMERAL_FALLBACK", False)
+
+# chromadb builds its HTTP session with no timeout at all, so these bound it:
+# CHROMA_TIMEOUT caps each request, CHROMA_CONNECT_WAIT caps how long a request
+# waits for another thread's client handshake before failing fast.
+CHROMA_TIMEOUT = float(os.getenv("CHROMA_TIMEOUT", "30"))
+CHROMA_CONNECT_WAIT = float(os.getenv("CHROMA_CONNECT_WAIT", "20"))
+
 os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "True")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
@@ -64,8 +90,21 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "embeddinggemma")
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "100"))
 
+EMBEDDING_TIMEOUT = int(os.getenv("EMBEDDING_TIMEOUT", "60"))
+EMBEDDING_CACHE_MAX_SIZE = int(os.getenv("EMBEDDING_CACHE_MAX_SIZE", "1024"))
+
 # LLM
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0"))
+
+# Per-request HTTP timeout for the LLM provider.  Bound to the client at
+# construction time — LangChain silently drops per-call timeouts.
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "120"))
+# Query transforms are short prompts with short answers; they should not be
+# allowed to stall for as long as an answer-generation call.
+LLM_TRANSFORM_TIMEOUT = int(os.getenv("LLM_TRANSFORM_TIMEOUT", "30"))
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))
+LLM_CACHE_TTL = int(os.getenv("LLM_CACHE_TTL", "900"))
+LLM_CACHE_MAX_SIZE = int(os.getenv("LLM_CACHE_MAX_SIZE", "512"))
 
 # Retrieval
 TOP_K = int(os.getenv("TOP_K", "5"))
@@ -73,9 +112,77 @@ CANDIDATE_MULTIPLIER = int(os.getenv("CANDIDATE_MULTIPLIER", "4"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "arxiv_collection")
 
+# ── Pipeline shape / throughput ─────────────────────────────────────────────
+# Query transforms are independent LLM calls and run concurrently; a transform
+# that misses VARIANT_STAGE_TIMEOUT is dropped so retrieval degrades instead of
+# the request hanging.
+ENABLE_HYDE = _env_bool("ENABLE_HYDE", True)
+ENABLE_STEP_BACK = _env_bool("ENABLE_STEP_BACK", True)
+ENABLE_RAG_FUSION = _env_bool("ENABLE_RAG_FUSION", True)
+VARIANT_MAX_WORKERS = int(os.getenv("VARIANT_MAX_WORKERS", "3"))
+VARIANT_STAGE_TIMEOUT = float(os.getenv("VARIANT_STAGE_TIMEOUT", "45"))
+
+# Reciprocal Rank Fusion damping constant.
+RRF_K = int(os.getenv("RRF_K", "60"))
+
+# Hard cap on documents handed to answer generation.  Answer generation is the
+# dominant cost of a request (one LLM call per CHUNK_SIZE documents), so this is
+# the main latency dial: 12 docs at CHUNK_SIZE=5 means 3 generation calls, run
+# concurrently.  Raising it costs proportionally more time and tokens.
+MAX_CONTEXT_DOCS = int(os.getenv("MAX_CONTEXT_DOCS", "12"))
+
+# Per-document character budget inside a generation prompt.
+MAX_DOC_CHARS_IN_PROMPT = int(os.getenv("MAX_DOC_CHARS_IN_PROMPT", "1500"))
+
+# How many chunk answers may be generated at once.
+GENERATION_MAX_WORKERS = int(os.getenv("GENERATION_MAX_WORKERS", "3"))
+
+# ── Relevance agent ─────────────────────────────────────────────────────────
+# Grades every retrieved paper against the query, drops the unrelated ones, and
+# — when too few survive — rewrites the query using the rejection reasons and
+# searches again. Costs one LLM call per round, and saves generation calls by
+# not answering from papers that were never on topic.
+ENABLE_RELEVANCE_AGENT = _env_bool("ENABLE_RELEVANCE_AGENT", True)
+# Grading needs reliable JSON; point this at a smaller/cheaper model only after
+# checking it returns parseable verdict lists (parse failures are logged).
+AGENT_MODEL = os.getenv("AGENT_MODEL") or DEFAULT_LLM_MODEL
+AGENT_TIMEOUT = int(os.getenv("AGENT_TIMEOUT", "30"))
+# Search attempts, including the first: 2 means at most one refined retry.
+AGENT_MAX_ITERATIONS = int(os.getenv("AGENT_MAX_ITERATIONS", "2"))
+# Related papers needed before the agent stops looking.
+AGENT_MIN_RELEVANT_DOCS = int(os.getenv("AGENT_MIN_RELEVANT_DOCS", "3"))
+# How many fused candidates get graded per round.
+AGENT_GRADE_CANDIDATES = int(os.getenv("AGENT_GRADE_CANDIDATES", "20"))
+# Minimum relevance score to keep a paper (0-1). Raise to be stricter.
+AGENT_RELEVANCE_THRESHOLD = float(os.getenv("AGENT_RELEVANCE_THRESHOLD", "0.5"))
+# Wall-clock budget for the whole loop, independent of the attempt count.
+AGENT_DEADLINE = float(os.getenv("AGENT_DEADLINE", "90"))
+AGENT_MAX_CANDIDATE_CHARS = int(os.getenv("AGENT_MAX_CANDIDATE_CHARS", "400"))
+
+# Answer grounding: audits each generated answer against its source papers and
+# fills the UI's faithfulness score + claim list. OFF by default — it adds one
+# LLM call per chunk on the critical path. Relevance filtering above is what
+# keeps answers on topic; this measures how well they stick to their sources.
+ENABLE_ANSWER_EVALUATION = _env_bool("ENABLE_ANSWER_EVALUATION", False)
+ANSWER_EVALUATION_TIMEOUT = int(os.getenv("ANSWER_EVALUATION_TIMEOUT", "45"))
+
+# ── Serving limits ──────────────────────────────────────────────────────────
+# Concurrent pipeline runs allowed per process; excess requests get a 503 with
+# Retry-After rather than all timing out together.
+MAX_CONCURRENT_QUERIES = int(os.getenv("MAX_CONCURRENT_QUERIES", "8"))
+SSE_HEARTBEAT_SECONDS = float(os.getenv("SSE_HEARTBEAT_SECONDS", "15"))
+READINESS_CACHE_SECONDS = float(os.getenv("READINESS_CACHE_SECONDS", "10"))
+# Health checks must answer fast even when a dependency is stalled.
+READINESS_TIMEOUT = float(os.getenv("READINESS_TIMEOUT", "10"))
+READINESS_PROBE_TIMEOUT = int(os.getenv("READINESS_PROBE_TIMEOUT", "5"))
+
 # Rerank (None = disabled)
 RERANK_MODEL = os.getenv("RERANK_MODEL") or None
 RERANK_TOP_N = os.getenv("RERANK_TOP_N") or None
+RERANK_TIMEOUT = int(os.getenv("RERANK_TIMEOUT", "15"))
+# Consecutive rerank failures before the reranker is skipped for a cooldown.
+RERANK_BREAKER_THRESHOLD = int(os.getenv("RERANK_BREAKER_THRESHOLD", "3"))
+RERANK_BREAKER_COOLDOWN = int(os.getenv("RERANK_BREAKER_COOLDOWN", "300"))
 
 # Query-transform models
 HYDE_MODEL = os.getenv("HYDE_MODEL", "mistralai/mistral-nemo")
@@ -157,8 +264,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "recommendica.wsgi.application"
 
-
-DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "False").lower() == "true"
 
 if not DEVELOPMENT_MODE:
     required_vars = [

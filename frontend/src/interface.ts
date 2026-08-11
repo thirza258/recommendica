@@ -53,12 +53,24 @@ type ApiResponse = {
 
 type StreamProgressEvent = {
   type: "progress"
+  /** "variants" | "relevance" | "retrieval" | "chunking" */
   step: string
-  status: "start" | "done"
+  /**
+   * "start" | "done" for pipeline stages; the relevance agent also reports
+   * "searching" | "graded" | "refining" | "empty" | "deadline" |
+   * "grader_unavailable".
+   */
+  status: string
   message: string
   count?: number
   elapsed_ms?: number
   num_chunks?: number
+  /** Relevance-agent detail. */
+  iteration?: number
+  kept?: number
+  rejected?: number
+  related_total?: number
+  refined_query?: string
 }
 
 type StreamChunkStartEvent = {
@@ -80,6 +92,8 @@ type StreamChunkEndEvent = {
   docs: Document[]
   generated_response: string
   error?: string
+  /** Present when ENABLE_ANSWER_EVALUATION is on. */
+  evaluation?: ChunkEval
 }
 
 type StreamCompleteEvent = {
@@ -88,6 +102,12 @@ type StreamCompleteEvent = {
   num_chunks: number
   chunk_size?: number
   elapsed_ms?: number
+  /** Mean faithfulness across chunks; null when not evaluated. */
+  aggregate_faithfulness?: number | null
+  /** Set by the relevance agent, e.g. no related papers were found. */
+  notice?: string
+  /** "accepted" | "no_candidates" | "no_relevant" | "grader_unavailable" */
+  agent_outcome?: string
 }
 
 type StreamErrorEvent = {

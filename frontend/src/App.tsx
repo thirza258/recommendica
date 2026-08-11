@@ -23,6 +23,8 @@ function App() {
   const [aggFaithfulness, setAggFaithfulness] = useState<number | null>(null);
   const [chunks, setChunks] = useState<ChunkResponse[]>([]);
   const [progressMsg, setProgressMsg] = useState("");
+  // Set by the relevance agent — e.g. no sufficiently related papers found.
+  const [notice, setNotice] = useState("");
 
   // Track the AbortController so we can cancel an in-flight stream
   const abortRef = useRef<AbortController | null>(null);
@@ -57,6 +59,7 @@ function App() {
     setStatus("loading");
     setError("");
     setProgressMsg("Starting...");
+    setNotice("");
     setChunks([]);
     setQuery(trimmed);
     setTotalDocs(0);
@@ -187,6 +190,7 @@ function App() {
                   docs: event.docs,
                   num_docs_in_chunk: event.num_docs_in_chunk,
                   generated_response: event.generated_response,
+                  evaluation: event.evaluation ?? c.evaluation,
                 }
               : c
           )
@@ -196,6 +200,8 @@ function App() {
       case "complete":
         setTotalDocs(event.total_docs_retrieved);
         setNumChunks(event.num_chunks);
+        setAggFaithfulness(event.aggregate_faithfulness ?? null);
+        setNotice(event.notice ?? "");
         setProgressMsg("");
         setStatus("success");
         break;
@@ -229,6 +235,14 @@ function App() {
           <div className="stream-progress">
             <span className="stream-progress-dot" />
             <span>{progressMsg}</span>
+          </div>
+        )}
+
+        {/* Relevance-agent notice, e.g. no related papers were found */}
+        {status !== "loading" && notice && (
+          <div className="stream-notice">
+            <span aria-hidden="true">!</span>
+            <span>{notice}</span>
           </div>
         )}
 

@@ -26,18 +26,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── lazy singleton ─────────────────────────────────────────────────────────────
-_llm_service: "OpenRouterService | None" = None
-
 
 def _get_llm():
-    """Return the module-level cached OpenRouterService, creating it on first use."""
-    global _llm_service
-    if _llm_service is None:
-        from airecommender.pipeline.llm_service import OpenRouterService
+    """Return the process-wide OpenRouterService (shared cache + connections)."""
+    from airecommender.pipeline.llm_service import get_llm_service
 
-        _llm_service = OpenRouterService()
-    return _llm_service
+    return get_llm_service()
 
 
 # ── prompts ────────────────────────────────────────────────────────────────────
@@ -60,14 +54,17 @@ def generate_hypothetical_abstract(
     query: str,
     llm_service: "OpenRouterService | None" = None,
     model: str | None = None,
+    timeout: int | None = None,
+    max_retries: int | None = None,
 ) -> str:
     """
     Ask the LLM to write a fake abstract that answers the query.
 
     Pass an existing *llm_service* instance to reuse a cached client
-    (e.g. from RAGIndex).  When omitted a module-level lazy singleton
-    is used instead.
-    Use *model* to override the default HyDE model from settings.
+    (e.g. from RAGIndex).  When omitted the process-wide service is used.
+    Use *model* to override the default HyDE model from settings, and *timeout*
+    to bound this call independently of answer generation — a stalled query
+    transform should never hold the whole pipeline open.
     """
     if llm_service is None:
         llm_service = _get_llm()
@@ -78,6 +75,8 @@ def generate_hypothetical_abstract(
             model=model or settings.HYDE_MODEL,
             system_instruction_string=HYDE_SYSTEM,
             response_mime_type_param="text/plain",
+            timeout=timeout,
+            max_retries=max_retries,
         )
         return response
     except Exception as exc:

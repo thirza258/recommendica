@@ -34,18 +34,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── lazy singleton ─────────────────────────────────────────────────────────────
-_llm_service: "OpenRouterService | None" = None
-
 
 def _get_llm():
-    """Return the module-level cached OpenRouterService, creating it on first use."""
-    global _llm_service
-    if _llm_service is None:
-        from airecommender.pipeline.llm_service import OpenRouterService
+    """Return the process-wide OpenRouterService (shared cache + connections)."""
+    from airecommender.pipeline.llm_service import get_llm_service
 
-        _llm_service = OpenRouterService()
-    return _llm_service
+    return get_llm_service()
 
 
 # ── arxiv category map ─────────────────────────────────────────────────────────
@@ -115,6 +109,8 @@ def step_back(
     query: str,
     llm_service: "OpenRouterService | None" = None,
     model: str | None = None,
+    timeout: int | None = None,
+    max_retries: int | None = None,
 ) -> dict:
     """
     Abstract the user query and extract arxiv category hints.
@@ -141,6 +137,8 @@ def step_back(
             model=model or settings.STEP_BACK_MODEL,
             system_instruction_string=STEP_BACK_SYSTEM,
             response_mime_type_param="application/json",
+            timeout=timeout,
+            max_retries=max_retries,
         )
     except Exception as exc:
         logger.error(f"[Step-back] LLM call failed: {exc}")
