@@ -16,16 +16,13 @@ function ChunksList({
   isLoading?: boolean;
 }) {
   return (
-    <section className="chunks-section">
+    <section className="chunks-section" aria-label="Results">
       <div className="chunks-header">
         <div>
           <p className="section-label">Results</p>
-          {query && <p className="chunks-query">{`<< ${query} >>`}</p>}
+          {query && <p className="chunks-query">&ldquo;{query}&rdquo;</p>}
         </div>
-        <ScoreBadge
-          score={aggFaithfulness}
-          label="Aggregate faithfulness"
-        />
+        <ScoreBadge score={aggFaithfulness} label="Aggregate faithfulness" />
       </div>
 
       {chunks.map((chunk) => (

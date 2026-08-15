@@ -3,7 +3,8 @@ import TopBar from "./components/Topbar";
 import HeroPanel from "./components/Hero";
 import ChunksList from "./components/ChunkList";
 import EmptyState from "./components/EmptyState";
-import { ChunkResponse, StreamEvent } from "./interface";
+import { AlertTriangleIcon } from "./components/Icons";
+import { ChunkResponse, Status, StreamEvent } from "./interface";
 import "./App.css";
 
 let backendHealthCheckSent = false;
@@ -12,9 +13,7 @@ function App() {
   const [prompt, setPrompt] = useState(
     "What are the most relevant papers on climate change and public health?"
   );
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
+  const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
 
   const [query, setQuery] = useState("");
@@ -230,9 +229,11 @@ function App() {
           aggFaithfulness={aggFaithfulness}
         />
 
-        {/* Progress banner during loading */}
+        {/* Progress banner during loading. This is the only live region for
+            the stream — the token text itself must never be one, or screen
+            readers would re-announce on every token. */}
         {status === "loading" && progressMsg && (
-          <div className="stream-progress">
+          <div className="stream-progress" role="status" aria-live="polite">
             <span className="stream-progress-dot" />
             <span>{progressMsg}</span>
           </div>
@@ -241,7 +242,7 @@ function App() {
         {/* Relevance-agent notice, e.g. no related papers were found */}
         {status !== "loading" && notice && (
           <div className="stream-notice">
-            <span aria-hidden="true">!</span>
+            <AlertTriangleIcon size={18} />
             <span>{notice}</span>
           </div>
         )}

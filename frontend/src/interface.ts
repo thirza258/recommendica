@@ -1,5 +1,8 @@
 // ── Domain types ────────────────────────────────────────────────────────────
 
+/** Lifecycle of a single search request, shared by every UI surface. */
+type Status = 'idle' | 'loading' | 'success' | 'error'
+
 type ResearchInfo = {
   title: string
   category: string
@@ -124,6 +127,7 @@ type StreamEvent =
   | StreamErrorEvent
 
 export type {
+  Status,
   ResearchInfo,
   Document,
   ClaimVerdict,

@@ -1,6 +1,13 @@
-import { useState } from 'react'
-import './App.css'
-import {ClaimVerdict, Document, ResearchInfo } from './interface'
+import { useId, useState } from 'react'
+import { ClaimVerdict, Document, ResearchInfo } from './interface'
+import {
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CrossIcon,
+  MinusIcon,
+} from './components/Icons'
 
 function parseDoc(doc: Document): ResearchInfo | null {
   try {
@@ -25,30 +32,65 @@ function pct(n: number | null | undefined): string {
 
 // ── components ──────────────────────────────────────────────────────────────
 
+/**
+ * Faithfulness readout. The tier is carried by an icon as well as colour, so
+ * the reading survives greyscale and colour-vision deficiency.
+ */
 function ScoreBadge({ score, label }: { score: number | null; label: string }) {
-  const cls = score == null ? 'score-muted' : score >= 0.7 ? 'score-high' : score >= 0.4 ? 'score-mid' : 'score-low'
+  const tier =
+    score == null ? 'muted' : score >= 0.7 ? 'high' : score >= 0.4 ? 'mid' : 'low'
+
+  const Icon =
+    tier === 'high'
+      ? CheckIcon
+      : tier === 'mid'
+        ? AlertCircleIcon
+        : tier === 'low'
+          ? AlertTriangleIcon
+          : MinusIcon
+
   return (
-    <span className={`score-badge ${cls}`} title={label}>
-      {label}: {pct(score)}
+    <span className={`score-badge score-${tier}`}>
+      <Icon size={14} />
+      <span className="score-badge-label">{label}</span>
+      <span>{pct(score)}</span>
     </span>
   )
 }
 
 function ClaimList({ claims }: { claims: ClaimVerdict[] }) {
   const [open, setOpen] = useState(false)
+  const listId = useId()
   if (!claims.length) return null
+
+  const supported = claims.filter((c) => c.supported).length
 
   return (
     <div className="claims-block">
-      <button className="claims-toggle" onClick={() => setOpen(!open)}>
-        {open ? '▾' : '▸'} {claims.length} claim{claims.length !== 1 ? 's' : ''} verified
+      <button
+        type="button"
+        className="claims-toggle"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen(!open)}
+      >
+        <ChevronRightIcon size={16} className="claims-chevron" />
+        {supported} of {claims.length} claim{claims.length !== 1 ? 's' : ''} supported
+        by the sources
       </button>
       {open && (
-        <ul className="claims-list">
+        <ul className="claims-list" id={listId}>
           {claims.map((c, i) => (
             <li key={i} className={`claim-item ${c.supported ? 'supported' : 'unsupported'}`}>
-              <span className="claim-verdict">{c.supported ? '✓' : '✗'}</span>
-              <span>{c.claim}</span>
+              <span className="claim-verdict">
+                {c.supported ? <CheckIcon size={15} /> : <CrossIcon size={15} />}
+              </span>
+              <span>
+                <span className="visually-hidden">
+                  {c.supported ? 'Supported: ' : 'Not supported: '}
+                </span>
+                {c.claim}
+              </span>
             </li>
           ))}
         </ul>

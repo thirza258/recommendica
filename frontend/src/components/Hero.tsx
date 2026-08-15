@@ -1,6 +1,7 @@
 import { FormEvent } from "react";
 import Metrics from "./Metrics";
 import QueryForm from "./QueryForm";
+import { Status } from "../interface";
 
 function HeroPanel({
   prompt,
@@ -15,7 +16,7 @@ function HeroPanel({
   prompt: string;
   setPrompt: (value: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
-  status: "idle" | "loading" | "success" | "error";
+  status: Status;
   error: string;
   totalDocs: number;
   numChunks: number;
@@ -25,6 +26,9 @@ function HeroPanel({
     <section className="hero-panel">
       <div className="hero-copy">
         <p className="section-label">Find better sources faster</p>
+        <h1 className="hero-title">
+          Research recommendations, grounded in papers.
+        </h1>
         <p className="hero-text">
           Ask for papers by topic, get concise answers grounded in retrieved
           documents, and see faithfulness scores that tell you how well each

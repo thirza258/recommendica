@@ -1,4 +1,4 @@
-import {pct} from "../helper"
+import { pct } from "../helper";
 
 function Metrics({
   totalDocs,

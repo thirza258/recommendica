@@ -8,16 +8,17 @@ function DocCard({ doc, index }: { doc: Document; index: number }) {
   return (
     <div className="doc-card">
       <div className="doc-title-row">
-        <span className="doc-index">{index + 1}</span>
+        <span className="doc-index" aria-hidden="true">
+          {index + 1}
+        </span>
         <h3>{info.title}</h3>
       </div>
-      {info.category && (
-        <span className="doc-category">{info.category}</span>
-      )}
-      <p className="doc-summary">{info.summary}</p>
-      {info.authors && (
-        <div className="doc-authors">{info.authors}</div>
-      )}
+
+      <div className="doc-body">
+        {info.category && <span className="doc-category">{info.category}</span>}
+        <p className="doc-summary">{info.summary}</p>
+        {info.authors && <p className="doc-authors">{info.authors}</p>}
+      </div>
     </div>
   );
 }
