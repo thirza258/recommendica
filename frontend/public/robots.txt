@@ -1,8 +1,64 @@
+# ==============================================================================
+# Recommendica — Robots Exclusion Protocol
 # https://recommendica.nevatal.tech/
+# ==============================================================================
 
+# Search Engine Crawlers (Google, Bing, DuckDuckGo, Apple, Yandex, Baidu, etc.)
+User-agent: Googlebot
+User-agent: Googlebot-Image
+User-agent: Googlebot-News
+User-agent: Bingbot
+User-agent: Slurp
+User-agent: DuckDuckBot
+User-agent: Baiduspider
+User-agent: YandexBot
+User-agent: Applebot
+User-agent: msnbot
+User-agent: Qwantify
+Allow: /
+Allow: /assets/
+Allow: /favicon.svg
+Allow: /og-image.png
+Allow: /apple-touch-icon.png
+Allow: /icon-512.png
+Allow: /site.webmanifest
+Allow: /sitemap.xml
+Disallow: /api/
+Disallow: /admin/
+Disallow: /schema/
+Disallow: /docs/
+
+# AI Search & Discovery Agents (OpenAI, Anthropic, Perplexity, Cohere, etc.)
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-Web
+User-agent: PerplexityBot
+User-agent: CCBot
+User-agent: Google-Extended
+User-agent: cohere-ai
+User-agent: Omgilibot
+User-agent: FacebookBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /schema/
+Disallow: /docs/
+
+# Default policy for all crawlers
 User-agent: *
 Allow: /
-# API responses are JSON/SSE, never landing pages — keep them out of the index.
+Allow: /assets/
+Allow: /favicon.svg
+Allow: /og-image.png
+Allow: /apple-touch-icon.png
+Allow: /icon-512.png
+Allow: /site.webmanifest
 Disallow: /api/
+Disallow: /admin/
+Disallow: /schema/
+Disallow: /docs/
 
+# Sitemap & Host
 Sitemap: https://recommendica.nevatal.tech/sitemap.xml
+Host: https://recommendica.nevatal.tech

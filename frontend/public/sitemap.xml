@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://recommendica.nevatal.tech/</loc>
-    <lastmod>2026-08-17</lastmod>
-    <changefreq>monthly</changefreq>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.tech/" />
+    <lastmod>2026-08-17T00:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://recommendica.nevatal.tech/og-image.png</image:loc>
+      <image:title>Recommendica — Grounded Research Paper Recommendations</image:title>
+      <image:caption>Find research papers that answer your question with grounded AI recommendations and faithfulness scoring.</image:caption>
+    </image:image>
   </url>
 </urlset>

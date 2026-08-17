@@ -8,13 +8,41 @@ import {
 } from "./Icons";
 
 /**
- * First screen of the app: what Recommendica does, and one way in.
+ * First screen of the app: what Recommendica does, scientific coverage, FAQs, and entry points.
  *
  * Deliberately not wired to <TopBar> — the status chip would report a
  * meaningless "Ready" before any search exists. It borrows the wordmark
  * classes instead, so the two surfaces still read as one product.
  */
 function Landing({ onStart }: { onStart: () => void }) {
+  const sampleTopics = [
+    "Machine Learning & RAG Architectures",
+    "Climate Change & Carbon Capture",
+    "Genomic Medicine & CRISPR",
+    "Quantum Computing Algorithms",
+    "Neuroscience & Cognitive Models",
+    "Autonomous Robotics & Control",
+  ];
+
+  const faqs = [
+    {
+      q: "What is Recommendica and how does it work?",
+      a: "Recommendica is a research recommendation search engine built on retrieval-augmented generation (RAG). You ask a research question in plain language; it expands your query across multiple representations (HyDE, step-back prompting, RAG-fusion), searches indexed literature and arXiv, grades each paper for direct relevance, and writes a synthesized answer grounded strictly in verified papers.",
+    },
+    {
+      q: "How does Recommendica prevent AI hallucinations?",
+      a: "Unlike generic conversational chatbots, Recommendica uses an autonomous relevance agent that screens candidate papers before generation, clustered concurrent generation, and claim-level verification. Every generated assertion is scored for faithfulness against the original papers, and the engine stays silent or refines queries rather than guessing from unrelated documents.",
+    },
+    {
+      q: "What paper repositories does Recommendica search?",
+      a: "Recommendica searches curated collections of scientific and academic literature across Computer Science, Artificial Intelligence, Climate Science, Biomedicine, Physics, and Mathematics, supplemented by real-time arXiv paper retrieval fallback.",
+    },
+    {
+      q: "Is Recommendica free to use for academic researchers and students?",
+      a: "Yes, Recommendica is 100% free and requires no account registration, subscriptions, or login to search papers and read grounded summaries.",
+    },
+  ];
+
   return (
     <div className="landing">
       <header className="landing-bar">
@@ -31,9 +59,9 @@ function Landing({ onStart }: { onStart: () => void }) {
 
       <main className="landing-main">
         {/* ── Pitch ─────────────────────────────────────────────────────── */}
-        <section className="landing-hero">
+        <section className="landing-hero" aria-labelledby="hero-title">
           <p className="section-label">Retrieval-augmented research search</p>
-          <h1 className="landing-title">
+          <h1 className="landing-title" id="hero-title">
             Ask a research question. Get an answer the papers actually support.
           </h1>
           <p className="landing-lead">
@@ -50,6 +78,30 @@ function Landing({ onStart }: { onStart: () => void }) {
             <p className="helper-copy">
               No sign-up. Type a question and the pipeline runs.
             </p>
+          </div>
+        </section>
+
+        {/* ── Scientific Disciplines ───────────────────────────────────── */}
+        <section className="landing-block" aria-labelledby="covered-disciplines">
+          <h2 className="landing-section-title" id="covered-disciplines">
+            Explore scientific domains
+          </h2>
+          <p className="landing-block-intro">
+            Search peer-reviewed literature and preprint research across diverse disciplines:
+          </p>
+          <div className="topic-tag-grid">
+            {sampleTopics.map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                className="topic-tag-pill"
+                onClick={onStart}
+                title={`Search papers related to ${topic}`}
+              >
+                <SearchIcon size={14} className="topic-tag-icon" />
+                <span>{topic}</span>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -150,6 +202,26 @@ function Landing({ onStart }: { onStart: () => void }) {
               </p>
             </li>
           </ul>
+        </section>
+
+        {/* ── Frequently Asked Questions (SEO & User Clarity) ──────────── */}
+        <section className="landing-block" aria-labelledby="faq-title">
+          <h2 className="landing-section-title" id="faq-title">
+            Frequently asked questions
+          </h2>
+          <div className="faq-accordion-group">
+            {faqs.map((faq) => (
+              <details key={faq.q} className="faq-accordion-item">
+                <summary className="faq-accordion-summary">
+                  <span>{faq.q}</span>
+                  <ChevronRightIcon size={16} className="faq-chevron" />
+                </summary>
+                <div className="faq-accordion-content">
+                  <p>{faq.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
         </section>
 
         {/* ── Closing call to action ────────────────────────────────────── */}

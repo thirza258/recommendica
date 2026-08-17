@@ -4,19 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- ── Primary ──────────────────────────────────────────────────────
+    <!-- ── Primary SEO Meta Tags ──────────────────────────────────────────
          Keep this title in sync with DOC_TITLE.landing in src/App.tsx: the
          app rewrites document.title on mount, and a mismatch makes the tab
          flicker between two names on every load. -->
-    <title>Recommendica — grounded research paper recommendations</title>
-    <!-- Kept under ~160 characters so search results show it untruncated. -->
+    <title>Recommendica — AI Research Paper Recommendations &amp; Grounded Search</title>
     <meta
       name="description"
-      content="Recommendica finds research papers that actually answer your question: candidates graded for relevance, answers grounded in those papers, every source shown."
+      content="Recommendica finds research papers that genuinely answer your question: candidates graded for relevance, answers grounded in peer-reviewed literature, and every source cited with faithfulness scores."
     />
+    <meta
+      name="keywords"
+      content="research paper recommendations, AI paper search, academic research assistant, arXiv search engine, literature review AI, retrieval augmented generation, RAG research, citation verification, grounded AI search, scientific paper discovery, academic search"
+    />
+    <meta name="author" content="Recommendica Team" />
+    <meta name="publisher" content="Recommendica" />
+    <meta name="copyright" content="Recommendica" />
+    <meta name="rating" content="General" />
+    <meta name="distribution" content="Global" />
+    <meta name="revisit-after" content="7 days" />
+
+    <!-- ── Canonical & Language Alternates ─────────────────────────────── -->
     <link rel="canonical" href="https://recommendica.nevatal.tech/" />
+    <link rel="alternate" href="https://recommendica.nevatal.tech/" hreflang="x-default" />
+    <link rel="alternate" href="https://recommendica.nevatal.tech/" hreflang="en" />
+
+    <!-- ── Crawlers & Indexing Directives ──────────────────────────────── -->
     <meta
       name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta
+      name="googlebot"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta
+      name="bingbot"
       content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
     />
     <meta name="application-name" content="Recommendica" />
@@ -24,43 +47,46 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0b1120" media="(prefers-color-scheme: dark)" />
 
-    <!-- ── Icons & manifest ─────────────────────────────────────────── -->
+    <!-- ── Icons & Web Manifest ────────────────────────────────────────── -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- ── Open Graph ───────────────────────────────────────────────── -->
+    <!-- ── Open Graph / Facebook / LinkedIn / Messaging ───────────────── -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Recommendica" />
     <meta property="og:url" content="https://recommendica.nevatal.tech/" />
-    <meta property="og:title" content="Recommendica — grounded research paper recommendations" />
+    <meta property="og:title" content="Recommendica — AI Research Paper Recommendations &amp; Grounded Search" />
     <meta
       property="og:description"
-      content="Ask a research question and get an answer built only from papers graded relevant to it — sources and faithfulness score included."
+      content="Ask a research question and get answers built only from papers graded relevant to it — complete with sources, authors, and faithfulness scores."
     />
     <meta property="og:image" content="https://recommendica.nevatal.tech/og-image.png" />
+    <meta property="og:image:secure_url" content="https://recommendica.nevatal.tech/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Recommendica: research answers, grounded in real papers."
+      content="Recommendica: AI research paper recommendations, grounded in real papers."
     />
     <meta property="og:locale" content="en_US" />
 
-    <!-- ── X / Twitter ──────────────────────────────────────────────── -->
+    <!-- ── X / Twitter Card Tags ──────────────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Recommendica — grounded research paper recommendations" />
+    <meta name="twitter:url" content="https://recommendica.nevatal.tech/" />
+    <meta name="twitter:title" content="Recommendica — AI Research Paper Recommendations &amp; Grounded Search" />
     <meta
       name="twitter:description"
-      content="Ask a research question and get an answer built only from papers graded relevant to it — sources and faithfulness score included."
+      content="Ask a research question and get answers built only from papers graded relevant to it — complete with sources, authors, and faithfulness scores."
     />
     <meta name="twitter:image" content="https://recommendica.nevatal.tech/og-image.png" />
     <meta
       name="twitter:image:alt"
-      content="Recommendica: research answers, grounded in real papers."
+      content="Recommendica: AI research paper recommendations, grounded in real papers."
     />
 
+    <!-- ── Web Fonts Preconnect ────────────────────────────────────────── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -68,10 +94,7 @@
       href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400;1,700&family=Inter:wght@400..700&display=swap"
     />
 
-    <!-- ── Structured data ──────────────────────────────────────────────
-         Only claims that hold on the live site: a free, no-login web app.
-         No SearchAction — results live at one URL with no query parameter,
-         so a search-URL template would be a lie to the crawler. -->
+    <!-- ── Schema.org Structured Data (JSON-LD) ────────────────────────── -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -81,8 +104,24 @@
             "@id": "https://recommendica.nevatal.tech/#website",
             "url": "https://recommendica.nevatal.tech/",
             "name": "Recommendica",
-            "description": "Grounded research paper recommendations powered by retrieval-augmented generation.",
-            "inLanguage": "en"
+            "alternateName": [
+              "Recommendica AI",
+              "Recommendica Research Recommender",
+              "Recommendica Paper Search"
+            ],
+            "description": "Grounded research paper recommendations powered by relevance-graded retrieval-augmented generation.",
+            "inLanguage": "en",
+            "publisher": {
+              "@id": "https://recommendica.nevatal.tech/#organization"
+            }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://recommendica.nevatal.tech/#organization",
+            "name": "Recommendica",
+            "url": "https://recommendica.nevatal.tech/",
+            "logo": "https://recommendica.nevatal.tech/favicon.svg",
+            "description": "AI research assistant and literature discovery platform."
           },
           {
             "@type": "WebApplication",
@@ -91,8 +130,8 @@
             "url": "https://recommendica.nevatal.tech/",
             "isPartOf": { "@id": "https://recommendica.nevatal.tech/#website" },
             "applicationCategory": "EducationalApplication",
-            "applicationSubCategory": "Research paper search",
-            "operatingSystem": "Any (web browser)",
+            "applicationSubCategory": "Research Paper Search Engine & Literature Discovery",
+            "operatingSystem": "Any (Web Browser)",
             "browserRequirements": "Requires JavaScript.",
             "inLanguage": "en",
             "isAccessibleForFree": true,
@@ -104,11 +143,51 @@
             "description": "Recommendica answers research questions from a corpus of papers. Retrieved candidates are graded for relevance and the query is refined when too few survive, answers stream in grounded in the surviving papers, and each answer lists its sources with a faithfulness score.",
             "featureList": [
               "Relevance-graded retrieval with automatic query refinement",
-              "Answers streamed token by token from the retrieved papers",
+              "Answers streamed token by token from retrieved papers",
               "Every source paper shown with title, category, authors and summary",
-              "Faithfulness scoring of each claim against its sources"
+              "Faithfulness scoring of each claim against its sources",
+              "Direct arXiv literature search fallback integration"
             ],
+            "screenshot": "https://recommendica.nevatal.tech/og-image.png",
             "image": "https://recommendica.nevatal.tech/og-image.png"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://recommendica.nevatal.tech/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is Recommendica and how does it work?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Recommendica is a research recommendation engine built on retrieval-augmented generation (RAG). You ask a research question in plain language; it expands your query across multiple representations, searches indexed academic papers and live arXiv literature, grades each paper for direct relevance, and writes a synthesized answer strictly grounded in the relevant papers."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does Recommendica prevent AI hallucinations?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Unlike standard conversational LLMs, Recommendica uses relevance grading, multi-chunk grounding, and claim-level verification. Every claim generated is scored against its source papers with an aggregate faithfulness score, and the engine stays silent or refines queries rather than guessing from unrelated documents."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What paper repositories does Recommendica search?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Recommendica searches curated collections of scientific and academic literature across Artificial Intelligence, Computer Science, Climate Science, Biomedicine, Physics, and Mathematics, supplemented by real-time arXiv paper retrieval fallback."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is Recommendica free to use for researchers and students?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, Recommendica is completely free to use with no account registration or paywall required."
+                }
+              }
+            ]
           }
         ]
       }
@@ -118,55 +197,116 @@
     <div id="root"></div>
 
     <!-- Crawlers that do not execute JavaScript (and readers with it off) get
-         the landing page's substance rather than an empty div. -->
+         the landing page's full substance, FAQs, and semantic architecture. -->
     <noscript>
       <style>
         .noscript-fallback {
-          max-width: 46rem;
+          max-width: 48rem;
           margin: 0 auto;
-          padding: 3rem 1.25rem;
-          font-family: Inter, system-ui, sans-serif;
+          padding: 3rem 1.5rem;
+          font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           line-height: 1.6;
+          color: #1e293b;
         }
         .noscript-fallback h1 {
           font-family: "Crimson Pro", Georgia, serif;
-          font-size: 2rem;
+          font-size: 2.25rem;
           line-height: 1.2;
+          color: #0f172a;
+          margin-bottom: 1rem;
+        }
+        .noscript-fallback h2 {
+          font-family: "Crimson Pro", Georgia, serif;
+          font-size: 1.5rem;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: #0f172a;
+        }
+        .noscript-fallback h3 {
+          font-size: 1.125rem;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
+          color: #334155;
+        }
+        .noscript-fallback ul, .noscript-fallback ol {
+          padding-left: 1.5rem;
+          margin-bottom: 1rem;
+        }
+        .noscript-fallback li {
+          margin-bottom: 0.5rem;
+        }
+        .noscript-fallback .faq-item {
+          margin-bottom: 1.5rem;
+          padding: 1rem;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
         }
       </style>
       <main class="noscript-fallback">
-        <h1>Recommendica — research answers, grounded in real papers</h1>
-        <p>
-          Recommendica is a research recommendation tool built on retrieval-augmented
-          generation (RAG). Ask a research question in plain language and it searches a
-          corpus of papers, keeps only the ones that genuinely answer the question, and
-          writes a response grounded in them.
-        </p>
-        <h2>How a search works</h2>
-        <ol>
-          <li>
-            <strong>Retrieve</strong> — your question is expanded into several query
-            variants and searched against the paper corpus in one batched pass.
-          </li>
-          <li>
-            <strong>Generate</strong> — the related papers are split into small groups and
-            each group produces an answer that streams back as it is written.
-          </li>
-          <li>
-            <strong>Verify</strong> — with grounding checks enabled, each claim is graded
-            against its sources and the answer carries a faithfulness score.
-          </li>
-        </ol>
-        <p>
-          A relevance agent scores every candidate paper against your question, drops the
-          unrelated ones and searches again with a refined query when too few survive. When
-          nothing in the corpus is related enough, Recommendica says so instead of
-          answering from papers it already judged irrelevant.
-        </p>
-        <p>
-          <strong>JavaScript is required to run a search.</strong> Enable it and reload
-          this page to get started.
-        </p>
+        <header>
+          <h1>Recommendica — Grounded Research Paper Recommendations &amp; Literature Search</h1>
+          <p>
+            Recommendica is an AI research recommendation platform powered by retrieval-augmented
+            generation (RAG). Ask research questions in plain language to find peer-reviewed papers,
+            grade candidate literature for genuine relevance, and read grounded responses with source citations
+            and faithfulness metrics.
+          </p>
+        </header>
+
+        <section aria-labelledby="ns-how-it-works">
+          <h2 id="ns-how-it-works">How the Research Retrieval Pipeline Works</h2>
+          <ol>
+            <li>
+              <strong>Query Expansion &amp; Retrieval:</strong> Your question is expanded using HyDE (Hypothetical Document Embeddings), Step-Back prompting, and RAG-Fusion across batched passes.
+            </li>
+            <li>
+              <strong>Relevance Grading:</strong> An autonomous relevance agent scores candidate papers against your inquiry, eliminating false positives and refining searches when needed.
+            </li>
+            <li>
+              <strong>Concurrent Grounded Generation:</strong> Clustered paper chunks produce streaming responses grounded strictly in cited evidence.
+            </li>
+            <li>
+              <strong>Citation &amp; Faithfulness Verification:</strong> Every claim is verified against source documents with precision faithfulness scoring.
+            </li>
+          </ol>
+        </section>
+
+        <section aria-labelledby="ns-core-features">
+          <h2 id="ns-core-features">Key Capabilities</h2>
+          <ul>
+            <li><strong>Relevance-Graded Retrieval:</strong> Drops off-topic papers instead of returning unverified rank-ordered matches.</li>
+            <li><strong>Streamed Synthesis:</strong> Concurrent chunk generation provides instantaneous reading access.</li>
+            <li><strong>Transparent Sources:</strong> Complete author, summary, and DOI/arXiv attribution for every citation.</li>
+            <li><strong>Hallucination Defense:</strong> The engine reports when papers are insufficient rather than hallucinating unsupported claims.</li>
+          </ul>
+        </section>
+
+        <section aria-labelledby="ns-faq">
+          <h2 id="ns-faq">Frequently Asked Questions</h2>
+          <article class="faq-item">
+            <h3>What is Recommendica and how does it work?</h3>
+            <p>
+              Recommendica is a research recommendation engine built on retrieval-augmented generation (RAG). It expands your search queries, scans academic literature and arXiv, filters papers through a relevance scoring agent, and creates synthesized responses with verifiable source citations.
+            </p>
+          </article>
+          <article class="faq-item">
+            <h3>How does Recommendica prevent AI hallucinations?</h3>
+            <p>
+              By evaluating retrieved papers before generation and performing claim-level grounding checks, Recommendica computes a faithfulness score and avoids generating answers from unrelated documents.
+            </p>
+          </article>
+          <article class="faq-item">
+            <h3>Is Recommendica free for academic research?</h3>
+            <p>
+              Yes, Recommendica is free and accessible to all researchers, educators, and students without registration.
+            </p>
+          </article>
+        </section>
+
+        <footer>
+          <p><strong>Note:</strong> JavaScript is required to execute interactive live paper searches. Please enable JavaScript in your browser to run queries.</p>
+        </footer>
       </main>
     </noscript>
 

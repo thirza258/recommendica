@@ -14,7 +14,7 @@ let backendHealthCheckSent = false;
 type View = "landing" | "app";
 
 const DOC_TITLE: Record<View, string> = {
-  landing: "Recommendica — grounded research paper recommendations",
+  landing: "Recommendica — AI Research Paper Recommendations & Grounded Search",
   app: "Search papers — Recommendica",
 };
 
