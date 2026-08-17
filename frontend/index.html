@@ -2,14 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ── Primary ──────────────────────────────────────────────────────
+         Keep this title in sync with DOC_TITLE.landing in src/App.tsx: the
+         app rewrites document.title on mount, and a mismatch makes the tab
+         flicker between two names on every load. -->
+    <title>Recommendica — grounded research paper recommendations</title>
+    <!-- Kept under ~160 characters so search results show it untruncated. -->
     <meta
       name="description"
-      content="Recommendica finds relevant research papers and answers your question with responses grounded in the retrieved documents."
+      content="Recommendica finds research papers that actually answer your question: candidates graded for relevance, answers grounded in those papers, every source shown."
     />
+    <link rel="canonical" href="https://recommendica.nevatal.tech/" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta name="application-name" content="Recommendica" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0b1120" media="(prefers-color-scheme: dark)" />
+
+    <!-- ── Icons & manifest ─────────────────────────────────────────── -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- ── Open Graph ───────────────────────────────────────────────── -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Recommendica" />
+    <meta property="og:url" content="https://recommendica.nevatal.tech/" />
+    <meta property="og:title" content="Recommendica — grounded research paper recommendations" />
+    <meta
+      property="og:description"
+      content="Ask a research question and get an answer built only from papers graded relevant to it — sources and faithfulness score included."
+    />
+    <meta property="og:image" content="https://recommendica.nevatal.tech/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Recommendica: research answers, grounded in real papers."
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- ── X / Twitter ──────────────────────────────────────────────── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Recommendica — grounded research paper recommendations" />
+    <meta
+      name="twitter:description"
+      content="Ask a research question and get an answer built only from papers graded relevant to it — sources and faithfulness score included."
+    />
+    <meta name="twitter:image" content="https://recommendica.nevatal.tech/og-image.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Recommendica: research answers, grounded in real papers."
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,10 +68,108 @@
       href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400;1,700&family=Inter:wght@400..700&display=swap"
     />
 
-    <title>Recommendica — grounded research recommendations</title>
+    <!-- ── Structured data ──────────────────────────────────────────────
+         Only claims that hold on the live site: a free, no-login web app.
+         No SearchAction — results live at one URL with no query parameter,
+         so a search-URL template would be a lie to the crawler. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://recommendica.nevatal.tech/#website",
+            "url": "https://recommendica.nevatal.tech/",
+            "name": "Recommendica",
+            "description": "Grounded research paper recommendations powered by retrieval-augmented generation.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://recommendica.nevatal.tech/#app",
+            "name": "Recommendica",
+            "url": "https://recommendica.nevatal.tech/",
+            "isPartOf": { "@id": "https://recommendica.nevatal.tech/#website" },
+            "applicationCategory": "EducationalApplication",
+            "applicationSubCategory": "Research paper search",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript.",
+            "inLanguage": "en",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "description": "Recommendica answers research questions from a corpus of papers. Retrieved candidates are graded for relevance and the query is refined when too few survive, answers stream in grounded in the surviving papers, and each answer lists its sources with a faithfulness score.",
+            "featureList": [
+              "Relevance-graded retrieval with automatic query refinement",
+              "Answers streamed token by token from the retrieved papers",
+              "Every source paper shown with title, category, authors and summary",
+              "Faithfulness scoring of each claim against its sources"
+            ],
+            "image": "https://recommendica.nevatal.tech/og-image.png"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Crawlers that do not execute JavaScript (and readers with it off) get
+         the landing page's substance rather than an empty div. -->
+    <noscript>
+      <style>
+        .noscript-fallback {
+          max-width: 46rem;
+          margin: 0 auto;
+          padding: 3rem 1.25rem;
+          font-family: Inter, system-ui, sans-serif;
+          line-height: 1.6;
+        }
+        .noscript-fallback h1 {
+          font-family: "Crimson Pro", Georgia, serif;
+          font-size: 2rem;
+          line-height: 1.2;
+        }
+      </style>
+      <main class="noscript-fallback">
+        <h1>Recommendica — research answers, grounded in real papers</h1>
+        <p>
+          Recommendica is a research recommendation tool built on retrieval-augmented
+          generation (RAG). Ask a research question in plain language and it searches a
+          corpus of papers, keeps only the ones that genuinely answer the question, and
+          writes a response grounded in them.
+        </p>
+        <h2>How a search works</h2>
+        <ol>
+          <li>
+            <strong>Retrieve</strong> — your question is expanded into several query
+            variants and searched against the paper corpus in one batched pass.
+          </li>
+          <li>
+            <strong>Generate</strong> — the related papers are split into small groups and
+            each group produces an answer that streams back as it is written.
+          </li>
+          <li>
+            <strong>Verify</strong> — with grounding checks enabled, each claim is graded
+            against its sources and the answer carries a faithfulness score.
+          </li>
+        </ol>
+        <p>
+          A relevance agent scores every candidate paper against your question, drops the
+          unrelated ones and searches again with a refined query when too few survive. When
+          nothing in the corpus is related enough, Recommendica says so instead of
+          answering from papers it already judged irrelevant.
+        </p>
+        <p>
+          <strong>JavaScript is required to run a search.</strong> Enable it and reload
+          this page to get started.
+        </p>
+      </main>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

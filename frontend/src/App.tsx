@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent, useRef } from "react";
 import TopBar from "./components/Topbar";
+import Landing from "./components/Landing";
 import HeroPanel from "./components/Hero";
 import ChunksList from "./components/ChunkList";
 import EmptyState from "./components/EmptyState";
@@ -9,7 +10,16 @@ import "./App.css";
 
 let backendHealthCheckSent = false;
 
+/** Landing page first, search app once the visitor asks for it. */
+type View = "landing" | "app";
+
+const DOC_TITLE: Record<View, string> = {
+  landing: "Recommendica — grounded research paper recommendations",
+  app: "Search papers — Recommendica",
+};
+
 function App() {
+  const [view, setView] = useState<View>("landing");
   const [prompt, setPrompt] = useState(
     "What are the most relevant papers on climate change and public health?"
   );
@@ -41,6 +51,18 @@ function App() {
     };
     void checkBackendHealth();
   }, []);
+
+  // ── View transition ───────────────────────────────────────────────────────
+  // Entering the app has to move focus to the prompt field: the CTA that
+  // triggered the switch unmounts, and focus would otherwise fall back to
+  // <body>, leaving a keyboard user to re-traverse the page to reach the one
+  // control they just asked for.
+  useEffect(() => {
+    document.title = DOC_TITLE[view];
+    if (view === "app") {
+      document.getElementById("research-prompt")?.focus();
+    }
+  }, [view]);
 
   // ── Search handler (streaming) ────────────────────────────────────────────
   const runSearch = async (event: FormEvent<HTMLFormElement>) => {
@@ -213,6 +235,10 @@ function App() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (view === "landing") {
+    return <Landing onStart={() => setView("app")} />;
+  }
+
   return (
     <div className="app-shell">
       <TopBar status={status} />

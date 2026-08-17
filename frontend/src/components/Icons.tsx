@@ -110,6 +110,14 @@ export function FileTextIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function ZapIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M13 2 4.5 13.5H11l-1 8.5L19 10.5h-6.5z" />
+    </svg>
+  );
+}
+
 /** Indeterminate spinner — pair with a text label, never on its own. */
 export function SpinnerIcon({ size = 16, className }: IconProps) {
   return (

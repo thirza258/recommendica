@@ -1,0 +1,8 @@
+# https://recommendica.nevatal.tech/
+
+User-agent: *
+Allow: /
+# API responses are JSON/SSE, never landing pages — keep them out of the index.
+Disallow: /api/
+
+Sitemap: https://recommendica.nevatal.tech/sitemap.xml

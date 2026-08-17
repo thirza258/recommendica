@@ -186,3 +186,41 @@ The production stack uses Docker Compose with the frontend served by nginx.
    ```sh
    docker compose exec backend python manage.py import_research
    ```
+
+## Frontend pages
+
+The frontend opens on a landing page (`frontend/src/components/Landing.tsx`)
+explaining what the tool does. **Get started** swaps it for the search view —
+plain component state in `App.tsx`, no router — and moves focus to the prompt
+field. Every load starts on the landing page; the choice is not persisted.
+
+## SEO
+
+The deployed site is **https://recommendica.nevatal.tech/**. That origin is
+written into four places, all of which need updating together if the domain
+changes:
+
+| File | What it holds |
+| --- | --- |
+| `frontend/index.html` | canonical URL, Open Graph / Twitter card tags, JSON-LD (`WebSite` + `WebApplication`) |
+| `frontend/public/robots.txt` | crawl rules (`/api/` excluded) and the sitemap URL |
+| `frontend/public/sitemap.xml` | the single indexable URL and its `lastmod` |
+| `frontend/public/site.webmanifest` | installable-app metadata and icons |
+
+Other pieces of the setup:
+
+- **Social preview**: `frontend/public/og-image.png` (1200×630). Regenerate it
+  from a 1200×630 HTML page rendered with headless Chrome if the pitch changes.
+- **No-JS fallback**: `index.html` carries a `<noscript>` version of the landing
+  copy, so crawlers that do not execute JavaScript still see the substance of
+  the page rather than an empty `<div id="root">`.
+- **Titles**: the landing title in `index.html` must match `DOC_TITLE.landing`
+  in `src/App.tsx` — the app rewrites `document.title` on mount, and a mismatch
+  makes the tab name flicker on load.
+- **nginx** (`frontend/nginx.conf`) gzips static text, caches hashed
+  `/assets/` for a year, and revalidates `index.html` on every load so meta-tag
+  changes reach crawlers on the next deploy.
+
+After a domain or content change, resubmit the sitemap in Google Search Console
+and re-scrape the URL with the Facebook and X card debuggers to clear their
+cached preview.

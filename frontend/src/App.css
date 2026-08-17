@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Recommendica — component styles
 
-   Reads top-to-bottom in render order: shell → app bar → hero → query form →
-   stream banners → results → score badge → claims → documents → responsive.
+   Reads top-to-bottom in render order: shell → landing → app bar → hero →
+   query form → stream banners → results → score badge → claims → documents →
+   responsive.
    All colours, spacing and motion come from the tokens in index.css.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -19,6 +20,221 @@
 .layout {
   width: min(var(--content-max), 100%);
   margin-inline: auto;
+}
+
+/* ── Landing ──────────────────────────────────────────────────────────────
+   The first screen. Shares the app's tokens and card treatment so the switch
+   to the search view reads as the same product, not a second site. */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-5) var(--space-10);
+}
+
+.landing-bar,
+.landing-main,
+.landing-foot {
+  width: min(var(--content-max), 100%);
+  margin-inline: auto;
+}
+
+.landing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-muted);
+  font-size: var(--text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+
+.ghost-button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.landing-main {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: var(--space-12);
+  padding: var(--space-12) 0;
+}
+
+.landing-hero {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+}
+
+.landing-title {
+  margin: 0;
+  max-width: 20ch;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.35rem + 3vw, 3.25rem);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--ink);
+}
+
+.landing-lead {
+  margin: 0;
+  max-width: 58ch;
+  font-size: clamp(var(--text-lg), 1rem + 0.4vw, var(--text-xl));
+  line-height: var(--leading-relaxed);
+  color: var(--ink-muted);
+}
+
+.landing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.landing-section-title {
+  margin: 0 0 var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.flow-list,
+.feature-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.flow-item,
+.feature-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.flow-step {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+.flow-title,
+.feature-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  color: var(--ink);
+}
+
+.flow-text,
+.feature-text {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-muted);
+}
+
+.landing-closer {
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.landing-closer-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.landing-closer-text {
+  margin: var(--space-2) auto var(--space-6);
+  max-width: 46ch;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-muted);
+}
+
+.landing-foot {
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.landing-foot p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--ink-subtle);
 }
 
 /* ── App bar ──────────────────────────────────────────────────────────── */
@@ -1036,6 +1252,16 @@
 /* ── Responsive ───────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {
+  .landing-main {
+    gap: var(--space-10);
+    padding: var(--space-10) 0;
+  }
+
+  .flow-item,
+  .feature-card {
+    padding: var(--space-5);
+  }
+
   .hero-panel {
     grid-template-columns: 1fr;
   }
@@ -1052,6 +1278,42 @@
 @media (max-width: 640px) {
   .app-shell {
     padding: var(--space-4) var(--space-4) var(--space-10);
+  }
+
+  .landing {
+    padding: var(--space-4) var(--space-4) var(--space-8);
+  }
+
+  .landing-main {
+    gap: var(--space-8);
+    padding: var(--space-8) 0;
+  }
+
+  .landing-title {
+    max-width: none;
+  }
+
+  .landing-cta {
+    width: 100%;
+  }
+
+  .ghost-button {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .flow-list,
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-item,
+  .feature-card,
+  .landing-closer {
+    border-radius: var(--radius-lg);
+  }
+
+  .landing-closer {
+    padding: var(--space-8) var(--space-5);
   }
 
   .topbar {
