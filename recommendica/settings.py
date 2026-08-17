@@ -159,6 +159,50 @@ AGENT_RELEVANCE_THRESHOLD = float(os.getenv("AGENT_RELEVANCE_THRESHOLD", "0.5"))
 AGENT_DEADLINE = float(os.getenv("AGENT_DEADLINE", "90"))
 AGENT_MAX_CANDIDATE_CHARS = int(os.getenv("AGENT_MAX_CANDIDATE_CHARS", "400"))
 
+# ── Live arXiv fallback ─────────────────────────────────────────────────────
+# When the indexed collection cannot supply AGENT_MIN_RELEVANT_DOCS related
+# papers, the agent searches arxiv.org directly and grades what comes back the
+# same way it grades local results. Requires ENABLE_RELEVANCE_AGENT: the grader
+# is what holds live results to the same standard, so without it the fallback
+# stays off. If arXiv cannot be reached the request is served from ChromaDB
+# alone — an unreachable extra never costs the user the local papers.
+ENABLE_ARXIV_FALLBACK = _env_bool("ENABLE_ARXIV_FALLBACK", True)
+ARXIV_API_URL = os.getenv("ARXIV_API_URL", "https://export.arxiv.org/api/query")
+ARXIV_FALLBACK_MAX_RESULTS = int(os.getenv("ARXIV_FALLBACK_MAX_RESULTS", "10"))
+ARXIV_FALLBACK_TIMEOUT = float(os.getenv("ARXIV_FALLBACK_TIMEOUT", "15"))
+# arXiv asks API clients to leave a gap between requests and to identify
+# themselves; both are honoured process-wide.
+ARXIV_MIN_REQUEST_INTERVAL = float(os.getenv("ARXIV_MIN_REQUEST_INTERVAL", "3"))
+ARXIV_USER_AGENT = os.getenv(
+    "ARXIV_USER_AGENT",
+    "Recommendica/1.0 (research recommender; +https://recommendica.nevatal.tech)",
+)
+# Content terms per search. arXiv ANDs them, so more terms means a narrower
+# search; past half a dozen it starts excluding the papers it wants.
+ARXIV_MAX_QUERY_TERMS = int(os.getenv("ARXIV_MAX_QUERY_TERMS", "6"))
+ARXIV_SORT_BY = os.getenv("ARXIV_SORT_BY", "relevance")
+ARXIV_BREAKER_THRESHOLD = int(os.getenv("ARXIV_BREAKER_THRESHOLD", "3"))
+ARXIV_BREAKER_COOLDOWN = float(os.getenv("ARXIV_BREAKER_COOLDOWN", "300"))
+
+# ── Boundary verification ───────────────────────────────────────────────────
+# Query check: one cheap LLM classification before the pipeline spends
+# anything, so "hi" does not cost three transforms, a retrieval round trip, a
+# grading call and a generation call. Fails open — a checker that is down or
+# unparseable lets the query through.
+ENABLE_QUERY_VERIFICATION = _env_bool("ENABLE_QUERY_VERIFICATION", True)
+QUERY_VERIFICATION_TIMEOUT = int(os.getenv("QUERY_VERIFICATION_TIMEOUT", "15"))
+# Only catches what is certainly unusable ("q", "?"); "AI" and "RAG" are
+# real topics, so judging meaning is left to the model check.
+QUERY_MIN_CHARS = int(os.getenv("QUERY_MIN_CHARS", "2"))
+# Upper bound is a prompt-budget guard: the query goes into every transform,
+# grading and generation prompt the request makes.
+QUERY_MAX_CHARS = int(os.getenv("QUERY_MAX_CHARS", "1000"))
+
+# Result check: a deterministic report on the selected papers (count, sources,
+# retrieval confidence, query-term coverage) attached to the response. No LLM
+# call, so it is on by default.
+ENABLE_RESULT_VERIFICATION = _env_bool("ENABLE_RESULT_VERIFICATION", True)
+
 # Answer grounding: audits each generated answer against its source papers and
 # fills the UI's faithfulness score + claim list. OFF by default — it adds one
 # LLM call per chunk on the critical path. Relevance filtering above is what

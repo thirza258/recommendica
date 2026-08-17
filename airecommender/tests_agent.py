@@ -547,6 +547,372 @@ class AgentLoopTests(TestCase):
         self.assertEqual(graded.data["rejected"], 0)
 
 
+# ── Live fallback source ─────────────────────────────────────────────────────
+
+
+def paper(title, **extra):
+    """A candidate whose document is a collection-shaped JSON record."""
+    return {
+        "document": json.dumps(
+            {"title": title, "category": "cs.LG", "summary": f"about {title}", "authors": "A"}
+        ),
+        "meta": {"title": title},
+        **extra,
+    }
+
+
+class AgentFallbackTests(TestCase):
+    """
+    The fallback widens the corpus; it must not widen what gets through.
+
+    Every path here asserts one of two things: that a short local result set
+    reaches the live source, or that what the live source returns is held to
+    exactly the same standard as a local paper.
+    """
+
+    def build(self, retrieve, grade_fn, fallback_fn, refine_fn=None, **kwargs):
+        options = {
+            "min_relevant": 2,
+            "max_iterations": 1,
+            "threshold": 0.5,
+            "max_docs": 5,
+            "deadline_seconds": 60,
+        }
+        options.update(kwargs)
+        return RelevanceAgent(
+            retrieve,
+            grade_fn,
+            refine_fn or (lambda *a: None),
+            fallback_fn,
+            **options,
+        )
+
+    def test_short_local_result_reaches_the_live_source(self):
+        calls = []
+
+        def fallback(query, budget):
+            calls.append((query, budget))
+            return [doc("arxiv-1"), doc("arxiv-2")]
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, candidates: GradingResult(
+                [grade(index) for index in range(len(candidates))]
+            ),
+            fallback,
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], "query")
+        self.assertTrue(result.fallback_used)
+        self.assertEqual(result.fallback_kept, 2)
+        self.assertEqual(result.fallback_candidates, 2)
+        self.assertEqual(
+            sorted(d["document"] for d in result.docs),
+            ["arxiv-1", "arxiv-2", "local"],
+        )
+        self.assertIs(result.outcome, AgentOutcome.ACCEPTED)
+        self.assertIn("arXiv", result.notice)
+
+    def test_enough_local_papers_never_reaches_the_live_source(self):
+        called = []
+        agent = self.build(
+            lambda queries: [doc("a"), doc("b")],
+            lambda q, c: GradingResult([grade(0), grade(1)]),
+            lambda query, budget: called.append(query) or [],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertEqual(called, [])
+        self.assertFalse(result.fallback_used)
+        self.assertIsNone(result.notice)
+
+    def test_live_results_are_graded_and_can_be_rejected(self):
+        def grade_fn(query, candidates):
+            return GradingResult(
+                [
+                    grade(index, UNRELATED, 0.05, "off topic")
+                    if candidates[index]["document"].startswith("arxiv-bad")
+                    else grade(index)
+                    for index in range(len(candidates))
+                ]
+            )
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            grade_fn,
+            lambda query, budget: [doc("arxiv-bad"), doc("arxiv-good")],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertEqual(result.fallback_kept, 1)
+        self.assertNotIn("arxiv-bad", [d["document"] for d in result.docs])
+        # The rejection is counted in the same total the pipeline reports.
+        self.assertEqual(result.rejected, 1)
+
+    def test_ungradeable_live_results_are_discarded(self):
+        """A live paper nobody can verify has nothing else vouching for it."""
+        state = {"round": 0}
+
+        def grade_fn(query, candidates):
+            state["round"] += 1
+            if state["round"] == 1:
+                return GradingResult([grade(0)])
+            return GradingResult(
+                [grade(index, PARTIAL, 0.9) for index in range(len(candidates))],
+                status=GradeStatus.LLM_UNAVAILABLE,
+                error="provider down",
+            )
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            grade_fn,
+            lambda query, budget: [doc("arxiv-1"), doc("arxiv-2")],
+        )
+
+        events = []
+        result = run_to_completion(agent, "query", on_event=events.append)
+
+        self.assertEqual([d["document"] for d in result.docs], ["local"])
+        self.assertEqual(result.fallback_kept, 0)
+        self.assertIn("fallback_ungraded", [event.status for event in events])
+
+    def test_a_broken_grader_stops_before_the_live_source(self):
+        called = []
+        agent = self.build(
+            lambda queries: [doc("a")],
+            lambda q, c: GradingResult(
+                [grade(0, PARTIAL, 0.5)],
+                status=GradeStatus.PARSE_FAILED,
+                error="bad json",
+            ),
+            lambda query, budget: called.append(query) or [],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertIs(result.outcome, AgentOutcome.GRADER_UNAVAILABLE)
+        self.assertEqual(called, [])
+
+    def test_papers_already_selected_are_not_fetched_twice(self):
+        graded_batches = []
+
+        def grade_fn(query, candidates):
+            graded_batches.append([c["document"] for c in candidates])
+            return GradingResult([grade(index) for index in range(len(candidates))])
+
+        agent = self.build(
+            lambda queries: [paper("Deep Nets")],
+            grade_fn,
+            lambda query, budget: [paper("deep nets"), paper("Other Work")],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        # The duplicate never reaches the grader, and never reaches the answer.
+        self.assertEqual(len(graded_batches[1]), 1)
+        self.assertEqual(result.fallback_candidates, 1)
+        titles = sorted(json.loads(d["document"])["title"] for d in result.docs)
+        self.assertEqual(titles, ["Deep Nets", "Other Work"])
+
+    def test_live_source_gets_the_remaining_deadline_as_its_budget(self):
+        budgets = []
+        # Loop start, then the fallback's own budget calculation: 15s of the
+        # 60s deadline is gone by the time the live source is consulted.
+        clock = iter([0.0, 15.0])
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(index) for index in range(len(c))]),
+            lambda query, budget: budgets.append(budget) or [],
+            deadline_seconds=60,
+            clock=lambda: next(clock, 15.0),
+        )
+
+        run_to_completion(agent, "query")
+
+        self.assertEqual(budgets, [45.0])
+
+    def test_a_spent_deadline_skips_the_live_source(self):
+        called = []
+        clock = iter([0.0, 500.0])
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(0)]),
+            lambda query, budget: called.append(query) or [],
+            deadline_seconds=60,
+            clock=lambda: next(clock, 500.0),
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertEqual(called, [])
+        self.assertTrue(result.deadline_hit)
+
+    def test_refined_query_is_what_the_live_source_searches(self):
+        """The refined query was written to fix the search; reuse that work."""
+        queries = []
+        agent = self.build(
+            lambda q: [doc("bad")],
+            lambda q, c: GradingResult([grade(0, UNRELATED, 0.1, "wrong field")]),
+            lambda query, budget: queries.append(query) or [],
+            refine_fn=lambda *a: "refined query",
+            max_iterations=2,
+        )
+
+        run_to_completion(agent, "query")
+
+        self.assertEqual(queries, ["refined query"])
+
+    def test_nothing_anywhere_still_reports_no_candidates(self):
+        agent = self.build(
+            lambda queries: [],
+            lambda q, c: GradingResult([]),
+            lambda query, budget: [],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertIs(result.outcome, AgentOutcome.NO_CANDIDATES)
+        self.assertTrue(result.fallback_used)
+        self.assertEqual(result.fallback_candidates, 0)
+
+    def test_unreachable_live_source_still_answers_from_the_collection(self):
+        """arXiv being down must never cost the user what ChromaDB found."""
+
+        def fallback(query, budget):
+            raise OSError("connection refused")
+
+        agent = self.build(
+            lambda queries: [doc("local-1"), doc("local-2")],
+            lambda q, c: GradingResult([grade(index) for index in range(len(c))]),
+            fallback,
+            min_relevant=5,
+        )
+
+        events = []
+        result = run_to_completion(agent, "query", on_event=events.append)
+
+        self.assertEqual(
+            [d["document"] for d in result.docs], ["local-1", "local-2"]
+        )
+        self.assertIs(result.outcome, AgentOutcome.ACCEPTED)
+        self.assertIn("fallback_unavailable", [event.status for event in events])
+        self.assertIn("connection refused", result.fallback_error)
+        self.assertIn("arXiv could not be reached", result.notice)
+
+    def test_any_exception_from_the_live_source_is_absorbed(self):
+        # Not just network errors: a bug in the source must not take down a
+        # request that already has usable local results.
+        def fallback(query, budget):
+            raise ValueError("unexpected")
+
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(0)]),
+            fallback,
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertEqual([d["document"] for d in result.docs], ["local"])
+        self.assertIn("ValueError", result.fallback_error)
+
+    def test_unreachable_source_with_no_local_papers_says_which_failed(self):
+        def fallback(query, budget):
+            raise OSError("timed out")
+
+        agent = self.build(
+            lambda queries: [],
+            lambda q, c: GradingResult([]),
+            fallback,
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertIs(result.outcome, AgentOutcome.NO_CANDIDATES)
+        self.assertIn("could not be reached", result.notice)
+
+    def test_unreachable_source_after_everything_was_rejected(self):
+        def fallback(query, budget):
+            raise OSError("timed out")
+
+        agent = self.build(
+            lambda queries: [doc("bad")],
+            lambda q, c: GradingResult([grade(0, UNRELATED, 0.1, "off topic")]),
+            fallback,
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertIs(result.outcome, AgentOutcome.NO_RELEVANT)
+        self.assertIn("could not be reached", result.notice)
+        self.assertNotIn("was tried too", result.notice)
+
+    def test_a_reachable_but_empty_source_is_worded_differently(self):
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(0)]),
+            lambda query, budget: [],
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertIsNone(result.fallback_error)
+        self.assertNotIn("could not be reached", result.notice or "")
+
+    def test_live_source_returning_nothing_is_not_an_error(self):
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(0)]),
+            lambda query, budget: [],
+        )
+
+        events = []
+        result = run_to_completion(agent, "query", on_event=events.append)
+
+        self.assertEqual([d["document"] for d in result.docs], ["local"])
+        self.assertIn("fallback_empty", [event.status for event in events])
+        self.assertIs(result.outcome, AgentOutcome.ACCEPTED)
+
+    def test_progress_events_announce_the_live_search(self):
+        agent = self.build(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(index) for index in range(len(c))]),
+            lambda query, budget: [doc("arxiv-1")],
+        )
+
+        events = []
+        run_to_completion(agent, "query", on_event=events.append)
+
+        statuses = [event.status for event in events]
+        self.assertIn("fallback_searching", statuses)
+        self.assertIn("fallback_graded", statuses)
+        graded = next(e for e in events if e.status == "fallback_graded")
+        self.assertEqual(graded.data["source"], "arxiv_api")
+        self.assertEqual(graded.data["related_total"], 2)
+
+    def test_no_fallback_configured_keeps_the_old_behaviour(self):
+        agent = RelevanceAgent(
+            lambda queries: [doc("local")],
+            lambda q, c: GradingResult([grade(0)]),
+            lambda *a: None,
+            min_relevant=3,
+            max_iterations=1,
+        )
+
+        result = run_to_completion(agent, "query")
+
+        self.assertFalse(result.fallback_used)
+        self.assertIs(result.outcome, AgentOutcome.ACCEPTED)
+        self.assertIn("Only 1 clearly related paper was found", result.notice)
+
+
 # ── Answer grounding ─────────────────────────────────────────────────────────
 
 

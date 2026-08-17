@@ -1095,6 +1095,12 @@
   margin-left: calc(24px + var(--space-3));
 }
 
+.doc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .doc-category {
   display: inline-block;
   margin-top: var(--space-2);
@@ -1105,6 +1111,15 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 2px var(--space-2);
+}
+
+/* Marks a paper that came from the live search rather than the indexed
+   corpus — a provenance signal, so it borrows the accent, not a status colour. */
+.doc-category--live {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .doc-summary {

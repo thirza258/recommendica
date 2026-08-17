@@ -16,6 +16,7 @@ from django.test import TestCase, override_settings
 
 from airecommender.main import RAGIndex
 from airecommender.pipeline.errors import LLMUnavailable, VectorStoreUnavailable
+from airecommender.pipeline.sources.arxiv_api import ArxivUnavailable
 
 
 # ── Fakes ────────────────────────────────────────────────────────────────────
@@ -178,6 +179,43 @@ class FakeLLMService:
             yield f"{token}{chunk_index}"
 
 
+class FakeArxivClient:
+    """
+    Stands in for the live arXiv source.
+
+    Patched in by default with nothing to offer, so tests that are not about
+    the fallback keep the behaviour they had before it existed — and, more
+    importantly, so no test ever reaches the real arxiv.org.
+    """
+
+    def __init__(self, results=None, error=None):
+        self.results = list(results or [])
+        self.error = error
+        self.calls = []
+
+    def search(self, query, max_results=None, budget=None):
+        self.calls.append({"query": query, "budget": budget})
+        if self.error:
+            raise self.error
+        return [dict(result) for result in self.results]
+
+
+def arxiv_paper(title, summary="a summary"):
+    """A live-source candidate, shaped exactly like a collection document."""
+    return {
+        "document": json.dumps(
+            {
+                "title": title,
+                "category": "cs.LG",
+                "summary": summary,
+                "authors": "A. Author",
+            }
+        ),
+        "meta": {"source": "arxiv_api", "arxiv_id": "1234.5678"},
+        "source": "arxiv_api",
+    }
+
+
 class PipelineTestCase(TestCase):
     """Base class that patches the query transforms for the duration of a test."""
 
@@ -191,13 +229,17 @@ class PipelineTestCase(TestCase):
     )
     fusion = staticmethod(lambda query, **kwargs: ["variant one", "variant two"])
 
-    def make_index(self, dense=None, llm=None, hyde=None, step_back=None, fusion=None):
+    def make_index(
+        self, dense=None, llm=None, hyde=None, step_back=None, fusion=None, arxiv=None
+    ):
         self.dense = dense or FakeDenseRAG()
         self.llm = llm or FakeLLMService()
+        self.arxiv = arxiv or FakeArxivClient()
 
         patches = [
             mock.patch("airecommender.main.DenseRAG", return_value=self.dense),
             mock.patch("airecommender.main.get_llm_service", return_value=self.llm),
+            mock.patch("airecommender.main.ArxivClient", return_value=self.arxiv),
             mock.patch("airecommender.main.generate_hypothetical_abstract", hyde or self.hyde),
             mock.patch("airecommender.main.step_back", step_back or self.step_back),
             mock.patch("airecommender.main.generate_query_variants", fusion or self.fusion),
@@ -464,7 +506,7 @@ class FailureReportingTests(PipelineTestCase):
         index = self.make_index()
 
         events = []
-        for event in index.main_pipeline_stream("q", cancel_event=cancel):
+        for event in index.main_pipeline_stream("quantum error correction", cancel_event=cancel):
             events.append(event)
             if event["type"] == "chunk_token":
                 cancel.set()
@@ -491,7 +533,7 @@ class NonStreamingPipelineTests(PipelineTestCase):
         index = self.make_index(dense=dense, llm=FakeLLMService(delay=0.2))
 
         started = time.monotonic()
-        result = index.main_pipeline("q")
+        result = index.main_pipeline("quantum error correction")
         elapsed = time.monotonic() - started
 
         self.assertEqual([r["chunk_index"] for r in result["responses"]], [1, 2, 3])
@@ -503,7 +545,7 @@ class NonStreamingPipelineTests(PipelineTestCase):
         index = self.make_index(dense=FakeDenseRAG(total=0))
 
         with self.assertRaises(VectorStoreUnavailable):
-            index.main_pipeline("q")
+            index.main_pipeline("quantum error correction")
 
 
 # ── Relevance agent, end to end ──────────────────────────────────────────────
@@ -642,7 +684,7 @@ class RelevanceAgentPipelineTests(PipelineTestCase):
     def test_non_streaming_pipeline_also_filters(self):
         index = self.make_index(llm=FakeLLMService(unrelated={"doc-1", "doc-3"}))
 
-        result = index.main_pipeline("q")
+        result = index.main_pipeline("quantum error correction")
 
         served = [
             d["document"] for response in result["responses"] for d in response["docs"]
@@ -653,7 +695,7 @@ class RelevanceAgentPipelineTests(PipelineTestCase):
     def test_non_streaming_pipeline_reports_when_nothing_is_related(self):
         index = self.make_index(llm=FakeLLMService(unrelated={"doc-"}))
 
-        result = index.main_pipeline("q")
+        result = index.main_pipeline("quantum error correction")
 
         self.assertEqual(result["responses"], [])
         self.assertEqual(result["agent_outcome"], "no_relevant")
@@ -709,9 +751,11 @@ class StreamViewTests(TestCase):
     def setUp(self):
         self.dense = FakeDenseRAG()
         self.llm = FakeLLMService()
+        self.arxiv = FakeArxivClient()
         patches = [
             mock.patch("airecommender.main.DenseRAG", return_value=self.dense),
             mock.patch("airecommender.main.get_llm_service", return_value=self.llm),
+            mock.patch("airecommender.main.ArxivClient", return_value=self.arxiv),
             mock.patch(
                 "airecommender.main.generate_hypothetical_abstract",
                 lambda query, **kwargs: "hyde",
@@ -922,3 +966,309 @@ class StreamViewTests(TestCase):
         self.assertEqual(events[-1]["type"], "error")
         # The raw exception text stays in the log, not in the response.
         self.assertNotIn("unexpected", body)
+
+
+# ── Live arXiv fallback, end to end ──────────────────────────────────────────
+
+
+@override_settings(
+    MAX_CONTEXT_DOCS=12,
+    CHUNK_SIZE=5,
+    ENABLE_RELEVANCE_AGENT=True,
+    ENABLE_ARXIV_FALLBACK=True,
+    ENABLE_QUERY_VERIFICATION=False,
+    AGENT_MIN_RELEVANT_DOCS=6,
+    AGENT_MAX_ITERATIONS=1,
+)
+class ArxivFallbackPipelineTests(PipelineTestCase):
+    """
+    The collection only ever returns five documents here, and the agent wants
+    six, so every test in this class runs with the fallback triggered.
+    """
+
+    def test_live_papers_join_the_answer_when_the_collection_is_short(self):
+        arxiv = FakeArxivClient([arxiv_paper("Live Paper One"), arxiv_paper("Live Paper Two")])
+        index = self.make_index(arxiv=arxiv)
+
+        events = self.collect(index)
+
+        self.assertEqual(len(arxiv.calls), 1)
+        served = [
+            json.loads(d["document"]).get("title") if d["document"].startswith("{") else d["document"]
+            for event in events
+            if event["type"] == "chunk_end"
+            for d in event["docs"]
+        ]
+        self.assertIn("Live Paper One", served)
+        self.assertIn("doc-0", served)
+        self.assertEqual(events[-1]["total_docs_retrieved"], 7)
+
+    def test_live_papers_are_labelled_as_such_on_the_wire(self):
+        index = self.make_index(arxiv=FakeArxivClient([arxiv_paper("Live Paper")]))
+
+        events = self.collect(index)
+
+        sources = {
+            (d.get("meta") or {}).get("source", "collection")
+            for event in events
+            if event["type"] == "chunk_end"
+            for d in event["docs"]
+        }
+        self.assertEqual(sources, {"collection", "arxiv_api"})
+
+    def test_the_live_search_is_reported_as_progress(self):
+        index = self.make_index(arxiv=FakeArxivClient([arxiv_paper("Live Paper")]))
+
+        events = self.collect(index)
+
+        statuses = [
+            event["status"]
+            for event in events
+            if event["type"] == "progress" and event["step"] == "relevance"
+        ]
+        self.assertIn("fallback_searching", statuses)
+        self.assertIn("fallback_graded", statuses)
+
+    def test_live_papers_are_graded_like_local_ones(self):
+        # The grader rejects this paper by title, exactly as it would a local one.
+        arxiv = FakeArxivClient([arxiv_paper("Irrelevant Live Paper")])
+        index = self.make_index(
+            llm=FakeLLMService(unrelated={"Irrelevant Live Paper"}), arxiv=arxiv
+        )
+
+        events = self.collect(index)
+
+        served = [
+            d["document"]
+            for event in events
+            if event["type"] == "chunk_end"
+            for d in event["docs"]
+        ]
+        self.assertFalse([d for d in served if "Irrelevant Live Paper" in d])
+        self.assertEqual(events[-1]["total_docs_retrieved"], 5)
+
+    def test_an_unreachable_arxiv_still_answers_from_the_collection(self):
+        """The user's requirement: arXiv down must fall back to ChromaDB."""
+        arxiv = FakeArxivClient(error=OSError("connection refused"))
+        index = self.make_index(arxiv=arxiv)
+
+        events = self.collect(index)
+        kinds = self.types(events)
+
+        self.assertIn("chunk_end", kinds)
+        served = [
+            d["document"]
+            for event in events
+            if event["type"] == "chunk_end"
+            for d in event["docs"]
+        ]
+        self.assertEqual(sorted(served), ["doc-0", "doc-1", "doc-2", "doc-3", "doc-4"])
+        self.assertEqual(events[-1]["total_docs_retrieved"], 5)
+        self.assertEqual(events[-1]["agent_outcome"], "accepted")
+
+    def test_an_unreachable_arxiv_is_reported_rather_than_hidden(self):
+        index = self.make_index(arxiv=FakeArxivClient(error=OSError("connection refused")))
+
+        events = self.collect(index)
+
+        statuses = [
+            event["status"]
+            for event in events
+            if event["type"] == "progress" and event["step"] == "relevance"
+        ]
+        self.assertIn("fallback_unavailable", statuses)
+        self.assertIn("arXiv could not be reached", events[-1]["notice"])
+        verification = events[-1]["verification"]
+        self.assertIn("connection refused", verification["fallback_error"])
+
+    def test_an_arxiv_outage_never_becomes_a_request_failure(self):
+        index = self.make_index(arxiv=FakeArxivClient(error=RuntimeError("boom")))
+
+        events = self.collect(index)
+
+        self.assertNotIn("error", self.types(events))
+        self.assertEqual(self.types(events)[-1], "complete")
+
+    def test_a_client_that_failed_to_build_claims_nothing_about_arxiv(self):
+        """
+        A client that failed at startup leaves the fallback off entirely, so
+        the run says nothing about arXiv at all — rather than reporting a
+        source that was never contacted as one that had nothing to offer.
+        """
+        index = self.make_index()
+        index.arxiv_client = None  # what a failed ArxivClient() leaves behind
+
+        events = self.collect(index)
+
+        self.assertFalse(index._fallback_enabled)
+        statuses = [
+            event["status"]
+            for event in events
+            if event["type"] == "progress" and event["step"] == "relevance"
+        ]
+        self.assertFalse([s for s in statuses if s.startswith("fallback")])
+        self.assertEqual(events[-1]["total_docs_retrieved"], 5)
+
+    def test_calling_the_fallback_without_a_client_is_unavailable_not_empty(self):
+        # The guard above means the agent never reaches this, but returning []
+        # here would be reported to the user as "arXiv had nothing", which is a
+        # false statement about a source that was never contacted.
+        index = self.make_index()
+        index.arxiv_client = None
+
+        with self.assertRaises(ArxivUnavailable):
+            index._arxiv_fallback("quantum error correction", 5.0)
+
+    @override_settings(AGENT_MIN_RELEVANT_DOCS=2)
+    def test_a_well_stocked_collection_never_calls_out(self):
+        arxiv = FakeArxivClient([arxiv_paper("Live Paper")])
+        index = self.make_index(arxiv=arxiv)
+
+        self.collect(index)
+
+        self.assertEqual(arxiv.calls, [])
+
+    @override_settings(ENABLE_ARXIV_FALLBACK=False)
+    def test_the_fallback_can_be_switched_off(self):
+        arxiv = FakeArxivClient([arxiv_paper("Live Paper")])
+        index = self.make_index(arxiv=arxiv)
+
+        self.collect(index)
+
+        self.assertEqual(arxiv.calls, [])
+
+    @override_settings(ENABLE_RELEVANCE_AGENT=False)
+    def test_no_grader_means_no_live_source(self):
+        """Nothing would hold live results to the same standard, so: off."""
+        arxiv = FakeArxivClient([arxiv_paper("Live Paper")])
+        index = self.make_index(arxiv=arxiv)
+
+        self.collect(index)
+
+        self.assertFalse(index._fallback_enabled)
+        self.assertEqual(arxiv.calls, [])
+
+
+# ── Boundary verification, end to end ────────────────────────────────────────
+
+
+@override_settings(
+    MAX_CONTEXT_DOCS=5,
+    CHUNK_SIZE=5,
+    ENABLE_QUERY_VERIFICATION=True,
+    ENABLE_RESULT_VERIFICATION=True,
+    ENABLE_ARXIV_FALLBACK=False,
+)
+class VerificationPipelineTests(PipelineTestCase):
+    def test_an_unsearchable_query_costs_nothing(self):
+        index = self.make_index()
+
+        events = self.collect(index, query="?")
+        kinds = self.types(events)
+
+        self.assertEqual(kinds[-1], "complete")
+        self.assertNotIn("chunk_start", kinds)
+        # The expensive stages never ran.
+        self.assertEqual(self.dense.retrieve_calls, [])
+        self.assertEqual(self.llm.grade_calls, [])
+        self.assertEqual(self.llm.stream_calls, [])
+        self.assertFalse(events[-1]["query_check"]["ok"])
+        self.assertIn("notice", events[-1])
+
+    def test_a_real_question_passes_the_check(self):
+        index = self.make_index()
+
+        events = self.collect(index, query="graph neural networks for drug discovery")
+        checks = [
+            event
+            for event in events
+            if event["type"] == "progress" and event["step"] == "query_check"
+        ]
+
+        self.assertEqual([event["status"] for event in checks], ["start", "done"])
+        self.assertIn("chunk_end", self.types(events))
+
+    def test_a_broken_checker_never_blocks_a_query(self):
+        class Exploding(FakeLLMService):
+            def generate_response(self, prompt, system_instruction_string="", **kwargs):
+                if "You screen questions" in system_instruction_string:
+                    raise RuntimeError("checker down")
+                return super().generate_response(
+                    prompt, system_instruction_string, **kwargs
+                )
+
+        index = self.make_index(llm=Exploding())
+
+        events = self.collect(index, query="graph neural networks")
+
+        self.assertIn("chunk_end", self.types(events))
+        done = next(
+            event
+            for event in events
+            if event["type"] == "progress" and event.get("step") == "query_check"
+            and event["status"] == "done"
+        )
+        self.assertEqual(done["query_check"]["status"], "unavailable")
+
+    @override_settings(ENABLE_QUERY_VERIFICATION=False)
+    def test_the_query_check_can_be_switched_off(self):
+        index = self.make_index()
+
+        events = self.collect(index, query="?")
+
+        self.assertNotIn(
+            "query_check", [event.get("step") for event in events]
+        )
+        self.assertIn("chunk_end", self.types(events))
+
+    def test_the_selection_is_described_before_it_is_answered_from(self):
+        index = self.make_index()
+
+        events = self.collect(index, query="graph neural networks")
+
+        verification = next(
+            event
+            for event in events
+            if event["type"] == "progress" and event["step"] == "verification"
+        )
+        report = verification["verification"]
+        self.assertEqual(report["docs"], 5)
+        self.assertEqual(report["sources"], {"collection": 5})
+        self.assertIn("query_term_coverage", report)
+        self.assertEqual(events[-1]["verification"]["docs"], 5)
+
+        # It arrives before generation, not after.
+        order = self.types(events)
+        self.assertLess(order.index("progress"), order.index("chunk_start"))
+        positions = [
+            index_
+            for index_, event in enumerate(events)
+            if event["type"] == "progress" and event.get("step") == "verification"
+        ]
+        self.assertLess(positions[0], order.index("chunk_start"))
+
+    @override_settings(ENABLE_RESULT_VERIFICATION=False)
+    def test_result_verification_can_be_switched_off(self):
+        index = self.make_index()
+
+        events = self.collect(index, query="graph neural networks")
+
+        self.assertNotIn("verification", events[-1])
+
+    def test_the_non_streaming_pipeline_reports_the_same_things(self):
+        index = self.make_index()
+
+        result = index.main_pipeline("graph neural networks")
+
+        self.assertEqual(result["verification"]["docs"], 5)
+        self.assertNotIn("query_check", result)
+
+    def test_a_rejected_query_is_reported_by_the_non_streaming_pipeline(self):
+        index = self.make_index()
+
+        result = index.main_pipeline("?")
+
+        self.assertEqual(result["responses"], [])
+        self.assertFalse(result["query_check"]["ok"])
+        self.assertIn("notice", result)
+        self.assertEqual(self.dense.retrieve_calls, [])

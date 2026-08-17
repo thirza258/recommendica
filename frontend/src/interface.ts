@@ -54,14 +54,50 @@ type ApiResponse = {
 
 // ── SSE streaming event types ──────────────────────────────────────────────
 
+/** Pre-flight verdict on the query, before the pipeline spends anything. */
+type QueryCheck = {
+  ok: boolean
+  /** "research" | "empty" | "too_short" | "too_long" | "greeting" | ... */
+  kind: string
+  /** "deterministic" | "checked" | "unavailable" | "skipped" */
+  status: string
+  reason?: string
+  suggestion?: string
+  error?: string
+}
+
+/** Deterministic report on the papers an answer was built from. */
+type ResultVerification = {
+  docs: number
+  /** Document count per origin, e.g. { collection: 4, arxiv_api: 2 }. */
+  sources?: Record<string, number>
+  min_relevant?: number
+  min_relevant_met?: boolean
+  /** null when nothing carried a vector distance (a live-source-only answer). */
+  retrieval_confidence?: number | null
+  confidence_threshold?: number
+  query_term_coverage?: number
+  agent_outcome?: string
+  graded?: boolean
+  rejected?: number
+  fallback_used?: boolean
+  fallback_kept?: number
+  /** Set when arXiv was consulted but unreachable; the collection was used alone. */
+  fallback_error?: string
+  warnings?: string[]
+  error?: string
+}
+
 type StreamProgressEvent = {
   type: "progress"
-  /** "variants" | "relevance" | "retrieval" | "chunking" */
+  /** "query_check" | "variants" | "relevance" | "retrieval" | "verification" | "chunking" */
   step: string
   /**
    * "start" | "done" for pipeline stages; the relevance agent also reports
    * "searching" | "graded" | "refining" | "empty" | "deadline" |
-   * "grader_unavailable".
+   * "grader_unavailable", and, for the live arXiv fallback,
+   * "fallback_searching" | "fallback_graded" | "fallback_empty" |
+   * "fallback_unavailable" | "fallback_ungraded".
    */
   status: string
   message: string
@@ -74,6 +110,12 @@ type StreamProgressEvent = {
   rejected?: number
   related_total?: number
   refined_query?: string
+  /** Live-fallback detail. */
+  source?: string
+  error?: string
+  /** Attached to the "query_check" / "verification" steps respectively. */
+  query_check?: QueryCheck
+  verification?: ResultVerification
 }
 
 type StreamChunkStartEvent = {
@@ -111,6 +153,10 @@ type StreamCompleteEvent = {
   notice?: string
   /** "accepted" | "no_candidates" | "no_relevant" | "grader_unavailable" */
   agent_outcome?: string
+  /** Present when the query was rejected before the pipeline ran. */
+  query_check?: QueryCheck
+  /** Present when result verification is enabled. */
+  verification?: ResultVerification
 }
 
 type StreamErrorEvent = {
@@ -129,6 +175,8 @@ type StreamEvent =
 export type {
   Status,
   ResearchInfo,
+  QueryCheck,
+  ResultVerification,
   Document,
   ClaimVerdict,
   ChunkEval,

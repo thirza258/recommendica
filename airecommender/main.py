@@ -29,6 +29,8 @@ from airecommender.pipeline.prompting import build_chunk_prompt
 from airecommender.pipeline.query_transform.hyde_rag import generate_hypothetical_abstract
 from airecommender.pipeline.query_transform.rag_fusion import generate_query_variants
 from airecommender.pipeline.query_transform.step_back import step_back
+from airecommender.pipeline.sources.arxiv_api import ArxivClient, ArxivUnavailable
+from airecommender.pipeline.verification import QueryVerdict, verify_query, verify_results
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,38 @@ class RAGIndex:
         self.enable_answer_evaluation = bool(_setting("ENABLE_ANSWER_EVALUATION", False))
         self.evaluation_timeout = int(_setting("ANSWER_EVALUATION_TIMEOUT", 45))
 
+        # ── Live arXiv fallback ───────────────────────────────────────────
+        # Consulted by the relevance agent when the indexed collection cannot
+        # supply AGENT_MIN_RELEVANT_DOCS related papers.  It needs the agent:
+        # the grader is what keeps live results to the same standard as local
+        # ones, so with the agent off there is nothing to enforce it.
+        self.enable_arxiv_fallback = bool(_setting("ENABLE_ARXIV_FALLBACK", True))
+        self.arxiv_client = None
+        if self.enable_arxiv_fallback:
+            try:
+                self.arxiv_client = ArxivClient()
+            except Exception as exc:  # noqa: BLE001
+                # An optional extra must not be able to stop the pipeline from
+                # starting: without it every request would 503, when the local
+                # collection could have served them all.
+                logger.error(
+                    "[PIPELINE] arXiv fallback disabled — client setup failed: %s",
+                    exc,
+                )
+        if self.enable_arxiv_fallback and not self.enable_agent:
+            logger.warning(
+                "[PIPELINE] ENABLE_ARXIV_FALLBACK is on but the relevance agent "
+                "is off — the fallback stays disabled, because nothing would "
+                "grade what it returns."
+            )
+
+        # ── Boundary checks ───────────────────────────────────────────────
+        self.enable_query_verification = bool(_setting("ENABLE_QUERY_VERIFICATION", True))
+        self.query_verification_timeout = int(_setting("QUERY_VERIFICATION_TIMEOUT", 15))
+        self.query_min_chars = int(_setting("QUERY_MIN_CHARS", 2))
+        self.query_max_chars = int(_setting("QUERY_MAX_CHARS", 1000))
+        self.enable_result_verification = bool(_setting("ENABLE_RESULT_VERIFICATION", True))
+
         self._readiness_cache: Optional[tuple[float, dict]] = None
         self._readiness_lock = threading.Lock()
         self._probe_lock = threading.Lock()
@@ -90,7 +124,7 @@ class RAGIndex:
             "[PIPELINE] RAGIndex ready — transforms(hyde=%s step_back=%s fusion=%s) "
             "max_context_docs=%s chunk_size=%s generation_workers=%s "
             "relevance_agent=%s(model=%r iterations=%s min_relevant=%s) "
-            "answer_evaluation=%s",
+            "answer_evaluation=%s arxiv_fallback=%s query_check=%s result_check=%s",
             self.enable_hyde,
             self.enable_step_back,
             self.enable_rag_fusion,
@@ -102,7 +136,15 @@ class RAGIndex:
             self.agent_max_iterations,
             self.agent_min_relevant,
             self.enable_answer_evaluation,
+            self._fallback_enabled,
+            self.enable_query_verification,
+            self.enable_result_verification,
         )
+
+    @property
+    def _fallback_enabled(self) -> bool:
+        """The live source is only usable when the grader is there to check it."""
+        return bool(self.enable_arxiv_fallback and self.enable_agent and self.arxiv_client)
 
     # ── Query-generation helpers ──────────────────────────────────────────────
 
@@ -327,12 +369,77 @@ class RAGIndex:
             retrieve,
             grade,
             refine,
+            self._arxiv_fallback if self._fallback_enabled else None,
             min_relevant=self.agent_min_relevant,
             max_iterations=self.agent_max_iterations,
             threshold=self.agent_threshold,
             max_docs=self.max_context_docs,
             deadline_seconds=self.agent_deadline,
         )
+
+    def _arxiv_fallback(self, query: str, budget: float) -> list[dict]:
+        """
+        The agent's live source: search arXiv for *query* within *budget*.
+
+        Returns candidates in the same shape as retrieval; the agent grades all
+        of them before any can reach an answer.
+
+        Raises :class:`ArxivUnavailable` when the source could not be consulted
+        — including when its client failed to build at startup.  Returning
+        ``[]`` there would be reported to the user as "arXiv had nothing",
+        which is a different (and false) statement about a source that was
+        never contacted.
+        """
+        if self.arxiv_client is None:
+            raise ArxivUnavailable("the arXiv client is not configured")
+        return self.arxiv_client.search(query, budget=budget)
+
+    # ── Boundary checks ───────────────────────────────────────────────────────
+
+    def check_query(self, query: str) -> QueryVerdict:
+        """
+        Screen the query before spending anything on it.
+
+        A rejection here saves three transform calls, a retrieval round trip, a
+        grading call and one generation call per chunk.  The check fails open —
+        see :mod:`verification.query_check`.
+        """
+        if not self.enable_query_verification:
+            return QueryVerdict()
+
+        return verify_query(
+            query,
+            self.llm_service,
+            model=self.agent_model,
+            timeout=self.query_verification_timeout,
+            min_chars=self.query_min_chars,
+            max_chars=self.query_max_chars,
+        )
+
+    def _verify_results(self, query: str, candidates, agent_result) -> Optional[dict]:
+        """Describe the selected documents, or ``None`` when switched off."""
+        if not self.enable_result_verification:
+            return None
+        return verify_results(
+            query,
+            candidates,
+            agent_result=agent_result,
+            min_relevant=self.agent_min_relevant,
+        )
+
+    @staticmethod
+    def _rejected_query_result(query: str, verdict: QueryVerdict) -> dict:
+        """The non-streaming shape for a query that never ran."""
+        return {
+            "query": query,
+            "total_docs_retrieved": 0,
+            "num_chunks": 0,
+            "chunk_size": settings.CHUNK_SIZE,
+            "responses": [],
+            "aggregate_faithfulness": None,
+            "notice": verdict.reason,
+            "query_check": verdict.as_payload(),
+        }
 
     @staticmethod
     def _agent_progress(event: AgentEvent) -> dict:
@@ -365,11 +472,16 @@ class RAGIndex:
         Choose the documents to answer from, running the agent when enabled.
 
         Generator: yields pipeline ``progress`` events, returns
-        ``(docs, AgentResult | None)``.
+        ``(docs, AgentResult | None, verification | None)``.
+
+        The verification report is built here, before :meth:`_strip_docs`,
+        because it reads the retrieval signals (distance, source) that the wire
+        shape deliberately drops.
         """
         if not self.enable_agent:
-            docs = self._strip_docs(self._fuse_documents(query, queries, total))
-            return docs, None
+            candidates = self._fuse_documents(query, queries, total)
+            verification = self._verify_results(query, candidates, None)
+            return self._strip_docs(candidates), None, verification
 
         agent = self._build_agent(query, total)
         generator = agent.run(query, queries=queries, cancel_event=cancel_event)
@@ -383,7 +495,8 @@ class RAGIndex:
                 break
             yield self._agent_progress(event)
 
-        return self._strip_docs(result.docs), result
+        verification = self._verify_results(query, result.docs, result)
+        return self._strip_docs(result.docs), result, verification
 
     def _chunk_documents(self, docs: list[dict]) -> list[list[dict]]:
         size = max(1, settings.CHUNK_SIZE)
@@ -542,15 +655,27 @@ class RAGIndex:
 
         Flow
         ----
+        0. Verify the query          (stop early if a search cannot answer it)
         1. Generate query variants   (HyDE, step-back, rag-fusion — concurrent)
         2. Dense retrieval           (one batched call, fused with RRF)
-        3. Relevance agent           (grade, drop unrelated, refine and retry)
-        4. Chunk documents           (groups of settings.CHUNK_SIZE)
-        5. Generate LLM response     (chunks generated concurrently)
-        6. Return structured result
+        3. Relevance agent           (grade, drop unrelated, refine and retry,
+                                      then fall back to a live arXiv search)
+        4. Verify the selection      (deterministic report on what was chosen)
+        5. Chunk documents           (groups of settings.CHUNK_SIZE)
+        6. Generate LLM response     (chunks generated concurrently)
+        7. Return structured result
         """
         logger.info(f"[PIPELINE] === Starting main_pipeline for query: '{query[:100]}' ===")
         pipeline_start = time.monotonic()
+
+        verdict = self.check_query(query)
+        if not verdict.ok:
+            logger.info(
+                "[PIPELINE] === Query rejected (%s) in %.1fs ===",
+                verdict.kind,
+                time.monotonic() - pipeline_start,
+            )
+            return self._rejected_query_result(query, verdict)
 
         t0 = time.monotonic()
         queries = self._build_query_variants(query)
@@ -569,7 +694,9 @@ class RAGIndex:
                 f"The document collection '{self.dense_rag.collection_name}' is "
                 f"empty. Index documents before searching."
             )
-        all_docs, agent_result = self._collect_documents(query, queries, total)
+        all_docs, agent_result, verification = self._collect_documents(
+            query, queries, total
+        )
         logger.info(
             "[PIPELINE] Step 2-3/6 — retrieval + relevance: %s docs from %s "
             "variants in %.1fs",
@@ -594,6 +721,8 @@ class RAGIndex:
             if agent_result is not None and agent_result.notice:
                 empty["notice"] = agent_result.notice
                 empty["agent_outcome"] = agent_result.outcome.value
+            if verification is not None:
+                empty["verification"] = verification
             return empty
 
         chunks = self._chunk_documents(all_docs)
@@ -640,6 +769,8 @@ class RAGIndex:
         if agent_result is not None and agent_result.notice:
             result["notice"] = agent_result.notice
             result["agent_outcome"] = agent_result.outcome.value
+        if verification is not None:
+            result["verification"] = verification
         return result
 
     def _collect_documents(self, query: str, queries: list[str], total: int):
@@ -691,6 +822,48 @@ class RAGIndex:
         def cancelled() -> bool:
             return cancel_event is not None and cancel_event.is_set()
 
+        # ── Step 0: Verify the query ──────────────────────────────────────
+        # Everything after this point costs LLM calls, so an input a paper
+        # search cannot answer is worth catching here rather than after.
+        if self.enable_query_verification:
+            yield {
+                "type": "progress",
+                "step": "query_check",
+                "status": "start",
+                "message": "Checking the query...",
+            }
+
+            verdict = self.check_query(query)
+            if not verdict.ok:
+                logger.info(
+                    "[PIPELINE] === Query rejected (%s) after %.1fs ===",
+                    verdict.kind,
+                    time.monotonic() - pipeline_start,
+                )
+                # A `complete` rather than an `error`: nothing broke, the
+                # question simply cannot be answered from a paper corpus, and
+                # the notice says why.
+                yield {
+                    "type": "complete",
+                    "total_docs_retrieved": 0,
+                    "num_chunks": 0,
+                    "elapsed_ms": round((time.monotonic() - pipeline_start) * 1000),
+                    "notice": verdict.reason,
+                    "query_check": verdict.as_payload(),
+                }
+                return
+
+            yield {
+                "type": "progress",
+                "step": "query_check",
+                "status": "done",
+                "message": "Query looks searchable",
+                "query_check": verdict.as_payload(),
+            }
+
+        if cancelled():
+            return
+
         # ── Step 1: Build query variants ──────────────────────────────────
         yield {
             "type": "progress",
@@ -725,6 +898,7 @@ class RAGIndex:
 
         t0 = time.monotonic()
         agent_result: Optional[AgentResult] = None
+        verification: Optional[dict] = None
         try:
             total = self.dense_rag.count()
             if total == 0:
@@ -746,7 +920,7 @@ class RAGIndex:
                 try:
                     yield next(selection)
                 except StopIteration as stop:
-                    all_docs, agent_result = stop.value
+                    all_docs, agent_result, verification = stop.value
                     break
         except DependencyUnavailable as exc:
             logger.error("[PIPELINE] Retrieval unavailable: %s", exc)
@@ -779,6 +953,23 @@ class RAGIndex:
             "elapsed_ms": round(retrieval_elapsed * 1000),
         }
 
+        # ── Verify the selection ──────────────────────────────────────────
+        # Deterministic, so it is emitted whatever the outcome — including for
+        # an empty selection, where "why is there no answer" is the question
+        # the user actually has.
+        if verification is not None:
+            yield {
+                "type": "progress",
+                "step": "verification",
+                "status": "done",
+                "message": (
+                    "; ".join(verification["warnings"])
+                    if verification.get("warnings")
+                    else f"{verification['docs']} paper(s) verified as the basis for the answer"
+                ),
+                "verification": verification,
+            }
+
         if cancelled():
             return
 
@@ -794,6 +985,8 @@ class RAGIndex:
             if agent_result is not None and agent_result.notice:
                 complete["notice"] = agent_result.notice
                 complete["agent_outcome"] = agent_result.outcome.value
+            if verification is not None:
+                complete["verification"] = verification
             yield complete
             return
 
@@ -888,6 +1081,8 @@ class RAGIndex:
             complete["agent_outcome"] = agent_result.outcome.value
             if agent_result.notice:
                 complete["notice"] = agent_result.notice
+        if verification is not None:
+            complete["verification"] = verification
         yield complete
 
     # ── Readiness ─────────────────────────────────────────────────────────────

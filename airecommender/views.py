@@ -238,9 +238,11 @@ class RecommendationSystem(APIView):
                 "aggregate_faithfulness": pipeline_result.get("aggregate_faithfulness"),
                 "_elapsed_seconds": round(total_elapsed, 1),
             }
-            # Present when the relevance agent has something to report — e.g.
-            # no sufficiently related papers were found for this query.
-            for key in ("notice", "agent_outcome"):
+            # Present when there is something to report beyond the answer:
+            # the relevance agent's outcome (e.g. nothing related was found),
+            # the pre-flight query verdict, or the report describing which
+            # papers the answer was built from.
+            for key in ("notice", "agent_outcome", "query_check", "verification"):
                 if pipeline_result.get(key):
                     payload[key] = pipeline_result[key]
 

@@ -77,6 +77,23 @@ def format_document(doc_text: str, max_chars: int = DEFAULT_MAX_DOC_CHARS) -> st
     return "\n".join(lines)
 
 
+def document_title(doc_text: str) -> str:
+    """
+    The record's title, whitespace-normalised, or ``""``.
+
+    Used to recognise the same paper arriving from two different sources (the
+    indexed collection and a live search), where the serialised documents
+    differ character by character but the paper does not.
+    """
+    try:
+        record = json.loads(doc_text)
+    except (json.JSONDecodeError, TypeError):
+        return ""
+    if not isinstance(record, dict):
+        return ""
+    return " ".join(str(record.get("title") or "").split())
+
+
 #: Per-candidate budget when the relevance agent grades a batch of papers.
 #: Grading only needs the title, category and enough abstract to judge topic —
 #: 20 candidates of untruncated JSON would be a large, wasteful input.

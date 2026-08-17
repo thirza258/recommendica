@@ -65,6 +65,26 @@ services:
       AGENT_DEADLINE: "${AGENT_DEADLINE:-90}"
       ENABLE_ANSWER_EVALUATION: "${ENABLE_ANSWER_EVALUATION:-False}"
       ANSWER_EVALUATION_TIMEOUT: "${ANSWER_EVALUATION_TIMEOUT:-45}"
+      # Live arXiv fallback: consulted when the collection cannot supply
+      # AGENT_MIN_RELEVANT_DOCS related papers, graded like local results, and
+      # skipped without complaint when arxiv.org is unreachable.
+      ENABLE_ARXIV_FALLBACK: "${ENABLE_ARXIV_FALLBACK:-True}"
+      ARXIV_API_URL: "${ARXIV_API_URL:-https://export.arxiv.org/api/query}"
+      ARXIV_FALLBACK_MAX_RESULTS: "${ARXIV_FALLBACK_MAX_RESULTS:-10}"
+      ARXIV_FALLBACK_TIMEOUT: "${ARXIV_FALLBACK_TIMEOUT:-15}"
+      ARXIV_MIN_REQUEST_INTERVAL: "${ARXIV_MIN_REQUEST_INTERVAL:-3}"
+      ARXIV_USER_AGENT: "${ARXIV_USER_AGENT:-}"
+      ARXIV_MAX_QUERY_TERMS: "${ARXIV_MAX_QUERY_TERMS:-6}"
+      ARXIV_SORT_BY: "${ARXIV_SORT_BY:-relevance}"
+      ARXIV_BREAKER_THRESHOLD: "${ARXIV_BREAKER_THRESHOLD:-3}"
+      ARXIV_BREAKER_COOLDOWN: "${ARXIV_BREAKER_COOLDOWN:-300}"
+      # Boundary checks: screen the query before spending on it, and report
+      # what the answer is built from afterwards.
+      ENABLE_QUERY_VERIFICATION: "${ENABLE_QUERY_VERIFICATION:-True}"
+      QUERY_VERIFICATION_TIMEOUT: "${QUERY_VERIFICATION_TIMEOUT:-15}"
+      QUERY_MIN_CHARS: "${QUERY_MIN_CHARS:-2}"
+      QUERY_MAX_CHARS: "${QUERY_MAX_CHARS:-1000}"
+      ENABLE_RESULT_VERIFICATION: "${ENABLE_RESULT_VERIFICATION:-True}"
       MAX_CONCURRENT_QUERIES: "${MAX_CONCURRENT_QUERIES:-8}"
       SSE_HEARTBEAT_SECONDS: "${SSE_HEARTBEAT_SECONDS:-15}"
       GUNICORN_WORKERS: "${GUNICORN_WORKERS:-2}"
