@@ -61,26 +61,25 @@
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Elevation ──────────────────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --shadow-lg: 0 12px 32px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
 
-  /* ── Colour: light (default) ────────────────────────────────────────── */
-  --canvas: #f6f7f9;
-  --canvas-glow: rgba(29, 78, 216, 0.05);
+  /* ── Colour: pure light mode ────────────────────────────────────────── */
+  --canvas: #ffffff;
   --surface: #ffffff;
-  --surface-sunken: #f1f5f9;
-  --surface-hover: #e9eef5;
+  --surface-sunken: #f8fafc;
+  --surface-hover: #f1f5f9;
 
-  --ink: #0f172a;          /* 17.9:1 on surface */
-  --ink-muted: #475569;    /*  7.6:1 on surface */
-  --ink-subtle: #5b6a7e;   /*  5.5:1 on surface, 5.0:1 on sunken */
+  --ink: #0f172a;          /* deep slate neutral */
+  --ink-muted: #334155;    /* body and secondary labels */
+  --ink-subtle: #64748b;   /* metadata and captions */
 
-  --border: #e2e8f0;         /* separators — decorative, no contrast floor */
+  --border: #e2e8f0;         /* crisp subtle card and divider boundaries */
   --border-strong: #cbd5e1;  /* hover emphasis on cards and pills */
-  --field-border: #7f8da2;   /* form-control boundary — WCAG 1.4.11, 3:1 */
+  --field-border: #94a3b8;   /* form-control boundary — WCAG 1.4.11, 3:1 */
 
-  --accent: #1d4ed8;       /*  6.7:1 on surface */
+  --accent: #1d4ed8;       /* scholarly cobalt blue */
   --accent-hover: #1e40af;
   --accent-contrast: #ffffff;
   --accent-soft: #eff6ff;
@@ -98,7 +97,7 @@
   --danger-bg: #fef2f2;
   --danger-border: #fecaca;
 
-  --neutral-fg: #475569;
+  --neutral-fg: #334155;
   --neutral-bg: #f1f5f9;
   --neutral-border: #e2e8f0;
 
@@ -116,57 +115,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Colour: dark ─────────────────────────────────────────────────────────
-   Token overrides only. Desaturated tonal variants rather than inverted
-   values, with contrast verified independently of the light theme. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0b1120;
-    --canvas-glow: rgba(138, 176, 255, 0.07);
-    --surface: #151e30;
-    --surface-sunken: #1b2639;
-    --surface-hover: #223047;
-
-    --ink: #e8edf5;
-    --ink-muted: #a8b5c7;
-    --ink-subtle: #8494aa;
-
-    --border: #27354c;
-    --border-strong: #3a4a66;
-    --field-border: #647796;
-
-    --accent: #8ab0ff;
-    --accent-hover: #a8c4ff;
-    --accent-contrast: #0b1120;
-    --accent-soft: #16233d;
-    --accent-border: #2d456f;
-
-    --success-fg: #6ee7b7;
-    --success-bg: #0e2a22;
-    --success-border: #1f5648;
-
-    --warn-fg: #fcd34d;
-    --warn-bg: #2c2109;
-    --warn-border: #5c4410;
-
-    --danger-fg: #fca5a5;
-    --danger-bg: #2e1315;
-    --danger-border: #5e2427;
-
-    --neutral-fg: #a8b5c7;
-    --neutral-bg: #1b2639;
-    --neutral-border: #27354c;
-
-    --focus-ring: #8ab0ff;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --shadow-lg: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.45);
-
-    color-scheme: dark;
-  }
-}
-
 /* ── Base ─────────────────────────────────────────────────────────────── */
 
 *,
@@ -179,6 +127,7 @@ html {
   min-width: 320px;
   min-height: 100%;
   -webkit-text-size-adjust: 100%;
+  background-color: #ffffff;
 }
 
 body {
@@ -186,15 +135,8 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   color: var(--ink);
-  background-color: var(--canvas);
-  background-image: radial-gradient(
-    80rem 40rem at 50% -10rem,
-    var(--canvas-glow),
-    transparent 70%
-  );
-  /* Deliberately not `background-attachment: fixed` — that anchors the glow to
-     the viewport, so it would slide across the results as the page scrolls. */
-  background-repeat: no-repeat;
+  background-color: #ffffff;
+  background-image: none;
 }
 
 button,

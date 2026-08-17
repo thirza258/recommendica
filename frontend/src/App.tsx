@@ -65,9 +65,8 @@ function App() {
   }, [view]);
 
   // ── Search handler (streaming) ────────────────────────────────────────────
-  const runSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = prompt.trim();
+  const executeSearch = async (textToSearch: string) => {
+    const trimmed = textToSearch.trim();
     if (!trimmed) {
       setError("Enter a research question to continue.");
       setStatus("error");
@@ -79,7 +78,7 @@ function App() {
 
     setStatus("loading");
     setError("");
-    setProgressMsg("Starting...");
+    setProgressMsg("Starting query expansion & literature search...");
     setNotice("");
     setChunks([]);
     setQuery(trimmed);
@@ -160,6 +159,24 @@ function App() {
     }
   };
 
+  const runSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await executeSearch(prompt);
+  };
+
+  const handleStartFromLanding = (initialPrompt?: string, autoSubmit?: boolean) => {
+    if (initialPrompt && initialPrompt.trim()) {
+      const q = initialPrompt.trim();
+      setPrompt(q);
+      setView("app");
+      if (autoSubmit) {
+        void executeSearch(q);
+      }
+    } else {
+      setView("app");
+    }
+  };
+
   // ── SSE event dispatcher ──────────────────────────────────────────────────
   const handleStreamEvent = (event: StreamEvent) => {
     switch (event.type) {
@@ -236,12 +253,12 @@ function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (view === "landing") {
-    return <Landing onStart={() => setView("app")} />;
+    return <Landing onStart={handleStartFromLanding} />;
   }
 
   return (
     <div className="app-shell">
-      <TopBar status={status} />
+      <TopBar status={status} onHome={() => setView("landing")} />
 
       <main className="layout">
         <HeroPanel
