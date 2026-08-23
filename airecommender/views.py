@@ -5,16 +5,22 @@ import threading
 import time
 
 from django.conf import settings
-from django.http import StreamingHttpResponse
+from django.db import transaction as db_transaction
+from django.http import JsonResponse, StreamingHttpResponse
+from django.utils.dateparse import parse_datetime
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from . import donations
 from .main import get_rag_index
-from .models import ResearchInfo
+from .models import Donation, ResearchInfo
 from .pipeline.errors import PipelineError
-from .serializers import ResearchInfoSerializer
+from .serializers import DonationCheckoutSerializer, ResearchInfoSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -419,3 +425,308 @@ class RecommendationSystemStream(APIView):
                 time.monotonic() - request_start,
                 completed,
             )
+
+
+# ── Donations ────────────────────────────────────────────────────────────────
+# Recommendica is free to use and sells nothing; these three endpoints exist so
+# people who find it useful can chip in. They grant no entitlement, so nothing
+# downstream reads a donation — the only consumers are the admin and whoever
+# is paying the OpenRouter bill.
+
+
+def _donations_off_response(exc: donations.DonationError | None = None):
+    """
+    Answer for a server with no Paddle credentials.
+
+    503 rather than 404: the route exists and works elsewhere, this deployment
+    simply has not configured it, and the UI hides the button on this signal
+    instead of showing a donate flow that cannot complete.
+    """
+    message = exc.user_message() if exc else donations.DonationsNotConfigured().user_message()
+    return Response({"enabled": False, "error": message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+class DonationConfig(APIView):
+    """
+    GET /donate/config/
+
+    Everything the browser needs to render the donate flow: the *public*
+    Paddle.js client token, which environment it belongs to, the currency
+    allowlist and the amount bounds.  The API key and the webhook secret are
+    never part of this response.
+
+    Answers 200 with ``{"enabled": false}`` when Paddle is unconfigured — the
+    frontend asks this on load, and a missing feature is not an error.
+    """
+
+    def get(self, request):
+        config = donations.get_config()
+        if not config.checkout_configured:
+            return Response(
+                {"enabled": False, "reason": donations.DonationsNotConfigured().user_message()},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "enabled": True,
+                "environment": config.environment,
+                "client_token": config.client_token,
+                "currency": config.default_currency,
+                "currencies": list(config.currencies),
+                "presets": [str(amount) for amount in config.presets],
+                "min_amount": str(config.min_amount),
+                "max_amount": str(config.max_amount),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class DonationCheckout(APIView):
+    """
+    POST /donate/checkout/
+
+    Creates a Paddle transaction for a pay-what-you-want amount and hands back
+    its id, which the browser opens as an overlay checkout.
+
+    Request body:
+        { "amount": "15.00", "currency": "USD", "message": "optional note" }
+
+    Response (201):
+        {
+            "transaction_id": "txn_…",
+            "client_token": "live_…",
+            "environment": "production",
+            "amount": "15.00",
+            "currency": "USD",
+            "checkout_url": "https://…"   // may be null
+        }
+
+    Rate-limited: it is unauthenticated and every call creates a resource at
+    Paddle, so a loop here would otherwise be free to run up the account's
+    transaction list.
+    """
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "donation"
+    serializer_class = DonationCheckoutSerializer
+
+    def post(self, request):
+        config = donations.get_config()
+        if not config.checkout_configured:
+            return _donations_off_response()
+
+        serializer = DonationCheckoutSerializer(data=request.data, paddle_config=config)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        try:
+            paddle_transaction = donations.create_donation_transaction(
+                amount_minor=validated["amount_minor"],
+                currency=validated["currency"],
+                message=validated["message"],
+                config=config,
+            )
+        except donations.DonationsNotConfigured as exc:
+            return _donations_off_response(exc)
+        except donations.PaddleUnavailable as exc:
+            response = Response(
+                {"error": exc.user_message()},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+            response["Retry-After"] = "30"
+            return response
+
+        transaction_id = paddle_transaction.get("id")
+        if not transaction_id:
+            logger.error("[DONATE] Paddle returned a transaction with no id: %s", paddle_transaction)
+            return Response(
+                {"error": donations.PaddleUnavailable().user_message()},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # Recorded before payment so an abandoned checkout is visible as a draft
+        # row rather than as nothing at all.  update_or_create keeps a retry of
+        # the same transaction id from doubling up.
+        Donation.objects.update_or_create(
+            paddle_transaction_id=transaction_id,
+            defaults={
+                "status": paddle_transaction.get("status") or Donation.STATUS_DRAFT,
+                "amount_minor": validated["amount_minor"],
+                "currency": validated["currency"],
+                "message": validated["message"],
+            },
+        )
+
+        logger.info(
+            "[DONATE] Created transaction %s for %s %s",
+            transaction_id,
+            validated["amount_minor"],
+            validated["currency"],
+        )
+
+        return Response(
+            {
+                "transaction_id": transaction_id,
+                "client_token": config.client_token,
+                "environment": config.environment,
+                "amount": donations.format_amount(
+                    validated["amount_minor"], validated["currency"]
+                ),
+                "currency": validated["currency"],
+                # Paddle only fills this in when the account has a default
+                # payment link configured, so treat it as a bonus: the overlay
+                # checkout opened with transaction_id is the supported path.
+                "checkout_url": (paddle_transaction.get("checkout") or {}).get("url"),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+#: Transaction events we act on. Anything else Paddle sends is acknowledged and
+#: dropped — replying with an error would only make Paddle retry an event this
+#: application has no use for.
+_HANDLED_EVENT_PREFIX = "transaction."
+
+
+def _extract_email(data: dict) -> str:
+    """
+    Pull the payer's email out of a transaction payload, when it carries one.
+
+    Usually it does not: ``transaction.*`` events identify the payer by
+    ``customer_id`` and only carry the expanded ``customer`` object for
+    destinations configured to include it.  A blank email is therefore the
+    normal case and not a failure — Paddle owns the receipt, and nothing here
+    needs to contact a donor.
+    """
+    customer = data.get("customer")
+    if isinstance(customer, dict) and customer.get("email"):
+        return str(customer["email"])[:254]
+    return ""
+
+
+def _apply_transaction_event(event: dict) -> None:
+    """
+    Fold one ``transaction.*`` event into the matching :class:`Donation` row.
+
+    Paddle guarantees at-least-once delivery and does not guarantee order, so
+    this is written to be safe under both: the event id makes a redelivery a
+    no-op, and ``occurred_at`` stops a late-arriving earlier event from
+    reverting a status a later one already applied.
+    """
+    data = event.get("data") or {}
+    transaction_id = data.get("id")
+    if not transaction_id:
+        logger.warning("[DONATE] Webhook %s carried no transaction id", event.get("event_type"))
+        return
+
+    occurred_at = parse_datetime(event.get("occurred_at") or "") if event.get("occurred_at") else None
+    event_id = str(event.get("event_id") or "")[:64]
+    event_type = str(event.get("event_type") or "")[:64]
+    paddle_status = str(data.get("status") or "")[:32]
+    currency = str(data.get("currency_code") or "")[:3]
+    custom_data = data.get("custom_data") if isinstance(data.get("custom_data"), dict) else {}
+    totals = ((data.get("details") or {}).get("totals") or {})
+
+    with db_transaction.atomic():
+        donation, created = Donation.objects.select_for_update().get_or_create(
+            paddle_transaction_id=transaction_id,
+            defaults={
+                "status": paddle_status or Donation.STATUS_DRAFT,
+                # A donation started outside this app (a payment link, say) has
+                # no row yet, so the payload has to supply the amount.
+                "amount_minor": int(totals.get("grand_total") or 0),
+                "currency": currency,
+                "message": str(custom_data.get("message") or "")[:280],
+            },
+        )
+
+        if not created:
+            if event_id and event_id == donation.last_event_id:
+                logger.info("[DONATE] Ignoring redelivered event %s", event_id)
+                return
+            if occurred_at and donation.last_event_at and occurred_at < donation.last_event_at:
+                logger.info(
+                    "[DONATE] Ignoring out-of-order %s for %s", event_type, transaction_id
+                )
+                return
+
+        if paddle_status:
+            donation.status = paddle_status
+        if currency:
+            donation.currency = currency
+        # Paddle's total is authoritative once it exists: it accounts for tax
+        # and for anything the payer changed during checkout.
+        grand_total = totals.get("grand_total")
+        if grand_total not in (None, ""):
+            donation.amount_minor = int(grand_total)
+        email = _extract_email(data)
+        if email:
+            donation.email = email
+        if paddle_status == Donation.STATUS_COMPLETED and donation.completed_at is None:
+            donation.completed_at = occurred_at or None
+
+        donation.last_event_id = event_id
+        donation.last_event_type = event_type
+        donation.last_event_at = occurred_at
+        donation.save()
+
+    logger.info(
+        "[DONATE] %s → %s is now %s", event_type, transaction_id, donation.status
+    )
+
+
+@csrf_exempt
+@require_POST
+def paddle_webhook(request):
+    """
+    POST /donate/webhook/ — Paddle notification destination.
+
+    A plain Django view rather than an ``APIView``: the signature is computed
+    over the raw request body, and going through DRF's parsers to get it back
+    invites the body being consumed before it can be read.
+
+    Answers 200 as soon as the event is stored.  Any non-2xx makes Paddle retry,
+    so an event this app does not care about is acknowledged, not rejected —
+    only a failed signature check (401) and an unparseable body (400) refuse.
+    """
+    config = donations.get_config()
+    if not config.webhook_configured:
+        logger.error("[DONATE] Webhook called but PADDLE_WEBHOOK_SECRET is not set")
+        return JsonResponse({"error": "Webhook is not configured."}, status=503)
+
+    # Read the raw bytes first — before anything can touch request.POST.
+    raw_body = request.body
+
+    if not donations.verify_webhook_signature(
+        raw_body,
+        request.headers.get("Paddle-Signature", ""),
+        config.webhook_secret,
+        config.webhook_tolerance,
+    ):
+        logger.warning("[DONATE] Rejected webhook with an invalid signature")
+        return JsonResponse({"error": "Invalid signature."}, status=401)
+
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        logger.warning("[DONATE] Webhook body was not valid JSON")
+        return JsonResponse({"error": "Invalid payload."}, status=400)
+
+    if not isinstance(event, dict):
+        return JsonResponse({"error": "Invalid payload."}, status=400)
+
+    event_type = str(event.get("event_type") or "")
+    if not event_type.startswith(_HANDLED_EVENT_PREFIX):
+        logger.info("[DONATE] Ignoring unhandled event type %r", event_type)
+        return JsonResponse({"received": True, "handled": False})
+
+    try:
+        _apply_transaction_event(event)
+    except Exception:
+        # A 500 here makes Paddle retry, which is what we want for a transient
+        # database failure — but the detail belongs in the log, not the reply.
+        logger.exception("[DONATE] Failed to apply webhook %s", event_type)
+        return JsonResponse({"error": "Failed to record the event."}, status=500)
+
+    return JsonResponse({"received": True, "handled": True})

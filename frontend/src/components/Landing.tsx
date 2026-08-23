@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   FileTextIcon,
   GraduationCapIcon,
+  HeartIcon,
   LayersIcon,
   SearchIcon,
   ShieldCheckIcon,
@@ -16,6 +17,8 @@ import {
 
 interface LandingProps {
   onStart: (initialPrompt?: string, autoSubmit?: boolean) => void;
+  /** Omitted when the server reports donations as unconfigured. */
+  onDonate?: () => void;
 }
 
 interface DomainTaxonomy {
@@ -132,7 +135,7 @@ const FAQS = [
   },
 ];
 
-function Landing({ onStart }: LandingProps) {
+function Landing({ onStart, onDonate }: LandingProps) {
   const [heroInput, setHeroInput] = useState("");
   const [activeTab, setActiveTab] = useState<"sources" | "synthesis">("synthesis");
 
@@ -174,14 +177,26 @@ function Landing({ onStart }: LandingProps) {
           </a>
         </nav>
 
-        <button
-          type="button"
-          className="primary-button landing-header-cta"
-          onClick={() => onStart()}
-        >
-          <span>Open Console</span>
-          <ArrowRightIcon size={16} />
-        </button>
+        <div className="landing-bar-actions">
+          {onDonate && (
+            <button
+              type="button"
+              className="ghost-button landing-header-donate"
+              onClick={onDonate}
+            >
+              <HeartIcon size={16} />
+              <span>Donate</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="primary-button landing-header-cta"
+            onClick={() => onStart()}
+          >
+            <span>Open Console</span>
+            <ArrowRightIcon size={16} />
+          </button>
+        </div>
       </header>
 
       <main className="landing-main">

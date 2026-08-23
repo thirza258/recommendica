@@ -240,6 +240,34 @@ CONFIDENCE_BETA = float(os.getenv("CONFIDENCE_BETA", "0.3"))
 CONFIDENCE_GAMMA = float(os.getenv("CONFIDENCE_GAMMA", "0.2"))
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
 
+# ── Donations (Paddle) ───────────────────────────────────────────────────────
+# Entirely optional: with no credentials the donate endpoints report themselves
+# as disabled and the UI hides the button.  Sandbox and live use different API
+# hosts and mutually incompatible keys, so PADDLE_ENVIRONMENT drives both the
+# host the server calls and the environment Paddle.js is initialised with.
+PADDLE_ENVIRONMENT = os.getenv("PADDLE_ENVIRONMENT", "sandbox")
+# Server-side API key (secret — starts with pdl_live_ / pdl_sdbx_).
+PADDLE_API_KEY = os.getenv("PADDLE_API_KEY", "")
+# Client-side token for Paddle.js (public — it is served to the browser).
+PADDLE_CLIENT_TOKEN = os.getenv("PADDLE_CLIENT_TOKEN", "")
+# Secret for the notification destination that posts to /donate/webhook/.
+PADDLE_WEBHOOK_SECRET = os.getenv("PADDLE_WEBHOOK_SECRET", "")
+# The catalogue product donations are billed against; the amount itself is a
+# custom price created per checkout, which is what makes them pay-what-you-want.
+PADDLE_DONATION_PRODUCT_ID = os.getenv("PADDLE_DONATION_PRODUCT_ID", "")
+
+# First entry is the default. Only currencies your Paddle account supports.
+PADDLE_DONATION_CURRENCIES = os.getenv("PADDLE_DONATION_CURRENCIES", "USD,EUR,GBP")
+# Suggested amounts, in major units, shown as buttons.
+PADDLE_DONATION_PRESETS = os.getenv("PADDLE_DONATION_PRESETS", "5,15,50")
+PADDLE_DONATION_MIN_AMOUNT = os.getenv("PADDLE_DONATION_MIN_AMOUNT", "1")
+PADDLE_DONATION_MAX_AMOUNT = os.getenv("PADDLE_DONATION_MAX_AMOUNT", "1000")
+PADDLE_REQUEST_TIMEOUT = float(os.getenv("PADDLE_REQUEST_TIMEOUT", "15"))
+# Replay window for webhook signatures, in seconds. Paddle's own example uses
+# 5s, which rejects legitimate retries and anything crossing a skewed clock;
+# 0 disables the freshness check and relies on the signature alone.
+PADDLE_WEBHOOK_TOLERANCE = int(os.getenv("PADDLE_WEBHOOK_TOLERANCE", "300"))
+
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
@@ -267,6 +295,20 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS':'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Applied per view via throttle_scope, not globally: the search endpoints
+    # are already bounded by MAX_CONCURRENT_QUERIES, while the donation
+    # checkout is unauthenticated and creates a record at Paddle per call.
+    'DEFAULT_THROTTLE_RATES': {
+        'donation': os.getenv("DONATION_THROTTLE_RATE", "20/hour"),
+    },
+    # Required for throttling to mean anything behind a proxy.  Left unset,
+    # DRF keys the rate limit on the whole X-Forwarded-For header — and nginx
+    # *appends* to whatever the client sent, so a caller could mint a fresh
+    # bucket per request just by varying the prefix.  With the hop count set,
+    # DRF takes the address that many entries from the end: the one nginx
+    # added, which the client cannot forge.  Raise it if you add another proxy
+    # (a CDN, say) in front of nginx.
+    'NUM_PROXIES': int(os.getenv("NUM_PROXIES", "1")),
 }
 
 SPECTACULAR_SETTINGS = {

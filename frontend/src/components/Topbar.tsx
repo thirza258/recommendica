@@ -1,4 +1,4 @@
-import { BookMarkIcon } from "./Icons";
+import { BookMarkIcon, HeartIcon } from "./Icons";
 import { Status } from "../interface";
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -11,6 +11,8 @@ const STATUS_LABEL: Record<Status, string> = {
 interface TopBarProps {
   status: Status;
   onHome?: () => void;
+  /** Omitted when the server reports donations as unconfigured. */
+  onDonate?: () => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface TopBarProps {
  * Deliberately not a live region — the progress banner announces changes, and
  * two live regions would double up on screen readers.
  */
-function TopBar({ status, onHome }: TopBarProps) {
+function TopBar({ status, onHome, onDonate }: TopBarProps) {
   return (
     <header className="topbar">
       <button
@@ -36,6 +38,16 @@ function TopBar({ status, onHome }: TopBarProps) {
         {onHome && (
           <button type="button" className="ghost-button topbar-home-btn" onClick={onHome}>
             Overview &amp; Topics
+          </button>
+        )}
+        {onDonate && (
+          <button
+            type="button"
+            className="ghost-button topbar-donate-btn"
+            onClick={onDonate}
+          >
+            <HeartIcon size={16} />
+            <span>Donate</span>
           </button>
         )}
         <div className="status-chip">

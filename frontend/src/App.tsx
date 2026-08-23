@@ -3,12 +3,20 @@ import TopBar from "./components/Topbar";
 import Landing from "./components/Landing";
 import HeroPanel from "./components/Hero";
 import ChunksList from "./components/ChunkList";
+import DonateDialog from "./components/DonateDialog";
 import EmptyState from "./components/EmptyState";
 import { AlertTriangleIcon } from "./components/Icons";
-import { ChunkResponse, Status, StreamEvent } from "./interface";
+import {
+  ChunkResponse,
+  DonationConfigResponse,
+  DonationSettings,
+  Status,
+  StreamEvent,
+} from "./interface";
 import "./App.css";
 
 let backendHealthCheckSent = false;
+let donationConfigRequested = false;
 
 /** Landing page first, search app once the visitor asks for it. */
 type View = "landing" | "app";
@@ -35,6 +43,11 @@ function App() {
   // Set by the relevance agent — e.g. no sufficiently related papers found.
   const [notice, setNotice] = useState("");
 
+  // Null until the server confirms Paddle is configured; the donate button
+  // stays hidden until then rather than opening a flow that cannot complete.
+  const [donation, setDonation] = useState<DonationSettings | null>(null);
+  const [donateOpen, setDonateOpen] = useState(false);
+
   // Track the AbortController so we can cancel an in-flight stream
   const abortRef = useRef<AbortController | null>(null);
 
@@ -50,6 +63,26 @@ function App() {
       }
     };
     void checkBackendHealth();
+  }, []);
+
+  // ── Donation availability ─────────────────────────────────────────────────
+  // Asked once per page load. A deployment with no Paddle credentials answers
+  // {"enabled": false}, which is a configuration state and not an error — so a
+  // failure here only ever means "no donate button".
+  useEffect(() => {
+    if (donationConfigRequested) return;
+    donationConfigRequested = true;
+    const loadDonationConfig = async () => {
+      try {
+        const response = await fetch("/api/v1/donate/config/");
+        if (!response.ok) return;
+        const config: DonationConfigResponse = await response.json();
+        if (config.enabled) setDonation(config);
+      } catch {
+        // Donations are optional; the rest of the app does not depend on them.
+      }
+    };
+    void loadDonationConfig();
   }, []);
 
   // ── View transition ───────────────────────────────────────────────────────
@@ -252,13 +285,27 @@ function App() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const donateDialog = donation && donateOpen && (
+    <DonateDialog settings={donation} onClose={() => setDonateOpen(false)} />
+  );
+  const openDonate = donation ? () => setDonateOpen(true) : undefined;
+
   if (view === "landing") {
-    return <Landing onStart={handleStartFromLanding} />;
+    return (
+      <>
+        <Landing onStart={handleStartFromLanding} onDonate={openDonate} />
+        {donateDialog}
+      </>
+    );
   }
 
   return (
     <div className="app-shell">
-      <TopBar status={status} onHome={() => setView("landing")} />
+      <TopBar
+        status={status}
+        onHome={() => setView("landing")}
+        onDonate={openDonate}
+      />
 
       <main className="layout">
         <HeroPanel
@@ -302,6 +349,8 @@ function App() {
           status !== "loading" && <EmptyState />
         )}
       </main>
+
+      {donateDialog}
     </div>
   );
 }

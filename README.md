@@ -91,6 +91,48 @@ dependency yields a `503` with the specific reason instead of taking every
 endpoint (health checks included) down with it. Fix the cause and the next
 request picks it up — no restart needed.
 
+## Donations (Paddle)
+
+Recommendica is free, has no accounts and grants nothing in return for money —
+the donate button exists only to offset the embedding and LLM calls each search
+makes. Payments run through [Paddle](https://www.paddle.com/) as merchant of
+record, so no card details ever reach this application.
+
+| Endpoint | Meaning |
+| --- | --- |
+| `GET /api/v1/donate/config/` | What the browser needs: the public Paddle.js client token, the environment, the currency allowlist, the suggested amounts and the bounds. Answers `{"enabled": false}` — not 404 — when Paddle is unconfigured, which is the signal the UI uses to hide the button. |
+| `POST /api/v1/donate/checkout/` | Creates a Paddle transaction for `{"amount": "15.00", "currency": "USD", "message": "optional"}` and returns its id for the overlay checkout. Rate-limited (`DONATION_THROTTLE_RATE`, default 20/hour per client IP; the counter is per process, so more Gunicorn workers means a proportionally looser limit unless you configure a shared cache). |
+| `POST /api/v1/donate/webhook/` | Paddle's notification destination. Every request must carry a valid `Paddle-Signature`; unsigned or tampered payloads get a 401 and change nothing. |
+
+Amounts are pay-what-you-want: the server builds a **custom price** against one
+donation product for each checkout, so supporters are not limited to a fixed
+set of tiers. The browser never names the price it pays — it receives a
+transaction id, and the amount inside it was validated and converted to minor
+units server-side.
+
+Donations are recorded in the `Donation` table (visible read-only in the Django
+admin). A row is written when the checkout opens, so an abandoned checkout shows
+up as `draft` rather than vanishing; webhooks then move it through Paddle's own
+statuses to `completed`. Paddle retries webhooks and does not guarantee order,
+so events are applied idempotently — a redelivery updates the same row, and a
+late-arriving earlier event cannot revert a later status.
+
+### Setup
+
+1. In the Paddle dashboard, create a **product** named e.g. "Donation" (its
+   catalogue price is never used) and copy its `pro_…` id.
+2. Copy a server-side **API key** and a client-side **token** from Developer
+   tools → Authentication.
+3. Add a **notification destination** pointing at
+   `https://your-domain/api/v1/donate/webhook/`, subscribe it to the
+   `transaction.*` events, and copy its secret.
+4. Fill in `PADDLE_*` in your env file (see `.env.example`) and run
+   `python manage.py migrate`.
+
+Leave `PADDLE_API_KEY`, `PADDLE_CLIENT_TOKEN` or `PADDLE_DONATION_PRODUCT_ID`
+empty and the whole feature stays off — the endpoints report themselves as
+disabled and no donate button is rendered.
+
 ## Relevance agent
 
 Dense retrieval always returns its top-k, however off-topic those papers are, so
