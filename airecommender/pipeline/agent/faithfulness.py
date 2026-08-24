@@ -66,7 +66,7 @@ def build_evaluation_prompt(
     sources = []
     for position, doc in enumerate(docs, start=1):
         sources.append(
-            f"{position}. {format_candidate(doc.get('document', ''), max_doc_chars)}"
+            f"{position}. {format_candidate(doc.get('document', ''), max_doc_chars, meta=doc.get('meta'))}"
         )
 
     trimmed_answer = answer if len(answer) <= MAX_ANSWER_CHARS else (

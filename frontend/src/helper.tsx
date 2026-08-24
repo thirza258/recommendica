@@ -12,15 +12,58 @@ import {
 function parseDoc(doc: Document): ResearchInfo | null {
   try {
     const obj = JSON.parse(doc.document) as ResearchInfo
-    if (obj?.title) return obj
+    if (obj?.title) {
+      return {
+        title: obj.title,
+        category: obj.category || (doc.meta?.categories as string) || (doc.meta?.category as string) || '',
+        summary: obj.summary || (doc.meta?.abstract as string) || '',
+        authors: obj.authors || (doc.meta?.authors as string) || '',
+      }
+    }
   } catch {
     // document may be plain text rather than JSON
   }
+
+  const meta = doc.meta || {}
+  let title = (meta.title as string) || ''
+  let summary = (meta.abstract as string) || (meta.summary as string) || ''
+  const category = (meta.categories as string) || (meta.category as string) || ''
+  let authors = (meta.authors as string) || ''
+
+  if (!authors && meta.authors_parsed) {
+    try {
+      const parsed = typeof meta.authors_parsed === 'string' ? JSON.parse(meta.authors_parsed) : meta.authors_parsed
+      if (Array.isArray(parsed)) {
+        authors = parsed
+          .map((a: any) => (Array.isArray(a) ? a.filter(Boolean).reverse().join(' ') : String(a)))
+          .join(', ')
+      }
+    } catch {
+      authors = String(meta.authors_parsed)
+    }
+  }
+
+  const docText = doc.document || ''
+  if (!title && docText.startsWith('Title:')) {
+    const parts = docText.split('\n\nAbstract:', 2)
+    title = parts[0].replace(/^Title:\s*/, '').trim()
+    if (!summary && parts.length > 1) {
+      summary = parts[1].trim()
+    }
+  }
+
+  if (!title) {
+    title = docText.slice(0, 120)
+  }
+  if (!summary) {
+    summary = docText.slice(0, 300)
+  }
+
   return {
-    title: doc.document.slice(0, 120),
-    category: doc.meta?.categories as string ?? '',
-    summary: doc.document.slice(0, 300),
-    authors: doc.meta?.authors_parsed as string ?? '',
+    title,
+    category,
+    summary,
+    authors,
   }
 }
 

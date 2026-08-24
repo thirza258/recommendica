@@ -182,7 +182,7 @@ class RelevanceAgent:
         pooled = {
             title.lower()
             for title in (
-                document_title(candidate.get("document", ""))
+                document_title(candidate.get("document", ""), meta=candidate.get("meta"))
                 for _, candidate in pool.values()
             )
             if title
@@ -192,7 +192,9 @@ class RelevanceAgent:
 
         fresh = []
         for candidate in candidates:
-            title = document_title(candidate.get("document", "")).lower()
+            title = document_title(
+                candidate.get("document", ""), meta=candidate.get("meta")
+            ).lower()
             if title and title in pooled:
                 continue
             fresh.append(candidate)

@@ -129,7 +129,11 @@ def build_grading_prompt(
     """Build the user prompt listing every candidate to be graded."""
     lines = [f"User query: {query}", "", "Papers:"]
     for index, candidate in enumerate(candidates):
-        rendered = format_candidate(candidate.get("document", ""), max_candidate_chars)
+        rendered = format_candidate(
+            candidate.get("document", ""),
+            max_candidate_chars,
+            meta=candidate.get("meta"),
+        )
         lines.append(f"{index}. {rendered}")
     lines.append("")
     lines.append(

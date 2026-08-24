@@ -15,6 +15,7 @@ from unittest import mock
 from django.test import TestCase, override_settings
 
 from airecommender.main import RAGIndex
+from airecommender.pipeline import prompting
 from airecommender.pipeline.errors import LLMUnavailable, VectorStoreUnavailable
 from airecommender.pipeline.sources.arxiv_api import ArxivUnavailable
 
@@ -203,15 +204,16 @@ class FakeArxivClient:
 def arxiv_paper(title, summary="a summary"):
     """A live-source candidate, shaped exactly like a collection document."""
     return {
-        "document": json.dumps(
-            {
-                "title": title,
-                "category": "cs.LG",
-                "summary": summary,
-                "authors": "A. Author",
-            }
-        ),
-        "meta": {"source": "arxiv_api", "arxiv_id": "1234.5678"},
+        "document": f"Title: {title}\n\nAbstract: {summary}",
+        "meta": {
+            "source": "arxiv_api",
+            "arxiv_id": "1234.5678",
+            "id": "1234.5678",
+            "title": title,
+            "abstract": summary,
+            "authors": "A. Author",
+            "categories": "cs.LG",
+        },
         "source": "arxiv_api",
     }
 
@@ -994,7 +996,7 @@ class ArxivFallbackPipelineTests(PipelineTestCase):
 
         self.assertEqual(len(arxiv.calls), 1)
         served = [
-            json.loads(d["document"]).get("title") if d["document"].startswith("{") else d["document"]
+            prompting.document_title(d["document"], meta=d.get("meta")) or d["document"]
             for event in events
             if event["type"] == "chunk_end"
             for d in event["docs"]

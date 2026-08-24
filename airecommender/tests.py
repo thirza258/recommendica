@@ -415,7 +415,7 @@ class FakeOllama:
         self.models = list(models)
         self.calls = []
 
-    def embed(self, input, model):  # noqa: A002 — matches the ollama client API
+    def embed(self, input, model, **kwargs):  # noqa: A002 — matches the ollama client API
         self.calls.append(list(input))
         if self.fail_times > 0:
             self.fail_times -= 1
@@ -612,6 +612,37 @@ class PromptingTests(TestCase):
     def test_plain_text_document_still_works(self):
         rendered = prompting.format_document("just some text", max_chars=100)
         self.assertEqual(rendered, "just some text")
+
+    def test_new_schema_document_is_rendered_as_labelled_text(self):
+        doc = "Title: Sparsity-certifying Graph Decompositions\n\nAbstract: We describe a new algorithm."
+        meta = {
+            "title": "Sparsity-certifying Graph Decompositions",
+            "categories": "math.CO cs.CG",
+            "authors": "Ileana Streinu and Louis Theran",
+            "abstract": "We describe a new algorithm.",
+        }
+
+        rendered = prompting.format_document(doc, meta=meta)
+
+        self.assertIn("Title: Sparsity-certifying Graph Decompositions", rendered)
+        self.assertIn("Category: math.CO cs.CG", rendered)
+        self.assertIn("Authors: Ileana Streinu and Louis Theran", rendered)
+        self.assertIn("Abstract: We describe a new algorithm.", rendered)
+
+    def test_new_schema_candidate_formatting(self):
+        doc = "Title: Sparsity-certifying Graph Decompositions\n\nAbstract: We describe a new algorithm."
+        meta = {"categories": "math.CO cs.CG"}
+
+        rendered = prompting.format_candidate(doc, meta=meta)
+        self.assertIn("Sparsity-certifying Graph Decompositions [math.CO cs.CG]", rendered)
+        self.assertIn("We describe a new algorithm.", rendered)
+
+    def test_document_title_new_schema(self):
+        doc = "Title: Sparsity-certifying Graph Decompositions\n\nAbstract: We describe a new algorithm."
+        self.assertEqual(
+            prompting.document_title(doc),
+            "Sparsity-certifying Graph Decompositions",
+        )
 
     def test_build_chunk_prompt_includes_query_and_every_document(self):
         chunk = [{"document": "one"}, {"document": "two"}]

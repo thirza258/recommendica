@@ -43,6 +43,7 @@ def load_project_env():
     and the deploy target run.
     """
 
+    load_dotenv(BASE_DIR / ".env", override=False)
     env_file = ".env.development" if DEVELOPMENT_MODE else ".env.production"
     load_dotenv(BASE_DIR / env_file, override=False)
 
@@ -61,7 +62,7 @@ for env_name in (
     
 
 CHROMA_HOST = os.getenv("RE_CHROMA_HOST", "localhost")
-CHROMA_PORT = int(os.getenv("RE_CHROMA_PORT", "8040"))
+CHROMA_PORT = int(os.getenv("RE_CHROMA_PORT", "5050"))
 
 # When ChromaDB is unreachable the pipeline fails loudly by default.  The old
 # behaviour — silently substituting an empty in-memory collection — made a
@@ -110,7 +111,7 @@ LLM_CACHE_MAX_SIZE = int(os.getenv("LLM_CACHE_MAX_SIZE", "512"))
 TOP_K = int(os.getenv("TOP_K", "5"))
 CANDIDATE_MULTIPLIER = int(os.getenv("CANDIDATE_MULTIPLIER", "4"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "5"))
-COLLECTION_NAME = os.getenv("COLLECTION_NAME", "arxiv_collection")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "arxiv_embeddings")
 
 # ── Pipeline shape / throughput ─────────────────────────────────────────────
 # Query transforms are independent LLM calls and run concurrently; a transform
@@ -240,12 +241,38 @@ CONFIDENCE_BETA = float(os.getenv("CONFIDENCE_BETA", "0.3"))
 CONFIDENCE_GAMMA = float(os.getenv("CONFIDENCE_GAMMA", "0.2"))
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = _env_bool("DEBUG", False)
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,backend,0.0.0.0,recommendica.nevatal.tech"
+    ).split(",")
+    if host.strip()
+]
 
 
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,https://recommendica.nevatal.tech,http://recommendica.nevatal.tech",
+    ).split(",")
+    if origin.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "https://recommendica.nevatal.tech,http://recommendica.nevatal.tech",
+    ).split(",")
+    if origin.strip()
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # Application definition
 
