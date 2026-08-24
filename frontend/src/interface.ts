@@ -172,6 +172,41 @@ type StreamEvent =
   | StreamCompleteEvent
   | StreamErrorEvent
 
+
+/**
+ * Donations (Paddle).
+ *
+ * `GET /donate/config/` always answers 200: a deployment with no Paddle
+ * credentials reports `enabled: false` rather than 404, so the UI treats a
+ * missing donate button as a configuration state, not an error.
+ */
+interface DonationSettings {
+  environment: "sandbox" | "production"
+  client_token: string
+  /** Default currency — the first entry of `currencies`. */
+  currency: string
+  currencies: string[]
+  /** Suggested amounts in major units, e.g. ["5", "15", "50"]. */
+  presets: string[]
+  min_amount: string
+  max_amount: string
+}
+
+type DonationConfigResponse =
+  | ({ enabled: true } & DonationSettings)
+  | { enabled: false; reason?: string }
+
+/** Response of `POST /donate/checkout/`. */
+interface DonationCheckout {
+  transaction_id: string
+  client_token: string
+  environment: "sandbox" | "production"
+  amount: string
+  currency: string
+  /** Only set when the Paddle account has a default payment link. */
+  checkout_url: string | null
+}
+
 export type {
   Status,
   ResearchInfo,
@@ -189,4 +224,7 @@ export type {
   StreamChunkEndEvent,
   StreamCompleteEvent,
   StreamErrorEvent,
+  DonationSettings,
+  DonationConfigResponse,
+  DonationCheckout,
 }
