@@ -153,7 +153,12 @@ class DenseRAG:
         last_exc: Optional[BaseException] = None
         for attempt in range(attempts):
             try:
-                response = self.client.embed(input=batch, model=self.embedding_model)
+                try:
+                    response = self.client.embed(
+                        input=batch, model=self.embedding_model, truncate=True
+                    )
+                except TypeError:
+                    response = self.client.embed(input=batch, model=self.embedding_model)
                 embeddings = response.get("embeddings") or []
                 if len(embeddings) != len(batch):
                     raise EmbeddingUnavailable(
@@ -373,6 +378,7 @@ class DenseRAG:
 
     def _candidates_from_results(self, results: dict, n_queries: int) -> List[List[Dict]]:
         """Turn a (possibly batched) Chroma query result into candidate lists."""
+        ids = results.get("ids") or []
         documents = results.get("documents") or []
         metadatas = results.get("metadatas") or []
         distances = results.get("distances") or []
@@ -382,14 +388,22 @@ class DenseRAG:
             docs = documents[q] if q < len(documents) else []
             metas = metadatas[q] if q < len(metadatas) else []
             dists = distances[q] if q < len(distances) else []
+            query_ids = ids[q] if q < len(ids) else []
 
             candidates = []
             for idx, doc in enumerate(docs):
                 distance = dists[idx] if idx < len(dists) else None
+                meta = dict(metas[idx]) if idx < len(metas) and isinstance(metas[idx], dict) else {}
+                doc_id = query_ids[idx] if idx < len(query_ids) else None
+                if doc_id:
+                    if not meta.get("id"):
+                        meta["id"] = str(doc_id)
+                    if not meta.get("arxiv_id"):
+                        meta["arxiv_id"] = str(doc_id)
                 candidates.append(
                     {
                         "document": doc,
-                        "meta": metas[idx] if idx < len(metas) else {},
+                        "meta": meta,
                         "dense_score": (
                             1.0 / (1 + distance) if distance is not None else 0.0
                         ),

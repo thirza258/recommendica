@@ -230,28 +230,48 @@ def _entry_to_candidate(entry: ElementTree.Element, rank: int) -> Optional[dict]
     # "http://arxiv.org/abs/2301.12345v1" → "2301.12345v1"
     arxiv_id = abs_url.rsplit("/", 1)[-1] if abs_url else ""
 
-    record = {
+    # Match new Chroma schema document structure
+    if title and summary:
+        doc_text = f"Title: {title.strip()}\n\nAbstract: {summary.strip()}"
+    elif title:
+        doc_text = f"Title: {title.strip()}"
+    else:
+        doc_text = summary.strip()
+
+    updated_str = _text(entry.find(f"{ATOM}updated"))
+    published_str = _text(entry.find(f"{ATOM}published"))
+
+    meta = {
+        "id": arxiv_id,
         "title": title,
-        "category": category,
-        "summary": summary,
+        "abstract": summary,
         "authors": ", ".join(authors),
+        "categories": " ".join(categories) if categories else category,
+        "primary_category": category,
+        "source": "arxiv_api",
+        "arxiv_id": arxiv_id,
+        "url": abs_url,
+        "pdf_url": pdf_url,
+        "published": published_str,
+        "updated": updated_str,
+        "update_date": updated_str[:10] if updated_str else "",
     }
 
+    parsed_authors = []
+    for name in authors:
+        parts = name.split()
+        if len(parts) > 1:
+            parsed_authors.append([parts[-1], " ".join(parts[:-1]), ""])
+        elif parts:
+            parsed_authors.append([parts[0], "", ""])
+    if parsed_authors:
+        meta["authors_parsed"] = json.dumps(parsed_authors)
+
+    clean_meta = {k: v for k, v in meta.items() if v is not None and v != ""}
+
     return {
-        "document": json.dumps(record, ensure_ascii=False),
-        "meta": {
-            # Read by the result-verification report and by the UI, so it has to
-            # live in `meta`: the pipeline strips candidates to document+meta
-            # before they go on the wire.
-            "source": "arxiv_api",
-            "arxiv_id": arxiv_id,
-            "url": abs_url,
-            "pdf_url": pdf_url,
-            "primary_category": category,
-            "categories": ", ".join(categories),
-            "published": _text(entry.find(f"{ATOM}published")),
-            "updated": _text(entry.find(f"{ATOM}updated")),
-        },
+        "document": doc_text,
+        "meta": clean_meta,
         "source": "arxiv_api",
         # Position in arXiv's own ranking. Deliberately *not* called
         # `dense_score`: no embedding was involved, and code that blends

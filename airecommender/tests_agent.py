@@ -551,12 +551,18 @@ class AgentLoopTests(TestCase):
 
 
 def paper(title, **extra):
-    """A candidate whose document is a collection-shaped JSON record."""
+    """A candidate whose document and meta match the new Chroma schema."""
+    meta = {
+        "title": title,
+        "categories": "cs.LG",
+        "abstract": f"about {title}",
+        "authors": "A",
+    }
+    if "meta" in extra:
+        meta.update(extra.pop("meta"))
     return {
-        "document": json.dumps(
-            {"title": title, "category": "cs.LG", "summary": f"about {title}", "authors": "A"}
-        ),
-        "meta": {"title": title},
+        "document": f"Title: {title}\n\nAbstract: about {title}",
+        "meta": meta,
         **extra,
     }
 
@@ -716,7 +722,7 @@ class AgentFallbackTests(TestCase):
         # The duplicate never reaches the grader, and never reaches the answer.
         self.assertEqual(len(graded_batches[1]), 1)
         self.assertEqual(result.fallback_candidates, 1)
-        titles = sorted(json.loads(d["document"])["title"] for d in result.docs)
+        titles = sorted(d["meta"]["title"] for d in result.docs)
         self.assertEqual(titles, ["Deep Nets", "Other Work"])
 
     def test_live_source_gets_the_remaining_deadline_as_its_budget(self):

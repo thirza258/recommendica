@@ -9,7 +9,14 @@ function DocCard({ doc, index }: { doc: Document; index: number }) {
   // they are labelled: "where did this come from" is a fair question to ask of
   // a source you are about to cite.
   const fromArxiv = doc.meta?.source === "arxiv_api";
-  const url = typeof doc.meta?.url === "string" ? doc.meta.url : "";
+  const url =
+    typeof doc.meta?.url === "string" && doc.meta.url
+      ? doc.meta.url
+      : doc.meta?.id
+        ? `https://arxiv.org/abs/${doc.meta.id}`
+        : doc.meta?.arxiv_id
+          ? `https://arxiv.org/abs/${doc.meta.arxiv_id}`
+          : "";
 
   return (
     <div className="doc-card">
@@ -31,7 +38,7 @@ function DocCard({ doc, index }: { doc: Document; index: number }) {
         </div>
         <p className="doc-summary">{info.summary}</p>
         {info.authors && <p className="doc-authors">{info.authors}</p>}
-        {fromArxiv && url && (
+        {url && (
           <p className="doc-authors">
             <a href={url} target="_blank" rel="noopener noreferrer">
               View on arXiv

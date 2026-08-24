@@ -157,29 +157,24 @@ class FeedParsingTests(SimpleTestCase):
 
     def test_document_matches_the_collection_record_shape(self):
         """A fallback paper must render exactly like an indexed one."""
-        import json
-
         first = parse_atom_feed(FEED)[0]
-        record = json.loads(first["document"])
-        self.assertEqual(
-            set(record),
-            {"title", "category", "summary", "authors"},
-        )
-        self.assertEqual(record["title"], "Transformers for Medical Imaging")
-        self.assertEqual(record["category"], "cs.CV")
-        self.assertEqual(record["authors"], "Ada Lovelace, Alan Turing")
-        self.assertTrue(record["summary"].startswith("We survey transformer"))
+        self.assertIn("Title: Transformers for Medical Imaging", first["document"])
+        self.assertIn("Abstract: We survey transformer", first["document"])
+        self.assertEqual(first["meta"]["title"], "Transformers for Medical Imaging")
+        self.assertEqual(first["meta"]["authors"], "Ada Lovelace, Alan Turing")
+        self.assertEqual(first["meta"]["primary_category"], "cs.CV")
         # And the prompt renderer accepts it without falling back to raw text.
-        rendered = format_candidate(first["document"])
-        self.assertIn("Transformers for Medical Imaging [cs.CV]", rendered)
+        rendered = format_candidate(first["document"], meta=first["meta"])
+        self.assertIn("Transformers for Medical Imaging [cs.CV cs.LG]", rendered)
 
     def test_metadata_marks_the_source_for_downstream_reporting(self):
         meta = parse_atom_feed(FEED)[0]["meta"]
         self.assertEqual(meta["source"], "arxiv_api")
         self.assertEqual(meta["arxiv_id"], "2301.12345v1")
+        self.assertEqual(meta["id"], "2301.12345v1")
         self.assertEqual(meta["pdf_url"], "http://arxiv.org/pdf/2301.12345v1")
         self.assertEqual(meta["primary_category"], "cs.CV")
-        self.assertEqual(meta["categories"], "cs.CV, cs.LG")
+        self.assertIn("cs.CV", meta["categories"])
 
     def test_falls_back_to_plain_category_without_a_primary(self):
         self.assertEqual(parse_atom_feed(FEED)[1]["meta"]["primary_category"], "cs.CL")
