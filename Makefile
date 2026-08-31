@@ -3,7 +3,7 @@
 run: run-backend
 
 run-backend:
-	@DEVELOPMENT_MODE=True python manage.py runserver 0.0.0.0:8000
+	@cd backend && DEVELOPMENT_MODE=True python manage.py runserver 0.0.0.0:8000
 
 run-frontend:
 	@cd frontend && npm run dev

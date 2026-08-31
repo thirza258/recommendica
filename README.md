@@ -3,10 +3,42 @@
 Recommendica is a research recommendation API powered by AI and Retrieval-Augmented Generation (RAG). It helps users find the most relevant research papers based on their input queries.
 This project is set up to create a virtual environment, install dependencies, and run a Django server for the Recommendica.
 
+## Repository layout
+
+A monorepo with one directory per deployable: each has its own dependency
+manifest and Dockerfile, and neither appears in the other's build context.
+
+```
+.
+├── backend/              Django + DRF API (the RAG pipeline, donations)
+│   ├── airecommender/      app: views, pipeline, models, tests
+│   ├── recommendica/       project: settings, urls, wsgi/asgi
+│   ├── templates/          swagger-ui override
+│   ├── manage.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/             React + Vite client
+│   ├── src/
+│   ├── package.json
+│   ├── nginx.conf          serves the build, proxies /api/ to the backend
+│   └── Dockerfile
+├── docker-compose.yml    backend + postgres + frontend
+├── deploy.sh             build, start and health-check the stack
+├── Makefile              run-backend / run-frontend / dev / deploy
+└── .env.example          one env file for the whole stack, kept at the root
+```
+
+Environment files (`.env.development`, `.env.production`) live at the **repository
+root**: `docker compose --env-file` and `deploy.sh` read them from there, and the
+backend looks there first so both halves are configured from one file. A file
+next to `manage.py` still works if you only ever run the backend.
+
 ## Setup Instructions
 
-1. Create a virtual environment:
+1. Create a virtual environment (the backend is a Python project; run these
+   from `backend/`):
    ```sh
+   cd backend
    python -m venv env
    ```
 
@@ -25,9 +57,10 @@ This project is set up to create a virtual environment, install dependencies, an
    pip install -r requirements.txt
    ```
 
-4. Configure local environment variables:
+4. Configure local environment variables, at the repository root:
    - Development uses `.env.development`.
    - Production uses `.env.production`.
+   - Copy `.env.example` as a starting point.
 
 5. Import research data:
    ```sh
@@ -39,7 +72,8 @@ This project is set up to create a virtual environment, install dependencies, an
    python manage.py migrate
    ```
 
-7. Run the app locally:
+7. Run the app locally (the Makefile targets are at the repository root and
+   change into the right directory themselves):
    ```sh
    make run
    ```
