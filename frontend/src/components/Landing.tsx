@@ -156,7 +156,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
         <div className="wordmark">
           <BookMarkIcon size={28} className="wordmark-mark" />
           <span className="wordmark-text">Recommendica</span>
-          <span className="wordmark-badge">Research Engine</span>
         </div>
 
         <nav className="landing-nav" aria-label="Landing Navigation">
@@ -202,13 +201,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
       <main className="landing-main">
         {/* ── Hero Section ──────────────────────────────────────────────── */}
         <section className="landing-hero" aria-labelledby="hero-heading">
-          <div className="hero-kicker">
-            <span className="kicker-pill">
-              <ShieldCheckIcon size={14} className="kicker-icon" />
-              <span>Evidence-Grounded Literature Intelligence</span>
-            </span>
-          </div>
-
           <h1 className="landing-title" id="hero-heading">
             Synthesize scientific literature with verified source attribution.
           </h1>
@@ -308,7 +300,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
           aria-labelledby="evidence-demo-title"
         >
           <div className="section-header">
-            <p className="section-label">Interactive Evidence Inspector</p>
             <h2 className="landing-section-title" id="evidence-demo-title">
               How Recommendica answers a research inquiry
             </h2>
@@ -565,7 +556,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
           aria-labelledby="disciplines-title"
         >
           <div className="section-header">
-            <p className="section-label">Scientific Taxonomies</p>
             <h2 className="landing-section-title" id="disciplines-title">
               Curated coverage across scientific domains
             </h2>
@@ -579,7 +569,7 @@ function Landing({ onStart, onDonate }: LandingProps) {
             {DOMAINS.map((domain) => (
               <div key={domain.id} className="domain-card">
                 <div className="domain-card-header">
-                  <span className="domain-badge">{domain.badge}</span>
+                  <span className="domain-category">{domain.badge}</span>
                   <h3 className="domain-card-name">{domain.name}</h3>
                 </div>
                 <p className="domain-card-desc">{domain.description}</p>
@@ -608,7 +598,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
           aria-labelledby="methodology-title"
         >
           <div className="section-header">
-            <p className="section-label">System Architecture</p>
             <h2 className="landing-section-title" id="methodology-title">
               The four-stage grounded retrieval pipeline
             </h2>
@@ -688,7 +677,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
           aria-labelledby="comparison-title"
         >
           <div className="section-header">
-            <p className="section-label">Comparative Analysis</p>
             <h2 className="landing-section-title" id="comparison-title">
               Why grounded literature synthesis matters
             </h2>
@@ -842,7 +830,6 @@ function Landing({ onStart, onDonate }: LandingProps) {
         {/* ── Frequently Asked Questions ─────────────────────────────────── */}
         <section className="landing-block" id="faq" aria-labelledby="faq-heading">
           <div className="section-header">
-            <p className="section-label">Frequently Asked Questions</p>
             <h2 className="landing-section-title" id="faq-heading">
               Technical details &amp; researcher guidelines
             </h2>

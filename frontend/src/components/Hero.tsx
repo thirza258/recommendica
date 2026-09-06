@@ -25,7 +25,6 @@ function HeroPanel({
   return (
     <section className="hero-panel">
       <div className="hero-copy">
-        <p className="section-label">Find better sources faster</p>
         <h1 className="hero-title">
           Research recommendations, grounded in papers.
         </h1>
