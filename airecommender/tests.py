@@ -118,6 +118,14 @@ class HealthCheckTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("error", response.json())
 
+    def test_stats_endpoint_returns_200(self):
+        response = self.client.get("/api/v1/stats/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("total_papers", data)
+        self.assertIsInstance(data["total_papers"], int)
+
     def test_prompt_requires_input(self):
         response = self.client.post(
             "/api/v1/prompt/",

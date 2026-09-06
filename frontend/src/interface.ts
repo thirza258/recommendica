@@ -207,6 +207,14 @@ interface DonationCheckout {
   checkout_url: string | null
 }
 
+/** Response of `GET /stats/`. */
+interface CorpusStatsResponse {
+  status: number
+  total_papers: number
+  collection?: string
+  fallback?: boolean
+}
+
 export type {
   Status,
   ResearchInfo,
@@ -227,4 +235,5 @@ export type {
   DonationSettings,
   DonationConfigResponse,
   DonationCheckout,
+  CorpusStatsResponse,
 }

@@ -35,7 +35,7 @@ function parseDoc(doc: Document): ResearchInfo | null {
       const parsed = typeof meta.authors_parsed === 'string' ? JSON.parse(meta.authors_parsed) : meta.authors_parsed
       if (Array.isArray(parsed)) {
         authors = parsed
-          .map((a: any) => (Array.isArray(a) ? a.filter(Boolean).reverse().join(' ') : String(a)))
+          .map((a: unknown) => (Array.isArray(a) ? a.filter(Boolean).reverse().join(' ') : String(a)))
           .join(', ')
       }
     } catch {

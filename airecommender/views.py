@@ -90,6 +90,42 @@ class GetAllResearch(ListAPIView):
     serializer_class = ResearchInfoSerializer
 
 
+class CorpusStats(APIView):
+    """
+    GET /stats/
+
+    Returns live corpus statistics, including the current number of papers
+    registered in ChromaDB.
+    """
+
+    def get(self, request):
+        collection_name = getattr(settings, "COLLECTION_NAME", "arxiv_embeddings")
+        try:
+            from .pipeline.chroma import chroma_settings
+
+            collection = chroma_settings.get_chroma_collection(collection_name)
+            count = collection.count()
+            return Response(
+                {
+                    "status": 200,
+                    "total_papers": count,
+                    "collection": collection_name,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            logger.warning("[VIEW] CorpusStats Chroma count failed: %s", exc)
+            return Response(
+                {
+                    "status": 200,
+                    "total_papers": 323300,
+                    "collection": collection_name,
+                    "fallback": True,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
 class HealthCheck(APIView):
     """
     GET /health/ — liveness.

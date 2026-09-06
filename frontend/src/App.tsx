@@ -8,6 +8,7 @@ import EmptyState from "./components/EmptyState";
 import { AlertTriangleIcon } from "./components/Icons";
 import {
   ChunkResponse,
+  CorpusStatsResponse,
   DonationConfigResponse,
   DonationSettings,
   Status,
@@ -17,6 +18,7 @@ import "./App.css";
 
 let backendHealthCheckSent = false;
 let donationConfigRequested = false;
+let corpusStatsRequested = false;
 
 /** Landing page first, search app once the visitor asks for it. */
 type View = "landing" | "app";
@@ -42,6 +44,7 @@ function App() {
   const [progressMsg, setProgressMsg] = useState("");
   // Set by the relevance agent — e.g. no sufficiently related papers found.
   const [notice, setNotice] = useState("");
+  const [totalPapers, setTotalPapers] = useState<number | undefined>(undefined);
 
   // Null until the server confirms Paddle is configured; the donate button
   // stays hidden until then rather than opening a flow that cannot complete.
@@ -63,6 +66,25 @@ function App() {
       }
     };
     void checkBackendHealth();
+  }, []);
+
+  // ── Corpus Stats ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (corpusStatsRequested) return;
+    corpusStatsRequested = true;
+    const loadCorpusStats = async () => {
+      try {
+        const response = await fetch("/api/v1/stats/");
+        if (!response.ok) return;
+        const data: CorpusStatsResponse = await response.json();
+        if (typeof data.total_papers === "number" && data.total_papers > 0) {
+          setTotalPapers(data.total_papers);
+        }
+      } catch {
+        // Fallback handled within Landing component
+      }
+    };
+    void loadCorpusStats();
   }, []);
 
   // ── Donation availability ─────────────────────────────────────────────────
@@ -293,7 +315,11 @@ function App() {
   if (view === "landing") {
     return (
       <>
-        <Landing onStart={handleStartFromLanding} onDonate={openDonate} />
+        <Landing
+          onStart={handleStartFromLanding}
+          onDonate={openDonate}
+          totalPapers={totalPapers}
+        />
         {donateDialog}
       </>
     );

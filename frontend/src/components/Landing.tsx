@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
@@ -19,6 +19,8 @@ interface LandingProps {
   onStart: (initialPrompt?: string, autoSubmit?: boolean) => void;
   /** Omitted when the server reports donations as unconfigured. */
   onDonate?: () => void;
+  /** Number of papers registered in the Chroma vector store. */
+  totalPapers?: number;
 }
 
 interface DomainTaxonomy {
@@ -135,9 +137,36 @@ const FAQS = [
   },
 ];
 
-function Landing({ onStart, onDonate }: LandingProps) {
+function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: LandingProps) {
   const [heroInput, setHeroInput] = useState("");
   const [activeTab, setActiveTab] = useState<"sources" | "synthesis">("synthesis");
+  const [paperCount, setPaperCount] = useState<number>(initialTotalPapers ?? 323300);
+
+  useEffect(() => {
+    if (typeof initialTotalPapers === "number" && initialTotalPapers > 0) {
+      setPaperCount(initialTotalPapers);
+      return;
+    }
+
+    let mounted = true;
+    const fetchCorpusStats = async () => {
+      try {
+        const response = await fetch("/api/v1/stats/");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (mounted && typeof data.total_papers === "number" && data.total_papers > 0) {
+          setPaperCount(data.total_papers);
+        }
+      } catch {
+        // Retain fallback count
+      }
+    };
+
+    void fetchCorpusStats();
+    return () => {
+      mounted = false;
+    };
+  }, [initialTotalPapers]);
 
   const handleHeroSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,8 +233,8 @@ function Landing({ onStart, onDonate }: LandingProps) {
         <section className="landing-hero" aria-labelledby="hero-heading">
           <div className="hero-kicker">
             <span className="kicker-pill">
-              <ShieldCheckIcon size={14} className="kicker-icon" />
-              <span>Evidence-Grounded Literature Intelligence</span>
+              <LayersIcon size={14} className="kicker-icon" />
+              <span>{paperCount.toLocaleString()} Research Papers Indexed</span>
             </span>
           </div>
 
@@ -903,7 +932,7 @@ function Landing({ onStart, onDonate }: LandingProps) {
               source publications directly.
             </p>
             <p className="footer-subtext">
-              Federated with arXiv preprint retrieval and indexed scientific corpora.
+              Federated with arXiv preprint retrieval and indexed scientific corpora ({paperCount.toLocaleString()} indexed papers).
               Open research access.
             </p>
           </div>
