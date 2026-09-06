@@ -1,7 +1,9 @@
 services:
   backend:
     build:
-      context: .
+      # The backend is its own directory in the monorepo, so the build context
+      # is ./backend — the image never sees the frontend or the compose file.
+      context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
@@ -119,7 +121,7 @@ services:
     ports:
       - "8056:8000"
     volumes:
-      - .:/app
+      - ./backend:/app
       - backend_static:/app/staticfiles
     extra_hosts:
       - "host.docker.internal:host-gateway"

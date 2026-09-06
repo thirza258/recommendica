@@ -31,7 +31,6 @@ function TopBar({ status, onHome, onDonate }: TopBarProps) {
       >
         <BookMarkIcon size={28} className="wordmark-mark" />
         <span className="wordmark-text">Recommendica</span>
-        <span className="wordmark-badge">Search Console</span>
       </button>
 
       <div className="topbar-actions">

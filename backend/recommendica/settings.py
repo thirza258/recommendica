@@ -15,7 +15,15 @@ import os
 
 from dotenv import load_dotenv
 
+#: The Django project root — ``backend/`` in this monorepo.  manage.py,
+#: db.sqlite3, templates/ and staticfiles/ all live here.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+#: The repository root, one level up from ``backend/``.  Environment files live
+#: there because docker compose reads them from the same place
+#: (``--env-file .env.production``), so both halves of the monorepo are
+#: configured from one file rather than two copies that drift apart.
+REPO_ROOT = BASE_DIR.parent
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -41,11 +49,19 @@ def load_project_env():
     Development is the default for local commands. Production is selected
     when DEVELOPMENT_MODE is explicitly false, which is how docker compose
     and the deploy target run.
+
+    Each file is looked for in the repository root first and then in
+    ``backend/``.  The root is the canonical location — it is where
+    ``docker compose --env-file`` and ``deploy.sh`` read from — but a file kept
+    beside manage.py still works for anyone who only ever runs the backend.
+    ``load_dotenv`` never overrides a value that is already set, so with both
+    present the root wins, and a real environment variable beats both.
     """
 
-    load_dotenv(BASE_DIR / ".env", override=False)
     env_file = ".env.development" if DEVELOPMENT_MODE else ".env.production"
-    load_dotenv(BASE_DIR / env_file, override=False)
+    for name in (".env", env_file):
+        for directory in (REPO_ROOT, BASE_DIR):
+            load_dotenv(directory / name, override=False)
 
 
 load_project_env()
