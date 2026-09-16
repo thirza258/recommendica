@@ -2,6 +2,14 @@ from rest_framework import serializers
 
 from . import donations
 from .models import ResearchInfo
+from .pipeline.modes import DEFAULT_SEARCH_MODE, SearchMode
+
+
+class RecommendationRequestSerializer(serializers.Serializer):
+    input_prompt = serializers.CharField(trim_whitespace=True)
+    mode = serializers.ChoiceField(
+        choices=[mode.value for mode in SearchMode], default=DEFAULT_SEARCH_MODE
+    )
 
 class ResearchInfoSerializer(serializers.ModelSerializer):
     class Meta:

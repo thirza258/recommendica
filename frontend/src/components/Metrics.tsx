@@ -21,7 +21,7 @@ function Metrics({
       </div>
       <div>
         <strong>{pct(aggFaithfulness)}</strong>
-        <span>faithfulness</span>
+        <span>source support</span>
       </div>
     </div>
   );

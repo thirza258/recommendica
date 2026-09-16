@@ -1238,6 +1238,43 @@
 
 /* ── Query form ───────────────────────────────────────────────────────── */
 
+.adaptive-hint,
+.research-plan {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.adaptive-hint {
+  margin-bottom: var(--space-5);
+  background: var(--accent-soft);
+}
+
+.adaptive-hint strong,
+.adaptive-hint span { display: block; }
+.adaptive-hint span { margin-top: var(--space-1); color: var(--ink-muted); }
+
+.research-plan { background: var(--surface-sunken); }
+.research-plan p { margin: var(--space-1) 0 0; color: var(--ink-muted); }
+
+.answer-review {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.answer-review--checked { border-color: var(--success-fg); }
+.answer-review ul { margin-bottom: 0; padding-left: var(--space-5); }
+.claim-evidence { margin: var(--space-2) 0; padding-left: var(--space-3); border-left: 2px solid var(--border); }
+.claim-evidence span { display: block; font-size: var(--text-sm); font-weight: 600; }
+
 .query-panel {
   padding: var(--space-6);
   display: flex;
@@ -2071,6 +2108,54 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Course entry points are available on both the landing page and the console. */
+.landing-courses-link,
+.topbar-courses-link {
+  text-decoration: none;
+}
+
+.topbar-courses-link[aria-current="page"] {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.landing-learning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.landing-learning-icon { flex-shrink: 0; color: var(--accent); }
+.landing-learning > div { flex: 1; }
+.landing-learning h2 { margin: var(--space-2) 0; font-family: var(--font-display); font-size: 1.6rem; line-height: var(--leading-tight); }
+.landing-learning p { margin: 0; color: var(--ink-muted); font-size: var(--text-sm); }
+.landing-learning .section-label { color: var(--accent); }
+
+@media (max-width: 1120px) {
+  .landing-nav { gap: var(--space-3); }
+  .landing-bar { flex-wrap: wrap; }
+  .landing-nav { order: 3; width: 100%; justify-content: center; }
+}
+
+@media (max-width: 700px) {
+  .landing-learning { flex-wrap: wrap; }
+  .landing-learning > div { flex-basis: calc(100% - 60px); }
+  .landing-learning > a { margin-left: 50px; }
+  .topbar { flex-wrap: wrap; }
+  .topbar-actions { flex-wrap: wrap; }
+}
+
+@media (max-width: 420px) {
+  .landing-bar-actions { width: 100%; flex-wrap: wrap; }
+  .landing-header-cta { flex: 1; width: auto; }
+  .landing-learning > a { margin-left: 0; }
 }
 
 /* ── Donate dialog ────────────────────────────────────────────────────────

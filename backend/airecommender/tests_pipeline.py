@@ -133,6 +133,16 @@ class FakeLLMService:
         return json.dumps(entries)
 
     def generate_response(self, prompt, system_instruction_string="", **kwargs):
+        if "You verify a research answer" in system_instruction_string:
+            data = json.loads(prompt)
+            with self.lock:
+                self.evaluation_calls.append(prompt)
+            return json.dumps({
+                "units": [{"id": unit["id"], "verdict": "YES", "reason": "",
+                           "evidence": [{"source_id": 1, "quote": data["sources"][0]["text"]}]}
+                          for unit in data["units"]],
+                "addresses_question": True, "gaps": [], "unresolved_contradictions": [],
+            })
         if "You judge whether retrieved arxiv papers" in system_instruction_string:
             if self.grader_error:
                 raise self.grader_error
@@ -159,7 +169,7 @@ class FakeLLMService:
         # Answer generation (non-streaming path).
         if self.delay:
             time.sleep(self.delay)
-        return "".join(self.tokens)
+        return "".join(self.tokens) + (" [1]" if "For Deep analysis" in system_instruction_string else "")
 
     def generate_response_stream(self, prompt, system_instruction_string=None, cancel_event=None, **kwargs):
         chunk_index = self._chunk_index_from_prompt(prompt)
@@ -178,6 +188,8 @@ class FakeLLMService:
             if cancel_event is not None and cancel_event.is_set():
                 return
             yield f"{token}{chunk_index}"
+        if "For Deep analysis" in (system_instruction_string or ""):
+            yield " [1]"
 
 
 class FakeArxivClient:
@@ -802,6 +814,7 @@ class StreamViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/event-stream")
         self.assertEqual(response["X-Accel-Buffering"], "no")
+        self.assertNotIn("Connection", response)  # WSGI forbids application hop-by-hop headers.
 
         body = b"".join(response.streaming_content).decode()
         events = self.parse_sse(body)
@@ -825,7 +838,7 @@ class StreamViewTests(TestCase):
         self.assertIn('"type": "complete"', body)
 
     @staticmethod
-    def _slow_pipeline(query, cancel_event=None):
+    def _slow_pipeline(query, cancel_event=None, mode=None):
         time.sleep(0.35)  # longer than SSE_HEARTBEAT_SECONDS
         yield {"type": "complete", "total_docs_retrieved": 0, "num_chunks": 0}
 

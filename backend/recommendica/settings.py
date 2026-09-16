@@ -227,6 +227,13 @@ ENABLE_RESULT_VERIFICATION = _env_bool("ENABLE_RESULT_VERIFICATION", True)
 ENABLE_ANSWER_EVALUATION = _env_bool("ENABLE_ANSWER_EVALUATION", False)
 ANSWER_EVALUATION_TIMEOUT = int(os.getenv("ANSWER_EVALUATION_TIMEOUT", "45"))
 
+# Deep analysis: complete evidence audit, at most one repair, then re-audit.
+# Checks run independently for each chunk; these cap the added provider work.
+DEEP_REVIEW_MODEL = os.getenv("DEEP_REVIEW_MODEL") or AGENT_MODEL
+DEEP_REVIEW_TIMEOUT = int(os.getenv("DEEP_REVIEW_TIMEOUT", "25"))
+DEEP_REPAIR_TIMEOUT = int(os.getenv("DEEP_REPAIR_TIMEOUT", "30"))
+DEEP_REVIEW_DEADLINE = float(os.getenv("DEEP_REVIEW_DEADLINE", "90"))
+
 # ── Serving limits ──────────────────────────────────────────────────────────
 # Concurrent pipeline runs allowed per process; excess requests get a 503 with
 # Retry-After rather than all timing out together.

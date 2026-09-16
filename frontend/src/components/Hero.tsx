@@ -9,6 +9,7 @@ function HeroPanel({
   onSubmit,
   status,
   error,
+  onCancel,
   totalDocs,
   numChunks,
   aggFaithfulness,
@@ -18,6 +19,7 @@ function HeroPanel({
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   status: Status;
   error: string;
+  onCancel: () => void;
   totalDocs: number;
   numChunks: number;
   aggFaithfulness: number | null;
@@ -29,9 +31,9 @@ function HeroPanel({
           Research recommendations, grounded in papers.
         </h1>
         <p className="hero-text">
-          Ask for papers by topic, get concise answers grounded in retrieved
-          documents, and see faithfulness scores that tell you how well each
-          answer sticks to the sources.
+          Ask a research question. The search adapts to its complexity and the
+          evidence it finds, combining quick answers with deeper analysis
+          whenever it is needed.
         </p>
         <Metrics
           totalDocs={totalDocs}
@@ -46,6 +48,7 @@ function HeroPanel({
         onSubmit={onSubmit}
         status={status}
         error={error}
+        onCancel={onCancel}
       />
     </section>
   );

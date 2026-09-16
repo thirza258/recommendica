@@ -177,6 +177,7 @@ function Landing({ onStart, onDonate }: LandingProps) {
         </nav>
 
         <div className="landing-bar-actions">
+          <a href="#courses" className="ghost-button landing-courses-link">Courses</a>
           {onDonate && (
             <button
               type="button"
@@ -201,7 +202,7 @@ function Landing({ onStart, onDonate }: LandingProps) {
       <main className="landing-main">
         {/* ── Hero Section ──────────────────────────────────────────────── */}
         <section className="landing-hero" aria-labelledby="hero-heading">
-          <h1 className="landing-title" id="hero-heading">
+          <h1 className="landing-title" id="hero-heading" tabIndex={-1}>
             Synthesize scientific literature with verified source attribution.
           </h1>
 
@@ -291,6 +292,16 @@ function Landing({ onStart, onDonate }: LandingProps) {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="landing-learning" aria-labelledby="landing-learning-heading">
+          <span className="landing-learning-icon"><GraduationCapIcon size={30} /></span>
+          <div>
+            <p className="section-label">Learn with Recommendica</p>
+            <h2 id="landing-learning-heading">Build your research skills, one lesson at a time.</h2>
+            <p>Four free courses on creating research, following the research process, using this website, and reading papers critically.</p>
+          </div>
+          <a href="#courses" className="ghost-button landing-courses-link">Explore courses <ArrowRightIcon size={16} /></a>
         </section>
 
         {/* ── Interactive Evidence Inspector (Live Research Preview) ──── */}

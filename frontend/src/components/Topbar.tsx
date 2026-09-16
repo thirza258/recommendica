@@ -11,6 +11,8 @@ const STATUS_LABEL: Record<Status, string> = {
 interface TopBarProps {
   status: Status;
   onHome?: () => void;
+  onSearch?: () => void;
+  isLearning?: boolean;
   /** Omitted when the server reports donations as unconfigured. */
   onDonate?: () => void;
 }
@@ -20,7 +22,7 @@ interface TopBarProps {
  * Deliberately not a live region — the progress banner announces changes, and
  * two live regions would double up on screen readers.
  */
-function TopBar({ status, onHome, onDonate }: TopBarProps) {
+function TopBar({ status, onHome, onSearch, isLearning, onDonate }: TopBarProps) {
   return (
     <header className="topbar">
       <button
@@ -34,6 +36,18 @@ function TopBar({ status, onHome, onDonate }: TopBarProps) {
       </button>
 
       <div className="topbar-actions">
+        <a
+          href="#courses"
+          className="ghost-button topbar-courses-link"
+          aria-current={isLearning ? "page" : undefined}
+        >
+          Courses
+        </a>
+        {onSearch && (
+          <button type="button" className="ghost-button" onClick={onSearch}>
+            Search papers
+          </button>
+        )}
         {onHome && (
           <button type="button" className="ghost-button topbar-home-btn" onClick={onHome}>
             Overview &amp; Topics
@@ -49,10 +63,12 @@ function TopBar({ status, onHome, onDonate }: TopBarProps) {
             <span>Donate</span>
           </button>
         )}
-        <div className="status-chip">
-          <span className={`status-dot ${status}`} />
-          <span>{STATUS_LABEL[status]}</span>
-        </div>
+        {!isLearning && (
+          <div className="status-chip">
+            <span className={`status-dot ${status}`} />
+            <span>{STATUS_LABEL[status]}</span>
+          </div>
+        )}
       </div>
     </header>
   );

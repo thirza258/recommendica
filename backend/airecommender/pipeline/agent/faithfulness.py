@@ -12,6 +12,8 @@ chunk and it lands on the critical path, since a chunk's ``chunk_end`` event
 carries its evaluation.  Relevance filtering is what keeps answers on topic;
 this measures how well an answer sticks to its sources.
 
+This is the legacy optional check. Explicit Deep analysis uses
+``agent.answer_review`` for complete coverage, source evidence and repair.
 Output shape matches the frontend's ``ChunkEval`` type exactly.
 """
 
