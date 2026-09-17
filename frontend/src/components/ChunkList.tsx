@@ -19,10 +19,10 @@ function ChunksList({
     <section className="chunks-section" aria-label="Results">
       <div className="chunks-header">
         <div>
-          <p className="section-label">Results</p>
+          <p className="section-label">Results · Adaptive research</p>
           {query && <p className="chunks-query">&ldquo;{query}&rdquo;</p>}
         </div>
-        <ScoreBadge score={aggFaithfulness} label="Aggregate faithfulness" />
+        <ScoreBadge score={aggFaithfulness} label="Source support" />
       </div>
 
       {chunks.map((chunk) => (
@@ -30,7 +30,9 @@ function ChunksList({
           key={chunk.chunk_index}
           chunk={chunk}
           numChunks={numChunks}
-          isStreaming={isLoading && !chunk.docs?.length}
+          isStreaming={isLoading && !chunk.complete}
+          isEvaluating={Boolean(chunk.answer_review) && isLoading && chunk.complete && !chunk.evaluation && !chunk.error}
+          isLoading={isLoading}
         />
       ))}
     </section>

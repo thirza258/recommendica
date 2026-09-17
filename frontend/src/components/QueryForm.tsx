@@ -9,17 +9,23 @@ function QueryForm({
   onSubmit,
   status,
   error,
+  onCancel,
 }: {
   prompt: string;
   setPrompt: (value: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   status: Status;
   error: string;
+  onCancel: () => void;
 }) {
   const isLoading = status === "loading";
 
   return (
     <form className="query-panel" onSubmit={onSubmit}>
+      <div className="adaptive-hint">
+        <strong>Adaptive research</strong>
+        <span>A focused answer when the evidence is clear. Deeper research when it needs more work.</span>
+      </div>
       <label className="input-label" htmlFor="research-prompt">
         Research prompt
       </label>
@@ -49,10 +55,12 @@ function QueryForm({
       <div className="form-actions">
         <button type="submit" className="primary-button" disabled={isLoading}>
           {isLoading && <SpinnerIcon size={16} className="button-spinner" />}
-          {isLoading ? "Searching..." : "Generate recommendations"}
+          {isLoading ? "Researching..." : "Research question"}
         </button>
+        {isLoading && <button type="button" className="sample-pill" onClick={onCancel}>Stop search</button>}
         <p className="helper-copy" id="research-prompt-help">
-          Answers stream in as each group of papers is processed.
+          Search depth adjusts automatically. Drafts stream as they are written;
+          source checks and any needed revisions finish before the final answer.
         </p>
       </div>
 

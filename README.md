@@ -91,26 +91,156 @@ next to `manage.py` still works if you only ever run the backend.
 }
 ```
 
-The return response will be the top 5 most relevant research papers to the input prompt.
+## Adaptive research
+
+The app has one research flow. It selects individual search steps from the
+question, then adapts when the retrieved evidence needs more coverage.
+Both `POST /api/v1/prompt/` and `POST /api/v1/prompt/stream/` accept:
+
+```json
+{
+  "input_prompt": "What methods improve retrieval augmented generation?",
+  "mode": "adaptive"
+}
+```
+
+`adaptive` is the default when `mode` is omitted. The earlier `fast` and `deep`
+API profiles remain accepted for existing integrations, but there is no mode
+selector in the app. Invalid modes return HTTP 400 before pipeline setup.
+
+| Signal | Work selected automatically |
+| --- | --- |
+| A straightforward question | Original-query retrieval, up to 10 graded candidates and one answer group of up to 5 papers |
+| Comparison or a multipart question | Broader context and alternate search queries |
+| Mechanism or causality question | Concept search (HyDE) and broader context |
+| Comprehensive synthesis | HyDE, step-back, multiple queries, and configured reranking |
+| Medical, safety, legal or financial cues | Additional search angles |
+| Too few related papers, or both low retrieval confidence and low term coverage | Expand the search, refine once, retain previously accepted papers and grade additional results |
+| Evidence remains weak | Consult arXiv once and grade any new papers |
+| Every answer | Complete evidence audit, citation/quote/number checks, and conditional revision plus recheck |
+
+The initial planner uses inexpensive text heuristics, not a model call or a
+claim of certainty. It selects steps independently rather than choosing between
+two fixed modes. Retrieval feedback can expand any question, including one
+whose wording did not match a heuristic. Keyword overlap alone does not trigger
+expansion, since related papers can use different terminology. Unknown retrieval
+confidence is not treated as evidence of failure.
+Accepted papers are reused during expansion instead of being graded again.
+
+Adaptive searches use at most two retrieval rounds and one live fallback,
+within the existing agent deadline. Answer generation has no retries and a
+timeout of at most 60 seconds. This bounds a provider call, not total latency:
+embedding, storage and source checks also take time.
+
+Query checking, selected transformations and the collection check overlap
+after deterministic guards. Enabled transformations run concurrently too.
+Retrieval and generation wait for query acceptance. A rejected question can
+spend concurrent expansion calls, but never proceeds to an answer.
+
+The stream emits an `adaptive` progress event with a `research_plan` containing
+`strategy`, `reason`, enabled `steps`, and whether retrieval caused escalation.
+The final JSON response and SSE `complete` also include that plan. Enabled
+steps describe the plan; individual progress events describe work performed.
+
+Adaptive streams emit each answer's tokens as they arrive, even if an earlier
+answer is slow. Match events by `chunk_index`; their order can interleave.
+`chunk_end` exposes a **draft** and its papers immediately. The UI labels it as
+unchecked until the review completes. `chunk_evaluation` then carries
+`{chunk_index, generated_response, evaluation, answer_review}`. Clients must
+**replace** the draft with `generated_response`: this is the revised answer or
+an explanation that no answer could be verified. The final `complete` waits for
+all checks and includes an `answer_review` count summary. The browser displays
+cards in index order and updates each answer and its source evidence together.
+
+### Accuracy flow
+
+1. Write a draft with numbered source citations for every factual point.
+2. Audit every nonblank answer section using the **same excerpts provided to
+   generation**, including details beyond the old 400-character grading snippets.
+   Other selected papers are also provided to check conflicting findings across
+   answer groups. The reviewer checks entities, quantities, units, population,
+   causality, uncertainty, unanswered parts and overstated conclusions.
+3. Validate the audit in Python: every section ID must be covered exactly once;
+   citations must refer to supplied sources; supporting quotes must actually
+   occur in those excerpts; numerical values and percentage units must appear
+   in the cited evidence. Partial support does not pass. Evidence quotes are
+   available in the UI's expandable claim list. A model's `NOT_A_CLAIM`
+   verdict cannot waive these checks for arbitrary prose: only fixed neutral
+   section labels and a standard missing-information note are exempt. Factual
+   assertions in headings or caveats still require evidence.
+4. If support fails, revise once using the issues and source excerpts, then
+   repeat the complete audit on the **new text**. A passing draft needs only
+   one audit; revision and the second audit are conditional.
+5. If the recheck fails, a reviewer is unavailable, coverage is incomplete or
+   the review deadline expires, replace the draft with an explanation and keep
+   the sources. Do not present an unverified answer or an old draft's score as
+   checked. Supported partial answers retain visible limitations. Aggregate
+   support is left unscored if any answer group is withheld.
+
+These are checks of support in the supplied excerpts, **not a guarantee of
+factual correctness**. A model can misjudge entailment, an abstract can omit
+important context, and a source can itself be wrong. Adaptive research does not
+claim to have read full papers or independently replicated their findings.
+
+Reviews run concurrently across answer groups, after their drafts stream. They
+have no provider retries, at most one repair and a shared per-answer budget:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `DEEP_REVIEW_MODEL` | `AGENT_MODEL` | Can select a separate reviewer model. |
+| `DEEP_REVIEW_TIMEOUT` | 25 seconds | Maximum per audit call. |
+| `DEEP_REPAIR_TIMEOUT` | 30 seconds | Maximum for the one revision call. |
+| `DEEP_REVIEW_DEADLINE` | 90 seconds | Budget shared by audit, revision and recheck. |
+
+Cancellation and the remaining budget are checked immediately before each
+provider call, including after a progress event pauses the review. A cancelled
+or expired review cannot start another audit or revision, and a result returned
+after cancellation or deadline expiry cannot certify the draft. These local
+checks add no model calls. Missing-answer notices are kept nonempty and repeated
+limitations are combined.
+
+An audit never silently truncates an answer: drafts exceeding 12,000 characters
+or 40 nonblank sections must be shortened and rechecked before release.
+
+The `DEEP_REVIEW_*` settings above also govern adaptive answer reviews.
+Explicit API profiles select stages independently of legacy `ENABLE_*` flags.
+Timing, model, relevance, collection and context settings still apply. Direct
+Python callers omitting `mode` retain legacy flags and ordered streams.
+Research plans and settings belong to individual requests; simultaneous
+searches share clients/caches without changing one another's plans.
+
+**Stop search** cancels an active request and keeps received results. The
+browser enforces a 10-minute timeout through the entire adaptive stream and
+reports interrupted streams instead of leaving the spinner on.
+
+Run the backend tests with `cd backend && python manage.py test airecommender`
+and the stream-parser regressions with `cd frontend && npm test` (Node 22.6+).
+The mode tests use dependency fakes and synchronization barriers to verify the
+full flow, mode isolation, parallel preparation and independent answer delivery.
+
+The JSON response groups selected papers and their reviewed answers in `data`.
+A focused search uses one answer group; expanded research can use more within
+the configured context limits. Example response excerpt:
 
 ```json
 {
     "status": 200,
     "message": "Success",
-    "data": {
-        "response": "ai response",
-        "research_results": [
-            {
-                "title": "title",
-                "category": "category",
-                "summary": "summary",
-                "authors": "authors"
-            }
-        ]
-    }
+    "mode": "adaptive",
+    "total_docs_retrieved": 1,
+    "num_chunks": 1,
+    "data": [{
+        "chunk_index": 1,
+        "num_docs_in_chunk": 1,
+        "generated_response": "An answer supported by the supplied source [1].",
+        "docs": [{"document": "...", "meta": {}}],
+        "answer_review": {"status": "checked", "revised": false, "checks": 1}
+    }]
 }
 ```
+
 ## API Documentation
+
 - localhost:8000/docs/
 
 ## Health checks
@@ -319,6 +449,9 @@ which would read as "no confidence".
 
 ### Answer grounding (optional)
 
+This setting applies to legacy Python calls without a response mode. Deep
+analysis always runs the stricter accuracy flow described above.
+
 `ENABLE_ANSWER_EVALUATION=True` additionally audits each generated answer
 against its own sources, filling the `faithfulness_score` badge, the claim list
 and the aggregate score the UI already renders. **Off by default**: it adds an
@@ -372,9 +505,32 @@ The production stack uses Docker Compose with the frontend served by nginx.
 ## Frontend pages
 
 The frontend opens on a landing page (`frontend/src/components/Landing.tsx`)
-explaining what the tool does. **Get started** swaps it for the search view —
-plain component state in `App.tsx`, no router — and moves focus to the prompt
-field. Every load starts on the landing page; the choice is not persisted.
+explaining what the tool does. **Open Console** opens the search view at
+`#search` and moves focus to the prompt field. Lightweight hash navigation in
+`App.tsx` supports browser Back/Forward and direct links without a router
+dependency. Existing landing section links still work.
+
+**Courses**, available from the landing page and search console, opens the
+learning hub at `#courses`. It contains four free courses with 16 lessons:
+
+- Create your first research project: question, literature review, design, proposal.
+- Do research, step by step: protocol and pilot, evidence collection, analysis, reporting.
+- Get started with Recommendica: search, answer status, source inspection, refinement.
+- Read research with confidence: reading passes, methods, results, notes and citations.
+
+Each lesson includes teaching content, a worked example, an exercise, and a
+knowledge check with feedback. Answering correctly enables **Mark lesson
+complete**. Completion is saved under `recommendica.course-progress.v1` in
+this browser's local storage; unavailable storage leaves the lessons usable
+and displays a notice. There are no accounts or server-side progress records.
+Course cards resume at the first incomplete lesson and allow completed courses
+to be reviewed. **Try this in search** prefills the console without submitting.
+
+Course content and further-reading links live in `frontend/src/data/courses.ts`.
+Stable course and lesson IDs form links such as
+`#courses/website-tutorial/first-search` and are also used for saved progress.
+Unknown lesson links show a notice and the catalog. Run `cd frontend && npm test`
+for curriculum navigation and progress regressions alongside the stream tests.
 
 ## SEO
 

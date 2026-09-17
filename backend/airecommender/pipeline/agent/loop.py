@@ -122,6 +122,7 @@ class RelevanceAgent:
         max_docs: int = 12,
         deadline_seconds: float = 90.0,
         clock: Callable[[], float] = time.monotonic,
+        needs_more_fn: Optional[Callable[[Sequence[dict]], bool]] = None,
     ):
         self.retrieve_fn = retrieve_fn
         self.grade_fn = grade_fn
@@ -133,6 +134,7 @@ class RelevanceAgent:
         self.max_docs = max(1, max_docs)
         self.deadline_seconds = deadline_seconds
         self.clock = clock
+        self.needs_more_fn = needs_more_fn
 
     # ── Selection helpers ────────────────────────────────────────────────────
 
@@ -218,6 +220,11 @@ class RelevanceAgent:
 
     # ── Main loop ────────────────────────────────────────────────────────────
 
+    def _needs_more(self, pool):
+        return len(pool) < self.min_relevant or bool(
+            self.needs_more_fn and self.needs_more_fn(self._pool_docs(pool))
+        )
+
     def run(
         self,
         query: str,
@@ -253,6 +260,15 @@ class RelevanceAgent:
         iteration = 0
 
         while iteration < self.max_iterations:
+            # Adaptive expansion can add several transform calls. Do not begin
+            # that round when rewriting consumed the remaining search budget.
+            if self.needs_more_fn is not None and iteration and out_of_time():
+                deadline_hit = True
+                yield AgentEvent(
+                    "deadline", "Research time limit reached — using the evidence already found.",
+                    {"iteration": iteration},
+                )
+                break
             iteration += 1
             grading: Optional[GradingResult] = None
 
@@ -278,6 +294,14 @@ class RelevanceAgent:
             )
 
             candidates = list(self.retrieve_fn(search_queries) or [])
+            if self.needs_more_fn is not None and pool:
+                # Adaptive expansion reuses accepted evidence. Paying to grade
+                # the same paper again adds no coverage to the answer.
+                candidates = [
+                    candidate for candidate in candidates
+                    if candidate.get("document", "") not in pool
+                ]
+                candidates = self._without_pooled_titles(candidates, pool)
             if candidates:
                 saw_candidates = True
 
@@ -287,7 +311,8 @@ class RelevanceAgent:
                 )
                 yield AgentEvent(
                     "empty",
-                    "That search returned no candidate papers.",
+                    ("That search added no new candidate papers." if pool
+                     else "That search returned no candidate papers."),
                     {"iteration": iteration},
                 )
             else:
@@ -366,7 +391,7 @@ class RelevanceAgent:
                     },
                 )
 
-                if len(pool) >= self.min_relevant:
+                if not self._needs_more(pool):
                     break
 
             # ── Not enough related papers: decide whether to act again ──────
@@ -407,7 +432,8 @@ class RelevanceAgent:
 
             yield AgentEvent(
                 "refining",
-                f"Too few related papers — retrying with: {refined}",
+                (f"Searching for stronger coverage with: {refined}" if self.needs_more_fn
+                 else f"Too few related papers — retrying with: {refined}"),
                 {"iteration": iteration, "refined_query": refined},
             )
             primary_query = refined
@@ -425,7 +451,7 @@ class RelevanceAgent:
 
         if (
             self.fallback_fn is not None
-            and len(pool) < self.min_relevant
+            and self._needs_more(pool)
             and grader_status.is_trustworthy
             and not cancelled()
         ):
@@ -440,6 +466,8 @@ class RelevanceAgent:
                 yield AgentEvent(
                     "fallback_searching",
                     (
+                        "Checking arXiv for additional supporting papers..."
+                        if self.needs_more_fn else
                         f"Only {len(pool)} related paper"
                         f"{'s' if len(pool) != 1 else ''} in the collection — "
                         f"searching arXiv directly..."

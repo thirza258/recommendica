@@ -128,12 +128,19 @@ function ClaimList({ claims }: { claims: ClaimVerdict[] }) {
               <span className="claim-verdict">
                 {c.supported ? <CheckIcon size={15} /> : <CrossIcon size={15} />}
               </span>
-              <span>
+              <div>
                 <span className="visually-hidden">
                   {c.supported ? 'Supported: ' : 'Not supported: '}
                 </span>
                 {c.claim}
-              </span>
+                {c.evidence?.map((evidence, index) => (
+                  <blockquote className="claim-evidence" key={index}>
+                    <span>Source [{evidence.source_id}]</span>
+                    <q>{evidence.quote}</q>
+                  </blockquote>
+                ))}
+                {!c.supported && c.reason && <small>{c.reason}</small>}
+              </div>
             </li>
           ))}
         </ul>

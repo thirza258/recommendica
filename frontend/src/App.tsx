@@ -5,6 +5,9 @@ import HeroPanel from "./components/Hero";
 import ChunksList from "./components/ChunkList";
 import DonateDialog from "./components/DonateDialog";
 import EmptyState from "./components/EmptyState";
+import Courses from "./components/Courses";
+import { viewFromHash } from "./learning";
+import type { View } from "./learning";
 import { AlertTriangleIcon } from "./components/Icons";
 import {
   ChunkResponse,
@@ -12,29 +15,31 @@ import {
   DonationConfigResponse,
   DonationSettings,
   Status,
+  ResearchPlan,
   StreamEvent,
 } from "./interface";
 import "./App.css";
+import { readSearchStream } from "./searchStream";
 
 let backendHealthCheckSent = false;
 let donationConfigRequested = false;
 let corpusStatsRequested = false;
 
-/** Landing page first, search app once the visitor asks for it. */
-type View = "landing" | "app";
-
 const DOC_TITLE: Record<View, string> = {
   landing: "Recommendica — AI Research Paper Recommendations & Grounded Search",
   app: "Search papers — Recommendica",
+  courses: "Research courses — Recommendica",
 };
 
 function App() {
-  const [view, setView] = useState<View>("landing");
+  const [hash, setHash] = useState(() => window.location.hash);
+  const view = viewFromHash(hash);
   const [prompt, setPrompt] = useState(
     "What are the most relevant papers on climate change and public health?"
   );
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [researchPlan, setResearchPlan] = useState<ResearchPlan | null>(null);
 
   const [query, setQuery] = useState("");
   const [totalDocs, setTotalDocs] = useState(0);
@@ -53,6 +58,22 @@ function App() {
 
   // Track the AbortController so we can cancel an in-flight stream
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  useEffect(() => {
+    const syncHash = () => setHash(window.location.hash);
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  const cancelSearch = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStatus("idle");
+    setProgressMsg("");
+    setNotice("Search stopped. Any results received are shown below.");
+  };
 
   // ── Health check ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -113,9 +134,20 @@ function App() {
   // <body>, leaving a keyboard user to re-traverse the page to reach the one
   // control they just asked for.
   useEffect(() => {
-    document.title = DOC_TITLE[view];
+    if (view !== "courses") document.title = DOC_TITLE[view];
+    if (view !== "app" && abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+      setStatus("idle");
+      setProgressMsg("");
+      setNotice("Search stopped. Any results received are shown below.");
+    }
     if (view === "app") {
+      window.scrollTo({ top: 0, behavior: "instant" });
       document.getElementById("research-prompt")?.focus();
+    } else if (view === "landing" && window.location.hash === "#home") {
+      document.getElementById("hero-heading")?.focus();
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [view]);
 
@@ -133,7 +165,8 @@ function App() {
 
     setStatus("loading");
     setError("");
-    setProgressMsg("Starting query expansion & literature search...");
+    setProgressMsg("Planning your research...");
+    setResearchPlan(null);
     setNotice("");
     setChunks([]);
     setQuery(trimmed);
@@ -144,18 +177,20 @@ function App() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // 10-minute timeout as a safety net; the stream should stay alive via SSE
-    const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+    // Keep the timeout active while reading the body, not only until headers.
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 10 * 60 * 1000);
 
     try {
       const response = await fetch("/api/v1/prompt/stream/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input_prompt: trimmed }),
+        body: JSON.stringify({ input_prompt: trimmed, mode: "adaptive" }),
         signal: controller.signal,
       });
-
-      clearTimeout(timeout);
 
       if (!response.ok) {
         const errBody = await response.text();
@@ -167,49 +202,23 @@ function App() {
         throw new Error(errMsg);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("Response body is not readable (streaming not supported).");
-      }
-
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE messages are delimited by double newlines
-        const parts = buffer.split("\n\n");
-        // The last part may be incomplete — keep it in the buffer
-        buffer = parts.pop() ?? "";
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6); // strip "data: " prefix
-          try {
-            const event: StreamEvent = JSON.parse(jsonStr);
-            handleStreamEvent(event);
-          } catch {
-            // Ignore malformed JSON (partial writes, etc.)
-          }
+      await readSearchStream(response, (event) => {
+        if (abortRef.current === controller && !controller.signal.aborted) {
+          handleStreamEvent(event);
         }
-      }
+      });
     } catch (err) {
+      // A replaced or cancelled request must never change the next search.
+      if (abortRef.current !== controller) return;
+      setStatus("error");
+      setProgressMsg("");
+      setError(timedOut
+        ? "The search took too long. Please try again or use a narrower question."
+        : err instanceof Error ? err.message : "Request failed.");
+    } finally {
       clearTimeout(timeout);
-      if (err instanceof DOMException && err.name === "AbortError") {
-        // User cancelled or timeout — don't overwrite if we already have results
-        if (status === "loading") {
-          setStatus("idle");
-          setError("Request cancelled.");
-        }
-      } else {
-        setStatus("error");
-        setError(err instanceof Error ? err.message : "Request failed.");
+      if (abortRef.current === controller) {
+        abortRef.current = null;
       }
     }
   };
@@ -223,12 +232,12 @@ function App() {
     if (initialPrompt && initialPrompt.trim()) {
       const q = initialPrompt.trim();
       setPrompt(q);
-      setView("app");
+      window.location.hash = "search";
       if (autoSubmit) {
         void executeSearch(q);
       }
     } else {
-      setView("app");
+      window.location.hash = "search";
     }
   };
 
@@ -237,6 +246,16 @@ function App() {
     switch (event.type) {
       case "progress":
         setProgressMsg(event.message);
+        if (event.research_plan) setResearchPlan(event.research_plan);
+        if (event.step === "answer_review" && event.chunk_index !== undefined
+          && (event.status === "checking" || event.status === "rechecking" || event.status === "revising")) {
+          const reviewStatus = event.status;
+          setChunks((prev) => prev.map((chunk) => chunk.chunk_index === event.chunk_index
+            ? { ...chunk, answer_review: { ...chunk.answer_review, status: reviewStatus } }
+            : chunk));
+        }
+        if (event.step === "chunking" && event.num_chunks !== undefined) setNumChunks(event.num_chunks);
+        if (event.step === "retrieval" && event.status === "done" && event.count !== undefined) setTotalDocs(event.count);
         break;
 
       case "chunk_start":
@@ -254,8 +273,9 @@ function App() {
               num_docs_in_chunk: event.num_docs_in_chunk,
               docs: [],
               generated_response: "",
+              answer_review: event.answer_review,
             },
-          ];
+          ].sort((a, b) => a.chunk_index - b.chunk_index);
         });
         break;
 
@@ -284,23 +304,44 @@ function App() {
                   num_docs_in_chunk: event.num_docs_in_chunk,
                   generated_response: event.generated_response,
                   evaluation: event.evaluation ?? c.evaluation,
+                  answer_review: event.answer_review ?? c.answer_review,
+                  error: event.error,
+                  complete: true,
                 }
               : c
           )
         );
         break;
 
+      case "chunk_evaluation":
+        setChunks((prev) => prev.map((chunk) => chunk.chunk_index === event.chunk_index
+          ? {
+              ...chunk,
+              generated_response: event.generated_response ?? chunk.generated_response,
+              evaluation: event.evaluation ?? undefined,
+              answer_review: event.answer_review ?? chunk.answer_review,
+            }
+          : chunk));
+        break;
+
       case "complete":
+        if (event.research_plan) setResearchPlan(event.research_plan);
         setTotalDocs(event.total_docs_retrieved);
         setNumChunks(event.num_chunks);
         setAggFaithfulness(event.aggregate_faithfulness ?? null);
-        setNotice(event.notice ?? "");
+        setNotice([
+          event.notice,
+          event.answer_review?.withheld
+            ? `${event.answer_review.withheld} ${event.answer_review.withheld === 1 ? "answer was" : "answers were"} withheld because their source checks did not pass.`
+            : "",
+        ].filter(Boolean).join(" "));
         setProgressMsg("");
         setStatus("success");
         break;
 
       case "error":
         setError(event.message);
+        setProgressMsg("");
         setStatus("error");
         break;
     }
@@ -311,6 +352,20 @@ function App() {
     <DonateDialog settings={donation} onClose={() => setDonateOpen(false)} />
   );
   const openDonate = donation ? () => setDonateOpen(true) : undefined;
+
+  if (view === "courses") {
+    return (
+      <>
+        <Courses
+          hash={hash}
+          onHome={() => { window.location.hash = "home"; }}
+          onSearch={(initialPrompt) => handleStartFromLanding(initialPrompt)}
+          onDonate={openDonate}
+        />
+        {donateDialog}
+      </>
+    );
+  }
 
   if (view === "landing") {
     return (
@@ -329,7 +384,10 @@ function App() {
     <div className="app-shell">
       <TopBar
         status={status}
-        onHome={() => setView("landing")}
+        onHome={() => {
+          if (abortRef.current) cancelSearch();
+          window.location.hash = "home";
+        }}
         onDonate={openDonate}
       />
 
@@ -340,10 +398,18 @@ function App() {
           onSubmit={runSearch}
           status={status}
           error={error}
+          onCancel={cancelSearch}
           totalDocs={totalDocs}
           numChunks={numChunks}
           aggFaithfulness={aggFaithfulness}
         />
+
+        {researchPlan && (
+          <div className="research-plan" aria-label="Research approach">
+            <strong>{researchPlan.escalated ? "Research expanded" : "Adaptive research"}</strong>
+            <p>{researchPlan.reason}</p>
+          </div>
+        )}
 
         {/* Progress banner during loading. This is the only live region for
             the stream — the token text itself must never be one, or screen

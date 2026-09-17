@@ -1,11 +1,11 @@
 """
-Run producers concurrently, emit their output in order.
+Run producers concurrently, optionally emit their output in order.
 
 The pipeline generates one LLM answer per document chunk.  Doing that
 sequentially makes the wall-clock cost the *sum* of every chunk's generation
 time, even though the chunks do not depend on each other.  Doing it
-concurrently but emitting tokens as they arrive would interleave three
-different answers in the SSE stream and break the client's contract.
+concurrently can interleave different answers in the SSE stream, so callers
+must correlate events by chunk_index when using ordered=False.
 
 ``stream_in_order`` gives us both: every producer runs in its own thread right
 away, but the consumer drains producer 0 to completion before touching
@@ -59,6 +59,7 @@ def stream_in_order(
     poll_interval: float = DEFAULT_POLL_INTERVAL,
     max_items_per_producer: int = DEFAULT_MAX_ITEMS_PER_PRODUCER,
     thread_name_prefix: str = "ordered-stream",
+    ordered: bool = True,
 ) -> Iterator[Any]:
     """
     Run *producers* concurrently and yield their items grouped in order.
@@ -75,6 +76,9 @@ def stream_in_order(
         Producers stop at their next item; the consumer stops yielding.
     max_items_per_producer:
         Safety cap; a producer exceeding it is truncated with a warning.
+    ordered:
+        False emits events as soon as any producer produces them. Per-producer
+        ordering is preserved, but a slow chunk never holds up another one.
 
     Yields
     ------
@@ -95,6 +99,7 @@ def stream_in_order(
         return stop.is_set() or (cancel_event is not None and cancel_event.is_set())
 
     queues: list[queue.SimpleQueue] = [queue.SimpleQueue() for _ in producer_list]
+    shared: queue.SimpleQueue = queue.SimpleQueue()
 
     def run_producer(index: int, producer: Callable[[], Any], sink: queue.SimpleQueue):
         emitted = 0
@@ -107,7 +112,7 @@ def stream_in_order(
                         "[STREAM] Producer %s cancelled after %s items", index, emitted
                     )
                     return
-                sink.put((_ITEM, item))
+                sink.put((index, _ITEM, item))
                 emitted += 1
                 if emitted >= max_items_per_producer:
                     logger.warning(
@@ -117,9 +122,9 @@ def stream_in_order(
                     )
                     return
         except BaseException as exc:  # noqa: BLE001 — surfaced as ProducerError
-            sink.put((_ERROR, exc))
+            sink.put((index, _ERROR, exc))
         finally:
-            sink.put((_DONE, None))
+            sink.put((index, _DONE, None))
 
     executor = ThreadPoolExecutor(
         max_workers=max(1, max_workers),
@@ -127,14 +132,15 @@ def stream_in_order(
     )
     try:
         for index, producer in enumerate(producer_list):
-            executor.submit(run_producer, index, producer, queues[index])
+            executor.submit(run_producer, index, producer, queues[index] if ordered else shared)
 
-        for index, sink in enumerate(queues):
+        for sink in queues if ordered else [shared]:
+            remaining = 1 if ordered else len(producer_list)
             while True:
                 if cancelled():
                     return
                 try:
-                    kind, payload = sink.get(timeout=poll_interval)
+                    index, kind, payload = sink.get(timeout=poll_interval)
                 except queue.Empty:
                     continue
 
@@ -143,7 +149,9 @@ def stream_in_order(
                 elif kind == _ERROR:
                     yield ProducerError(index=index, exc=payload)
                 else:  # _DONE
-                    break
+                    remaining -= 1
+                    if remaining == 0:
+                        break
     finally:
         # Tell any still-running producer to give up, and never block the
         # response thread waiting for them.

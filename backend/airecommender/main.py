@@ -1,3 +1,4 @@
+import copy
 import functools
 import logging
 import threading
@@ -7,6 +8,8 @@ from typing import Optional
 
 from django.conf import settings
 
+from airecommender.pipeline.adaptive import plan_research
+from airecommender.pipeline.agent.answer_review import DEEP_GENERATION_INSTRUCTION, review_answer
 from airecommender.pipeline.agent.faithfulness import (
     aggregate_faithfulness,
     evaluate_answer,
@@ -24,6 +27,7 @@ from airecommender.pipeline.errors import (
 )
 from airecommender.pipeline.fusion import RRF_DEFAULT_K, reciprocal_rank_fusion
 from airecommender.pipeline.llm_service import get_llm_service
+from airecommender.pipeline.modes import SearchMode
 from airecommender.pipeline.ordered_stream import ProducerError, stream_in_order
 from airecommender.pipeline.prompting import build_chunk_prompt
 from airecommender.pipeline.query_transform.hyde_rag import generate_hypothetical_abstract
@@ -66,6 +70,10 @@ class RAGIndex:
         self.max_doc_chars = int(_setting("MAX_DOC_CHARS_IN_PROMPT", 1500))
 
         self.generation_workers = int(_setting("GENERATION_MAX_WORKERS", 3))
+        self.generation_options = {}
+        self.response_mode = None
+        self.research_plan = None
+        self._adaptive_limits = None
         self.readiness_cache_seconds = float(_setting("READINESS_CACHE_SECONDS", 10))
 
         # ── Relevance agent ───────────────────────────────────────────────
@@ -145,6 +153,92 @@ class RAGIndex:
     def _fallback_enabled(self) -> bool:
         """The live source is only usable when the grader is there to check it."""
         return bool(self.enable_arxiv_fallback and self.enable_agent and self.arxiv_client)
+
+    @property
+    def _uses_evidence_review(self) -> bool:
+        return self.response_mode in {SearchMode.DEEP.value, SearchMode.ADAPTIVE.value}
+
+    def for_mode(self, mode: str):
+        """Make a request-local profile while sharing clients and their caches.
+
+        Never change the singleton's flags: searches may run at the same time.
+        Adaptive selects steps per question and retrieval; legacy Python calls
+        without a mode retain the deployment's ENABLE_* configuration.
+        """
+        mode = SearchMode(mode)
+        request_index = copy.copy(self)
+        request_index.response_mode = mode.value
+        request_index.research_plan = None
+        deep = mode is SearchMode.DEEP
+        adaptive = mode is SearchMode.ADAPTIVE
+        request_index.enable_hyde = deep
+        request_index.enable_step_back = deep
+        request_index.enable_rag_fusion = deep
+        request_index.enable_query_verification = True
+        request_index.enable_result_verification = True
+        request_index.enable_agent = True
+        request_index.enable_arxiv_fallback = deep or adaptive
+        request_index.enable_answer_evaluation = deep or adaptive
+        request_index.generation_options = dict(self.generation_options)
+        if deep or adaptive:
+            request_index.agent_max_iterations = max(2, self.agent_max_iterations)
+            if request_index.arxiv_client is None:
+                try:
+                    request_index.arxiv_client = ArxivClient()
+                except Exception:
+                    logger.exception("[PIPELINE] Could not configure optional arXiv source")
+        else:
+            # One original-query search, one relevance call, one answer. Keep
+            # the grader so speed never means answering from rejected papers.
+            request_index.max_context_docs = max(
+                1, min(self.max_context_docs, settings.CHUNK_SIZE, 5)
+            )
+            request_index.agent_grade_candidates = max(1, min(self.agent_grade_candidates, 10))
+            request_index.agent_max_iterations = 1
+            request_index.agent_min_relevant = min(
+                self.agent_min_relevant, request_index.max_context_docs
+            )
+            request_index.agent_timeout = min(self.agent_timeout, 15)
+            request_index.generation_options = {
+                "timeout": min(int(_setting("LLM_REQUEST_TIMEOUT", 120)), 60),
+                "max_retries": 0,
+            }
+        if adaptive:
+            request_index._adaptive_limits = {
+                "docs": self.max_context_docs, "candidates": self.agent_grade_candidates,
+            }
+            request_index.agent_max_iterations = 2
+            request_index.agent_timeout = min(self.agent_timeout, 15)
+            request_index.generation_options = {
+                "timeout": min(int(_setting("LLM_REQUEST_TIMEOUT", 120)), 60),
+                "max_retries": 0,
+            }
+        return request_index
+
+    def _apply_research_plan(self, plan):
+        """Only request copies call this; shared clients and flags stay intact."""
+        self.research_plan = plan
+        self.enable_hyde = plan.hyde
+        self.enable_step_back = plan.step_back
+        self.enable_rag_fusion = plan.fusion
+        limits = self._adaptive_limits
+        self.max_context_docs = max(1, limits["docs"] if plan.expanded else min(
+            limits["docs"], settings.CHUNK_SIZE, 5
+        ))
+        self.agent_grade_candidates = max(
+            1, limits["candidates"] if plan.expanded else min(limits["candidates"], 10)
+        )
+        self.agent_min_relevant = min(
+            int(_setting("AGENT_MIN_RELEVANT_DOCS", 3)), self.max_context_docs
+        )
+
+    def _plan_progress(self):
+        return {
+            "type": "progress", "step": "adaptive",
+            "status": "expanded" if self.research_plan.expanded else "focused",
+            "message": self.research_plan.reason,
+            "research_plan": self.research_plan.as_payload(),
+        }
 
     # ── Query-generation helpers ──────────────────────────────────────────────
 
@@ -307,7 +401,12 @@ class RAGIndex:
 
         cap = limit or self.max_context_docs
 
-        if self.dense_rag.rerank_model or self.dense_rag.cross_encoder:
+        rerank = self.response_mode != SearchMode.FAST.value and (
+            self.research_plan is None or self.research_plan.expanded
+        )
+        if rerank and (
+            self.dense_rag.rerank_model or self.dense_rag.cross_encoder
+        ):
             window = max(cap * 2, self.dense_rag.top_k)
             fused = self.dense_rag.rerank_candidates(query, fused[:window])
 
@@ -331,7 +430,7 @@ class RAGIndex:
 
     # ── Relevance agent ───────────────────────────────────────────────────────
 
-    def _build_agent(self, query: str, total: int) -> RelevanceAgent:
+    def _build_agent(self, query: str, total: int, cancel_event=None) -> RelevanceAgent:
         """
         Wire the agent to this request's retrieval, grading and refinement.
 
@@ -340,7 +439,19 @@ class RAGIndex:
         retry storm would blow the loop's wall-clock deadline.
         """
 
+        retrieval_round = 0
+
         def retrieve(queries: list[str]) -> list[dict]:
+            nonlocal retrieval_round
+            if cancel_event is not None and cancel_event.is_set():
+                return []
+            retrieval_round += 1
+            if self.research_plan is not None and retrieval_round > 1:
+                # This round exists only because graded evidence was weak.
+                # Expand the refined query; keep the first round's graded pool.
+                queries = self._build_query_variants(queries[0])
+            if cancel_event is not None and cancel_event.is_set():
+                return []
             return self._fuse_documents(
                 query, list(queries), total, limit=self.agent_grade_candidates
             )
@@ -356,7 +467,11 @@ class RAGIndex:
             )
 
         def refine(original_query: str, attempted_query: str, reasons):
-            return refine_query(
+            if self.research_plan is not None:
+                self._apply_research_plan(self.research_plan.broaden())
+                agent.max_docs = self.max_context_docs
+                agent.min_relevant = self.agent_min_relevant
+            refined = refine_query(
                 original_query,
                 attempted_query,
                 reasons,
@@ -364,8 +479,21 @@ class RAGIndex:
                 model=self.agent_model,
                 timeout=self.agent_timeout,
             )
+            # Adaptive can still search alternate concepts if rewriting fails.
+            return refined or (original_query if self.research_plan is not None else None)
 
-        return RelevanceAgent(
+        def weak_evidence(candidates):
+            report = self._verify_results(query, candidates, None) or {}
+            confidence = report.get("retrieval_confidence")
+            # Keyword overlap alone is not enough: relevant sources may use
+            # different terminology. Both available signals must be weak.
+            return (
+                confidence is not None
+                and confidence < report.get("confidence_threshold", 0.5)
+                and report.get("query_term_coverage", 1) < 0.5
+            )
+
+        agent = RelevanceAgent(
             retrieve,
             grade,
             refine,
@@ -375,7 +503,9 @@ class RAGIndex:
             threshold=self.agent_threshold,
             max_docs=self.max_context_docs,
             deadline_seconds=self.agent_deadline,
+            needs_more_fn=weak_evidence if self.research_plan is not None else None,
         )
+        return agent
 
     def _arxiv_fallback(self, query: str, budget: float) -> list[dict]:
         """
@@ -409,7 +539,9 @@ class RAGIndex:
 
         return verify_query(
             query,
-            self.llm_service,
+            None if self.response_mode == SearchMode.FAST.value or (
+                self.research_plan is not None and not self.research_plan.expanded
+            ) else self.llm_service,
             model=self.agent_model,
             timeout=self.query_verification_timeout,
             min_chars=self.query_min_chars,
@@ -483,16 +615,20 @@ class RAGIndex:
             verification = self._verify_results(query, candidates, None)
             return self._strip_docs(candidates), None, verification
 
-        agent = self._build_agent(query, total)
+        agent = self._build_agent(query, total, cancel_event)
         generator = agent.run(query, queries=queries, cancel_event=cancel_event)
 
         result = AgentResult()
+        previous_plan = self.research_plan
         while True:
             try:
                 event = next(generator)
             except StopIteration as stop:
                 result = stop.value or AgentResult()
                 break
+            if self.research_plan != previous_plan:
+                yield self._plan_progress()
+                previous_plan = self.research_plan
             yield self._agent_progress(event)
 
         verification = self._verify_results(query, result.docs, result)
@@ -506,13 +642,41 @@ class RAGIndex:
 
     def _build_chunk_prompt(self, query: str, chunk: list[dict], chunk_index: int):
         """Build the system + user prompt strings for a chunk."""
-        return build_chunk_prompt(query, chunk, chunk_index, self.max_doc_chars)
+        system, prompt = build_chunk_prompt(query, chunk, chunk_index, self.max_doc_chars)
+        if self._uses_evidence_review:
+            system += "\n" + DEEP_GENERATION_INSTRUCTION
+        return system, prompt
+
+    def _review_deep_answer(self, query, answer, chunk, chunk_index, comparison_docs=(), cancel_event=None):
+        review = review_answer(
+            query, answer, chunk, self.llm_service,
+            model=_setting("DEEP_REVIEW_MODEL", None) or self.agent_model,
+            timeout=int(_setting("DEEP_REVIEW_TIMEOUT", 25)),
+            repair_timeout=int(_setting("DEEP_REPAIR_TIMEOUT", 30)),
+            deadline_seconds=float(_setting("DEEP_REVIEW_DEADLINE", 90)),
+            max_doc_chars=self.max_doc_chars,
+            comparison_docs=comparison_docs,
+            cancel_event=cancel_event,
+        )
+        try:
+            while True:
+                try:
+                    progress = next(review)
+                except StopIteration as stop:
+                    return stop.value
+                yield {
+                    **progress, "type": "progress", "step": "answer_review",
+                    "chunk_index": chunk_index,
+                }
+        finally:
+            review.close()
 
     def _generate_chunk_response(
         self,
         query: str,
         chunk: list[dict],
         chunk_index: int,
+        comparison_docs=(),
     ) -> dict:
         """Non-streaming chunk generation — used by main_pipeline()."""
         system_prompt, user_prompt = self._build_chunk_prompt(query, chunk, chunk_index)
@@ -522,10 +686,17 @@ class RAGIndex:
                 prompt=user_prompt,
                 system_instruction_string=system_prompt,
                 response_mime_type_param="text/plain",
+                **self.generation_options,
             )
         except Exception as exc:
             logger.error(f"[PIPELINE] LLM generation failed for chunk {chunk_index}: {exc}")
-            response_text = f"[Error generating response for chunk {chunk_index}]"
+            return {
+                "chunk_index": chunk_index,
+                "num_docs_in_chunk": len(chunk),
+                "docs": chunk,
+                "generated_response": "",
+                "error": "Answer generation failed. Please try again.",
+            }
 
         response = {
             "chunk_index": chunk_index,
@@ -533,6 +704,14 @@ class RAGIndex:
             "docs": chunk,
             "generated_response": response_text,
         }
+        if self._uses_evidence_review:
+            review = self._review_deep_answer(query, response_text, chunk, chunk_index, comparison_docs)
+            while True:
+                try:
+                    next(review)
+                except StopIteration as stop:
+                    response.update(stop.value)
+                    return response
         evaluation = self._evaluate_answer(query, response_text, chunk, chunk_index)
         if evaluation is not None:
             response["evaluation"] = evaluation
@@ -578,6 +757,7 @@ class RAGIndex:
         chunk: list[dict],
         chunk_index: int,
         cancel_event: Optional[threading.Event] = None,
+        comparison_docs=(),
     ):
         """
         Stream a chunk's LLM response token by token.
@@ -591,6 +771,7 @@ class RAGIndex:
             "type": "chunk_start",
             "chunk_index": chunk_index,
             "num_docs_in_chunk": len(chunk),
+            **({"answer_review": {"status": "checking"}} if self._uses_evidence_review else {}),
         }
 
         t0 = time.monotonic()
@@ -602,6 +783,7 @@ class RAGIndex:
                 prompt=user_prompt,
                 system_instruction_string=system_prompt,
                 cancel_event=cancel_event,
+                **self.generation_options,
             ):
                 accumulated_tokens.append(token)
                 yield {
@@ -638,6 +820,24 @@ class RAGIndex:
         if error:
             event["error"] = error
         else:
+            if self._uses_evidence_review:
+                # Make the answer and its papers usable immediately. The
+                # grounding verdict follows independently; it must not hold
+                # back this answer or another chunk's tokens.
+                yield {**event, "answer_review": {"status": "checking"}}
+                if cancel_event is not None and cancel_event.is_set():
+                    return
+                reviewed = yield from self._review_deep_answer(
+                    query, full_response, chunk, chunk_index, comparison_docs, cancel_event
+                )
+                if cancel_event is not None and cancel_event.is_set():
+                    return
+                yield {
+                    "type": "chunk_evaluation",
+                    "chunk_index": chunk_index,
+                    **reviewed,
+                }
+                return
             # Runs inside this chunk's own worker thread, so evaluations for
             # different chunks overlap rather than adding up.
             evaluation = self._evaluate_answer(
@@ -649,7 +849,93 @@ class RAGIndex:
 
     # ── Main pipeline (non-streaming) ─────────────────────────────────────────
 
-    def main_pipeline(self, query: str) -> dict:
+    def _prepare_search(self, query: str, cancel_event=None):
+        """Prepare the query and collection; overlap independent research steps.
+
+        Cheap input guards run first. Adaptive chooses transformations and
+        whether model classification is useful; Deep enables all of them.
+        These tasks overlap the collection check. Retrieval still waits for
+        query acceptance, so a rejected question is never answered.
+        """
+        guarded = verify_query(
+            query, min_chars=self.query_min_chars, max_chars=self.query_max_chars
+        )
+        if self.enable_query_verification and not guarded.ok:
+            return guarded, [], 0
+
+        if self.response_mode == SearchMode.ADAPTIVE.value:
+            self._apply_research_plan(plan_research(query))
+            yield self._plan_progress()
+
+        expand = self.enable_hyde or self.enable_step_back or self.enable_rag_fusion
+        tasks = [
+            ("query_check", lambda: self.check_query(query), "Checking the query..."),
+            (
+                "variants",
+                lambda: self._build_query_variants(query),
+                "Expanding the question to search from multiple angles..."
+                if expand else "Preparing a focused search...",
+            ),
+            ("collection", self.dense_rag.count, "Connecting to the paper collection..."),
+        ]
+        results = {}
+
+        def progress(name, value, elapsed):
+            event = {
+                "type": "progress", "step": name, "status": "done",
+                "elapsed_ms": round(elapsed * 1000),
+            }
+            if name == "query_check":
+                event.update(message="Query check complete", query_check=value.as_payload())
+            elif name == "variants":
+                event.update(
+                    message=(
+                        f"Generated {len(value)} query variants" if expand
+                        else "Searching your question directly for a fast response"
+                    ),
+                    count=len(value), status="done" if expand else "skipped",
+                )
+            else:
+                event.update(message="Paper collection ready")
+            return event
+
+        if self._uses_evidence_review:
+            pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="research-prepare")
+            started = time.monotonic()
+            try:
+                pending = {}
+                for name, task, message in tasks:
+                    yield {"type": "progress", "step": name, "status": "start", "message": message}
+                    pending[pool.submit(task)] = name
+                while pending:
+                    if cancel_event is not None and cancel_event.is_set():
+                        return QueryVerdict(), [], 0
+                    done, _ = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        name = pending.pop(future)
+                        value = results[name] = future.result()
+                        yield progress(name, value, time.monotonic() - started)
+                        if name == "query_check" and not value.ok:
+                            return value, [], 0
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
+        else:
+            for name, task, message in tasks:
+                if cancel_event is not None and cancel_event.is_set():
+                    return QueryVerdict(), [], 0
+                if name == "query_check" and not self.enable_query_verification:
+                    results[name] = QueryVerdict()
+                    continue
+                yield {"type": "progress", "step": name, "status": "start", "message": message}
+                started = time.monotonic()
+                value = results[name] = task()
+                yield progress(name, value, time.monotonic() - started)
+                if name == "query_check" and not value.ok:
+                    return value, [], 0
+
+        return results["query_check"], results["variants"], results["collection"]
+
+    def main_pipeline(self, query: str, *, mode: Optional[str] = None) -> dict:
         """
         End-to-end pipeline for a single user query.
 
@@ -665,28 +951,27 @@ class RAGIndex:
         6. Generate LLM response     (chunks generated concurrently)
         7. Return structured result
         """
+        if mode is not None:
+            request_index = self.for_mode(mode)
+            result = request_index.main_pipeline(query)
+            if request_index.research_plan is not None:
+                result["research_plan"] = request_index.research_plan.as_payload()
+            return {**result, "mode": request_index.response_mode}
+
         logger.info(f"[PIPELINE] === Starting main_pipeline for query: '{query[:100]}' ===")
         pipeline_start = time.monotonic()
 
-        verdict = self.check_query(query)
+        preparation = self._prepare_search(query)
+        while True:
+            try:
+                next(preparation)
+            except StopIteration as stop:
+                verdict, queries, total = stop.value
+                break
         if not verdict.ok:
-            logger.info(
-                "[PIPELINE] === Query rejected (%s) in %.1fs ===",
-                verdict.kind,
-                time.monotonic() - pipeline_start,
-            )
             return self._rejected_query_result(query, verdict)
 
         t0 = time.monotonic()
-        queries = self._build_query_variants(query)
-        logger.info(
-            "[PIPELINE] Step 1/4 — query variants: %s generated in %.1fs",
-            len(queries),
-            time.monotonic() - t0,
-        )
-
-        t0 = time.monotonic()
-        total = self.dense_rag.count()
         if total == 0:
             # Reachable but unusable — say so instead of returning an
             # empty result that looks like "nothing matched".
@@ -732,7 +1017,7 @@ class RAGIndex:
 
         t0 = time.monotonic()
         if len(chunks) == 1:
-            responses = [self._generate_chunk_response(query, chunks[0], 1)]
+            responses = [self._generate_chunk_response(query, chunks[0], 1, all_docs)]
         else:
             with ThreadPoolExecutor(
                 max_workers=max(1, min(self.generation_workers, len(chunks))),
@@ -741,7 +1026,7 @@ class RAGIndex:
                 # pool.map preserves input order, so responses stay chunk-ordered.
                 responses = list(
                     pool.map(
-                        lambda item: self._generate_chunk_response(query, item[1], item[0] + 1),
+                        lambda item: self._generate_chunk_response(query, item[1], item[0] + 1, all_docs),
                         enumerate(chunks),
                     )
                 )
@@ -771,7 +1056,22 @@ class RAGIndex:
             result["agent_outcome"] = agent_result.outcome.value
         if verification is not None:
             result["verification"] = verification
+        if self._uses_evidence_review:
+            result["answer_review"] = self._review_summary(responses)
+            if result["answer_review"]["withheld"]:
+                result["aggregate_faithfulness"] = None
         return result
+
+    @staticmethod
+    def _review_summary(responses):
+        reviews = [response.get("answer_review", {}) for response in responses]
+        accepted = {"checked", "limited"}
+        return {
+            "checked": sum(review.get("status") in accepted for review in reviews),
+            "revised": sum(bool(review.get("revised")) for review in reviews),
+            "limited": sum(review.get("status") == "limited" for review in reviews),
+            "withheld": sum(review.get("status") not in accepted for review in reviews),
+        }
 
     def _collect_documents(self, query: str, queries: list[str], total: int):
         """Non-streaming document selection: drains :meth:`_select_documents`."""
@@ -789,6 +1089,8 @@ class RAGIndex:
         self,
         query: str,
         cancel_event: Optional[threading.Event] = None,
+        *,
+        mode: Optional[str] = None,
     ):
         """
         Streaming version of main_pipeline.
@@ -813,36 +1115,39 @@ class RAGIndex:
                            something to report, ``notice`` + ``agent_outcome``
         ``error``        — unrecoverable error; the stream ends after this
 
-        Chunks are generated concurrently but emitted strictly in chunk order,
-        so the event sequence is identical to a sequential run while the wall
-        clock is that of the slowest chunk.
+        Deep mode emits chunks as soon as they are ready, identified by
+        chunk_index. Its chunk_end carries a draft and papers immediately;
+        chunk_evaluation follows with authoritative reviewed/revised text and
+        supporting evidence. The final complete waits for all reviews. Legacy
+        streams retain chunk order.
         """
+        if mode is not None:
+            request_index = self.for_mode(mode)
+            pipeline = request_index.main_pipeline_stream(query, cancel_event=cancel_event)
+            try:
+                for event in pipeline:
+                    if event["type"] == "complete" and request_index.research_plan is not None:
+                        event = {**event, "research_plan": request_index.research_plan.as_payload()}
+                    yield {**event, "mode": request_index.response_mode}
+            finally:
+                pipeline.close()
+            return
+
         pipeline_start = time.monotonic()
 
         def cancelled() -> bool:
             return cancel_event is not None and cancel_event.is_set()
 
-        # ── Step 0: Verify the query ──────────────────────────────────────
-        # Everything after this point costs LLM calls, so an input a paper
-        # search cannot answer is worth catching here rather than after.
-        if self.enable_query_verification:
-            yield {
-                "type": "progress",
-                "step": "query_check",
-                "status": "start",
-                "message": "Checking the query...",
-            }
+        if cancelled():
+            return
 
-            verdict = self.check_query(query)
+        agent_result: Optional[AgentResult] = None
+        verification: Optional[dict] = None
+        try:
+            verdict, queries, total = yield from self._prepare_search(query, cancel_event)
+            if cancelled():
+                return
             if not verdict.ok:
-                logger.info(
-                    "[PIPELINE] === Query rejected (%s) after %.1fs ===",
-                    verdict.kind,
-                    time.monotonic() - pipeline_start,
-                )
-                # A `complete` rather than an `error`: nothing broke, the
-                # question simply cannot be answered from a paper corpus, and
-                # the notice says why.
                 yield {
                     "type": "complete",
                     "total_docs_retrieved": 0,
@@ -855,52 +1160,11 @@ class RAGIndex:
 
             yield {
                 "type": "progress",
-                "step": "query_check",
-                "status": "done",
-                "message": "Query looks searchable",
-                "query_check": verdict.as_payload(),
+                "step": "retrieval",
+                "status": "start",
+                "message": f"Retrieving documents across {len(queries)} queries...",
             }
-
-        if cancelled():
-            return
-
-        # ── Step 1: Build query variants ──────────────────────────────────
-        yield {
-            "type": "progress",
-            "step": "variants",
-            "status": "start",
-            "message": "Generating query variants (HyDE, step-back, RAG fusion)...",
-        }
-
-        t0 = time.monotonic()
-        queries = self._build_query_variants(query)
-        variants_elapsed = time.monotonic() - t0
-
-        yield {
-            "type": "progress",
-            "step": "variants",
-            "status": "done",
-            "message": f"Generated {len(queries)} query variants",
-            "count": len(queries),
-            "elapsed_ms": round(variants_elapsed * 1000),
-        }
-
-        if cancelled():
-            return
-
-        # ── Step 2: Retrieve, fuse, cap ───────────────────────────────────
-        yield {
-            "type": "progress",
-            "step": "retrieval",
-            "status": "start",
-            "message": f"Retrieving documents across {len(queries)} queries...",
-        }
-
-        t0 = time.monotonic()
-        agent_result: Optional[AgentResult] = None
-        verification: Optional[dict] = None
-        try:
-            total = self.dense_rag.count()
+            t0 = time.monotonic()
             if total == 0:
                 # Reachable but unusable: report it instead of returning a
                 # successful-looking empty result.
@@ -1015,16 +1279,19 @@ class RAGIndex:
                 chunk,
                 index + 1,
                 cancel_event,
+                all_docs,
             )
             for index, chunk in enumerate(chunks)
         ]
 
         evaluations: list[Optional[dict]] = []
+        reviewed_chunks = {}
 
         for event in stream_in_order(
             producers,
             max_workers=self.generation_workers,
             cancel_event=cancel_event,
+            ordered=not self._uses_evidence_review,
         ):
             if isinstance(event, ProducerError):
                 chunk_index = event.index + 1
@@ -1051,8 +1318,9 @@ class RAGIndex:
                     "error": str(event.exc),
                 }
             else:
-                if event.get("type") == "chunk_end":
+                if event.get("type") in ("chunk_end", "chunk_evaluation"):
                     evaluations.append(event.get("evaluation"))
+                    reviewed_chunks[event["chunk_index"]] = event
                 yield event
 
         if cancelled():
@@ -1083,6 +1351,12 @@ class RAGIndex:
                 complete["notice"] = agent_result.notice
         if verification is not None:
             complete["verification"] = verification
+        if self._uses_evidence_review:
+            complete["answer_review"] = self._review_summary([
+                reviewed_chunks.get(i, {}) for i in range(1, len(chunks) + 1)
+            ])
+            if complete["answer_review"]["withheld"]:
+                complete["aggregate_faithfulness"] = None
         yield complete
 
     # ── Readiness ─────────────────────────────────────────────────────────────

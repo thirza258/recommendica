@@ -2,6 +2,14 @@
 
 /** Lifecycle of a single search request, shared by every UI surface. */
 type Status = 'idle' | 'loading' | 'success' | 'error'
+type SearchMode = 'adaptive' | 'fast' | 'deep'
+
+type ResearchPlan = {
+  strategy: 'focused' | 'expanded'
+  reason: string
+  steps: string[]
+  escalated: boolean
+}
 
 type ResearchInfo = {
   title: string
@@ -19,7 +27,19 @@ type ClaimVerdict = {
   claim: string
   verdict: 'YES' | 'NO' | 'PARTIALLY' | 'UNKNOWN'
   supported: boolean
+  reason?: string
+  evidence?: { source_id: number; quote: string }[]
 }
+
+type AnswerReview = {
+  status: 'checking' | 'rechecking' | 'revising' | 'checked' | 'limited' | 'withheld' | 'unverified'
+  revised?: boolean
+  checks?: number
+  issues?: string[]
+  limitations?: string[]
+}
+
+type AnswerReviewSummary = { checked: number; revised: number; limited: number; withheld: number }
 
 type ChunkEval = {
   faithfulness_score: number | null
@@ -36,11 +56,17 @@ type ChunkResponse = {
   docs: Document[]
   generated_response: string
   evaluation?: ChunkEval
+  answer_review?: AnswerReview
+  error?: string
+  complete?: boolean
 }
 
 // ── API response (non-streaming, kept for backward compat) ─────────────────
 
 type ApiResponse = {
+  mode?: SearchMode
+  research_plan?: ResearchPlan
+  answer_review?: AnswerReviewSummary
   status?: number
   message?: string
   query?: string
@@ -90,8 +116,10 @@ type ResultVerification = {
 
 type StreamProgressEvent = {
   type: "progress"
-  /** "query_check" | "variants" | "relevance" | "retrieval" | "verification" | "chunking" */
+  research_plan?: ResearchPlan
+  /** "query_check" | "variants" | "collection" | "relevance" | "retrieval" | "verification" | "chunking" | "answer_review" */
   step: string
+  chunk_index?: number
   /**
    * "start" | "done" for pipeline stages; the relevance agent also reports
    * "searching" | "graded" | "refining" | "empty" | "deadline" |
@@ -122,6 +150,7 @@ type StreamChunkStartEvent = {
   type: "chunk_start"
   chunk_index: number
   num_docs_in_chunk: number
+  answer_review?: AnswerReview
 }
 
 type StreamChunkTokenEvent = {
@@ -137,12 +166,24 @@ type StreamChunkEndEvent = {
   docs: Document[]
   generated_response: string
   error?: string
-  /** Present when ENABLE_ANSWER_EVALUATION is on. */
+  /** Legacy evaluation; Deep analysis sends a separate chunk_evaluation event. */
   evaluation?: ChunkEval
+  answer_review?: AnswerReview
+}
+
+type StreamChunkEvaluationEvent = {
+  type: "chunk_evaluation"
+  chunk_index: number
+  evaluation: ChunkEval | null
+  generated_response?: string
+  answer_review?: AnswerReview
 }
 
 type StreamCompleteEvent = {
   type: "complete"
+  mode?: SearchMode
+  research_plan?: ResearchPlan
+  answer_review?: AnswerReviewSummary
   total_docs_retrieved: number
   num_chunks: number
   chunk_size?: number
@@ -169,6 +210,7 @@ type StreamEvent =
   | StreamChunkStartEvent
   | StreamChunkTokenEvent
   | StreamChunkEndEvent
+  | StreamChunkEvaluationEvent
   | StreamCompleteEvent
   | StreamErrorEvent
 
@@ -217,6 +259,9 @@ interface CorpusStatsResponse {
 
 export type {
   Status,
+  SearchMode,
+  ResearchPlan,
+  AnswerReview,
   ResearchInfo,
   QueryCheck,
   ResultVerification,

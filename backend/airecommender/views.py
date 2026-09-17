@@ -10,6 +10,7 @@ from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
@@ -20,7 +21,7 @@ from . import donations
 from .main import get_rag_index
 from .models import Donation, ResearchInfo
 from .pipeline.errors import PipelineError
-from .serializers import DonationCheckoutSerializer, ResearchInfoSerializer
+from .serializers import DonationCheckoutSerializer, RecommendationRequestSerializer, ResearchInfoSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +218,7 @@ class RecommendationSystem(APIView):
     returns structured results.
 
     Request body:
-        { "input_prompt": "your research question here" }
+        { "input_prompt": "your research question here", "mode": "fast" | "deep" }
 
     Response:
         {
@@ -231,16 +232,18 @@ class RecommendationSystem(APIView):
         }
     """
 
+    @extend_schema(request=RecommendationRequestSerializer)
     def post(self, request):
         request_start = time.monotonic()
 
-        input_prompt = request.data.get("input_prompt")
-        if not input_prompt or not str(input_prompt).strip():
+        serializer = RecommendationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {"error": "input_prompt is required"},
+                {"error": "Invalid search request.", "fields": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        input_prompt = str(input_prompt).strip()
+        input_prompt = serializer.validated_data["input_prompt"]
+        mode = serializer.validated_data["mode"]
 
         try:
             rag_index = get_rag_index()
@@ -259,7 +262,7 @@ class RecommendationSystem(APIView):
                 input_prompt[:120],
             )
 
-            pipeline_result = rag_index.main_pipeline(input_prompt)
+            pipeline_result = rag_index.main_pipeline(input_prompt, mode=mode)
 
             total_elapsed = time.monotonic() - request_start
             logger.info(
@@ -273,6 +276,7 @@ class RecommendationSystem(APIView):
                 "status": 200,
                 "message": "Success",
                 "query": pipeline_result["query"],
+                "mode": mode,
                 "total_docs_retrieved": pipeline_result["total_docs_retrieved"],
                 "num_chunks": pipeline_result["num_chunks"],
                 "chunk_size": pipeline_result["chunk_size"],
@@ -284,7 +288,7 @@ class RecommendationSystem(APIView):
             # the relevance agent's outcome (e.g. nothing related was found),
             # the pre-flight query verdict, or the report describing which
             # papers the answer was built from.
-            for key in ("notice", "agent_outcome", "query_check", "verification"):
+            for key in ("notice", "agent_outcome", "query_check", "verification", "answer_review", "research_plan"):
                 if pipeline_result.get(key):
                     payload[key] = pipeline_result[key]
 
@@ -338,21 +342,24 @@ class RecommendationSystemStream(APIView):
     ``chunk_start``  — a new chunk's LLM generation is beginning
     ``chunk_token``  — one text token from the chunk's LLM response stream
     ``chunk_end``    — chunk finished, includes full generated_response + docs
+    ``chunk_evaluation`` — authoritative revised/withheld text, evidence and review status
     ``complete``     — entire pipeline done with aggregate stats
     ``error``        — unrecoverable error; the stream ends after this
 
     Request body:
-        { "input_prompt": "your research question here" }
+        { "input_prompt": "your research question here", "mode": "fast" | "deep" }
     """
 
+    @extend_schema(request=RecommendationRequestSerializer)
     def post(self, request):
-        input_prompt = request.data.get("input_prompt")
-        if not input_prompt or not str(input_prompt).strip():
+        serializer = RecommendationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {"error": "input_prompt is required"},
+                {"error": "Invalid search request.", "fields": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        input_prompt = str(input_prompt).strip()
+        input_prompt = serializer.validated_data["input_prompt"]
+        mode = serializer.validated_data["mode"]
 
         try:
             rag_index = get_rag_index()
@@ -372,7 +379,7 @@ class RecommendationSystemStream(APIView):
 
         try:
             response = StreamingHttpResponse(
-                self._event_stream(rag_index, input_prompt, slot),
+                self._event_stream(rag_index, input_prompt, slot, mode),
                 content_type="text/event-stream",
                 status=200,
             )
@@ -386,10 +393,11 @@ class RecommendationSystemStream(APIView):
 
         response["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response["X-Accel-Buffering"] = "no"
-        response["Connection"] = "keep-alive"
+        # WSGI servers own connection headers. Setting Connection here makes
+        # Django's runserver reject the response before streaming begins.
         return response
 
-    def _event_stream(self, rag_index, input_prompt: str, slot: _Slot):
+    def _event_stream(self, rag_index, input_prompt: str, slot: _Slot, mode: str):
         """Yield SSE frames, with keep-alives while the pipeline is quiet."""
         request_start = time.monotonic()
         cancel_event = threading.Event()
@@ -397,10 +405,11 @@ class RecommendationSystemStream(APIView):
         done = object()
 
         def run_pipeline():
-            pipeline = rag_index.main_pipeline_stream(
-                input_prompt, cancel_event=cancel_event
-            )
+            pipeline = None
             try:
+                pipeline = rag_index.main_pipeline_stream(
+                    input_prompt, cancel_event=cancel_event, mode=mode
+                )
                 for event in pipeline:
                     events.put(event)
                     if cancel_event.is_set():
@@ -423,8 +432,11 @@ class RecommendationSystemStream(APIView):
             finally:
                 # Explicit close so the pipeline's own cleanup (worker threads,
                 # abandoned LLM streams) runs now rather than at GC time.
-                pipeline.close()
-                events.put(done)
+                try:
+                    if pipeline is not None:
+                        pipeline.close()
+                finally:
+                    events.put(done)
 
         worker = threading.Thread(
             target=run_pipeline,
