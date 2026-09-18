@@ -8,4 +8,8 @@
     <loc>https://recommendica.nevatal.tech/sitemap-courses.xml</loc>
     <lastmod>2026-09-18T00:00:00+00:00</lastmod>
   </sitemap>
+  <sitemap>
+    <loc>https://recommendica.nevatal.tech/sitemap-topics.xml</loc>
+    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+  </sitemap>
 </sitemapindex>

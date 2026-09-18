@@ -35,17 +35,27 @@ function getRouteLocation(): string {
   if (typeof window === "undefined") return "";
   const hash = window.location.hash;
   const path = window.location.pathname;
+  const search = window.location.search;
   if (hash && hash !== "#" && hash !== "#home") return hash;
-  if (path && path !== "/") return path;
+  if (path && path !== "/") return `${path}${search}`;
   return hash || "";
+}
+
+function getInitialPrompt(): string {
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q") || params.get("prompt");
+    if (q && q.trim()) {
+      return q.trim().replace(/[-_]+/g, " ");
+    }
+  }
+  return "What are the most relevant papers on climate change and public health?";
 }
 
 function App() {
   const [hash, setHash] = useState(() => getRouteLocation());
   const view = viewFromHash(hash);
-  const [prompt, setPrompt] = useState(
-    "What are the most relevant papers on climate change and public health?"
-  );
+  const [prompt, setPrompt] = useState(() => getInitialPrompt());
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [researchPlan, setResearchPlan] = useState<ResearchPlan | null>(null);
@@ -158,9 +168,16 @@ function App() {
     if (view === "app") {
       window.scrollTo({ top: 0, behavior: "instant" });
       document.getElementById("research-prompt")?.focus();
-    } else if (view === "landing" && window.location.hash === "#home") {
-      document.getElementById("hero-heading")?.focus();
-      window.scrollTo({ top: 0, behavior: "instant" });
+    } else if (view === "landing") {
+      const path = (typeof window !== "undefined" ? window.location.pathname : "").replace(/^\/+|\/+$/g, "");
+      const hashStr = (typeof window !== "undefined" ? window.location.hash : "").replace(/^#/, "");
+      const targetId = hashStr || (path.startsWith("topics") ? "disciplines" : path);
+      if (targetId && document.getElementById(targetId)) {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth" });
+      } else if (window.location.hash === "#home" || (!window.location.hash && !path)) {
+        document.getElementById("hero-heading")?.focus();
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
     }
   }, [view]);
 

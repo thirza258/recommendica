@@ -542,8 +542,9 @@ changes:
 | --- | --- |
 | `frontend/index.html` | canonical URL, Open Graph / Twitter card tags, JSON-LD (`WebSite` + `WebApplication`), noscript curriculum fallback |
 | `frontend/public/robots.txt` | crawl rules (`/api/` excluded) and sitemap references |
-| `frontend/public/sitemap.xml` | all indexable URLs (landing, search, courses catalog, 4 courses, and 16 lessons) with priorities and `lastmod` |
+| `frontend/public/sitemap.xml` | master indexable sitemap (landing, search, sections, 6 disciplines, 19 curated inquiry URLs, 4 courses, and 16 lessons) with priorities, `lastmod`, and image metadata |
 | `frontend/public/sitemap-courses.xml` | dedicated curriculum sitemap containing all course and lesson URLs |
+| `frontend/public/sitemap-topics.xml` | dedicated taxonomy sitemap containing scientific disciplines and curated research inquiries |
 | `frontend/public/sitemap-index.xml` | sitemap index referencing the individual sitemap files |
 | `frontend/public/site.webmanifest` | installable-app metadata and icons |
 

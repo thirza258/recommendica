@@ -1,5 +1,5 @@
 """
-Tests for SEO endpoints: robots.txt, sitemap.xml, sitemap-courses.xml, and sitemap-index.xml.
+Tests for SEO endpoints: robots.txt, sitemap.xml, sitemap-courses.xml, sitemap-topics.xml, and sitemap-index.xml.
 """
 
 import xml.etree.ElementTree as ET
@@ -17,9 +17,11 @@ class TestSeoEndpoints(SimpleTestCase):
         content = response.content.decode("utf-8")
         self.assertIn("Allow: /sitemap.xml", content)
         self.assertIn("Allow: /sitemap-courses.xml", content)
+        self.assertIn("Allow: /sitemap-topics.xml", content)
         self.assertIn("Allow: /sitemap-index.xml", content)
         self.assertIn("Sitemap: https://recommendica.nevatal.tech/sitemap.xml", content)
         self.assertIn("Sitemap: https://recommendica.nevatal.tech/sitemap-courses.xml", content)
+        self.assertIn("Sitemap: https://recommendica.nevatal.tech/sitemap-topics.xml", content)
         self.assertIn("Sitemap: https://recommendica.nevatal.tech/sitemap-index.xml", content)
 
     def test_sitemap_xml_valid_and_complete(self):
@@ -38,12 +40,31 @@ class TestSeoEndpoints(SimpleTestCase):
         }
 
         urls = [elem.text for elem in root.findall("sm:url/sm:loc", namespaces)]
-        self.assertEqual(len(urls), 23)
+        self.assertEqual(len(urls), 53)
 
         expected_urls = [
+            # Core Application
             "https://recommendica.nevatal.tech/",
             "https://recommendica.nevatal.tech/search",
             "https://recommendica.nevatal.tech/courses",
+            # Sections
+            "https://recommendica.nevatal.tech/disciplines",
+            "https://recommendica.nevatal.tech/methodology",
+            "https://recommendica.nevatal.tech/evidence-demo",
+            "https://recommendica.nevatal.tech/comparison",
+            "https://recommendica.nevatal.tech/faq",
+            # Disciplines
+            "https://recommendica.nevatal.tech/topics/ai-systems",
+            "https://recommendica.nevatal.tech/topics/biomedicine",
+            "https://recommendica.nevatal.tech/topics/climate-energy",
+            "https://recommendica.nevatal.tech/topics/physics-materials",
+            "https://recommendica.nevatal.tech/topics/neuroscience",
+            "https://recommendica.nevatal.tech/topics/economics-quant",
+            # Curated Inquiries
+            "https://recommendica.nevatal.tech/search?q=scaling-laws-sparse-mixture-of-experts",
+            "https://recommendica.nevatal.tech/search?q=retrieval-augmented-architectures-hallucination-mitigation",
+            "https://recommendica.nevatal.tech/search?q=climate-change-and-public-health",
+            # Courses & Lessons
             "https://recommendica.nevatal.tech/courses/create-research",
             "https://recommendica.nevatal.tech/courses/create-research/research-question",
             "https://recommendica.nevatal.tech/courses/create-research/literature-review",
@@ -69,6 +90,12 @@ class TestSeoEndpoints(SimpleTestCase):
         for expected in expected_urls:
             self.assertIn(expected, urls)
 
+        images = root.findall("sm:url/image:image/image:loc", namespaces)
+        self.assertTrue(len(images) > 0)
+
+        alts = root.findall("sm:url/xhtml:link", namespaces)
+        self.assertTrue(len(alts) > 0)
+
     def test_sitemap_courses_xml_valid(self):
         response = self.client.get("/sitemap-courses.xml")
         self.assertEqual(response.status_code, 200)
@@ -87,6 +114,25 @@ class TestSeoEndpoints(SimpleTestCase):
         self.assertNotIn("https://recommendica.nevatal.tech/", urls)
         self.assertNotIn("https://recommendica.nevatal.tech/search", urls)
 
+    def test_sitemap_topics_xml_valid(self):
+        response = self.client.get("/sitemap-topics.xml")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/xml", response["Content-Type"])
+
+        root = ET.fromstring(response.content)
+        self.assertTrue(root.tag.endswith("urlset"))
+
+        namespaces = {
+            "sm": "http://www.sitemaps.org/schemas/sitemap/0.9",
+        }
+        urls = [elem.text for elem in root.findall("sm:url/sm:loc", namespaces)]
+        self.assertEqual(len(urls), 26)
+        self.assertIn("https://recommendica.nevatal.tech/disciplines", urls)
+        self.assertIn("https://recommendica.nevatal.tech/topics/ai-systems", urls)
+        self.assertIn("https://recommendica.nevatal.tech/search?q=scaling-laws-sparse-mixture-of-experts", urls)
+        self.assertNotIn("https://recommendica.nevatal.tech/", urls)
+        self.assertNotIn("https://recommendica.nevatal.tech/courses", urls)
+
     def test_sitemap_index_xml_valid(self):
         response = self.client.get("/sitemap-index.xml")
         self.assertEqual(response.status_code, 200)
@@ -101,3 +147,4 @@ class TestSeoEndpoints(SimpleTestCase):
         locs = [elem.text for elem in root.findall("sm:sitemap/sm:loc", namespaces)]
         self.assertIn("https://recommendica.nevatal.tech/sitemap.xml", locs)
         self.assertIn("https://recommendica.nevatal.tech/sitemap-courses.xml", locs)
+        self.assertIn("https://recommendica.nevatal.tech/sitemap-topics.xml", locs)

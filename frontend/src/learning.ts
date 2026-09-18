@@ -6,12 +6,26 @@ export type View = "landing" | "app" | "courses";
 
 export function viewFromHash(hash: string): View {
   const clean = hash.trim();
-  if (clean === "#search" || clean === "/search") return "app";
+  const pathOnly = clean.split("?")[0];
+  if (
+    clean === "#search" ||
+    clean === "/search" ||
+    clean.startsWith("#search?") ||
+    clean.startsWith("/search?") ||
+    pathOnly === "#search" ||
+    pathOnly === "/search"
+  ) {
+    return "app";
+  }
   if (
     clean === "#courses" ||
     clean === "/courses" ||
     clean.startsWith("#courses/") ||
-    clean.startsWith("/courses/")
+    clean.startsWith("/courses/") ||
+    pathOnly === "#courses" ||
+    pathOnly === "/courses" ||
+    pathOnly.startsWith("#courses/") ||
+    pathOnly.startsWith("/courses/")
   ) {
     return "courses";
   }

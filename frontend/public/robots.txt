@@ -24,6 +24,7 @@ Allow: /icon-512.png
 Allow: /site.webmanifest
 Allow: /sitemap.xml
 Allow: /sitemap-courses.xml
+Allow: /sitemap-topics.xml
 Allow: /sitemap-index.xml
 Disallow: /api/
 Disallow: /admin/
@@ -58,6 +59,7 @@ Allow: /icon-512.png
 Allow: /site.webmanifest
 Allow: /sitemap.xml
 Allow: /sitemap-courses.xml
+Allow: /sitemap-topics.xml
 Allow: /sitemap-index.xml
 Disallow: /api/
 Disallow: /admin/
@@ -67,5 +69,6 @@ Disallow: /docs/
 # Sitemap & Host
 Sitemap: https://recommendica.nevatal.tech/sitemap.xml
 Sitemap: https://recommendica.nevatal.tech/sitemap-courses.xml
+Sitemap: https://recommendica.nevatal.tech/sitemap-topics.xml
 Sitemap: https://recommendica.nevatal.tech/sitemap-index.xml
 Host: https://recommendica.nevatal.tech
