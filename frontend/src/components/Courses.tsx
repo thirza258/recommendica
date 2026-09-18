@@ -45,7 +45,14 @@ function Courses({ hash, onHome, onSearch, onDonate }: CoursesProps) {
   });
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const selection = resolveLesson(hash);
-  const isMissingLesson = hash !== "#courses" && !selection;
+  const isCatalogRoute =
+    hash === "#courses" ||
+    hash === "/courses" ||
+    hash === "" ||
+    COURSES.some(
+      (c) => hash === `#courses/${c.id}` || hash === `/courses/${c.id}`,
+    );
+  const isMissingLesson = !isCatalogRoute && !selection;
   const courseTitle = selection?.course.title;
   const lessonTitle = selection?.lesson.title;
 

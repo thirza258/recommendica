@@ -5,10 +5,17 @@ export const COURSE_PROGRESS_KEY = "recommendica.course-progress.v1";
 export type View = "landing" | "app" | "courses";
 
 export function viewFromHash(hash: string): View {
-  if (hash === "#search") return "app";
-  return hash === "#courses" || hash.startsWith("#courses/")
-    ? "courses"
-    : "landing";
+  const clean = hash.trim();
+  if (clean === "#search" || clean === "/search") return "app";
+  if (
+    clean === "#courses" ||
+    clean === "/courses" ||
+    clean.startsWith("#courses/") ||
+    clean.startsWith("/courses/")
+  ) {
+    return "courses";
+  }
+  return "landing";
 }
 
 export function lessonKey(courseId: string, lessonId: string): string {
@@ -19,9 +26,14 @@ export function lessonHref(courseId: string, lessonId: string): string {
   return `#courses/${lessonKey(courseId, lessonId)}`;
 }
 
+export function lessonPath(courseId: string, lessonId: string): string {
+  return `/courses/${lessonKey(courseId, lessonId)}`;
+}
+
 /** Unknown or stale lesson links fall back to the catalog, never a blank reader. */
-export function resolveLesson(hash: string) {
-  const match = /^#courses\/([^/]+)\/([^/]+)$/.exec(hash);
+export function resolveLesson(hashOrPath: string) {
+  const clean = hashOrPath.replace(/^[#/]+/, "");
+  const match = /^courses\/([^/]+)\/([^/]+)$/.exec(clean);
   if (!match) return null;
   const course = COURSES.find((item) => item.id === match[1]);
   const lesson = course?.lessons.find((item) => item.id === match[2]);

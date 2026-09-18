@@ -23,6 +23,8 @@ Allow: /apple-touch-icon.png
 Allow: /icon-512.png
 Allow: /site.webmanifest
 Allow: /sitemap.xml
+Allow: /sitemap-courses.xml
+Allow: /sitemap-index.xml
 Disallow: /api/
 Disallow: /admin/
 Disallow: /schema/
@@ -54,6 +56,9 @@ Allow: /og-image.png
 Allow: /apple-touch-icon.png
 Allow: /icon-512.png
 Allow: /site.webmanifest
+Allow: /sitemap.xml
+Allow: /sitemap-courses.xml
+Allow: /sitemap-index.xml
 Disallow: /api/
 Disallow: /admin/
 Disallow: /schema/
@@ -61,4 +66,6 @@ Disallow: /docs/
 
 # Sitemap & Host
 Sitemap: https://recommendica.nevatal.tech/sitemap.xml
+Sitemap: https://recommendica.nevatal.tech/sitemap-courses.xml
+Sitemap: https://recommendica.nevatal.tech/sitemap-index.xml
 Host: https://recommendica.nevatal.tech

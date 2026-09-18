@@ -2,33 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <!-- ── Core Application & Landing ──────────────────────────────────────── -->
-  <url>
-    <loc>https://recommendica.nevatal.tech/</loc>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.tech/" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-    <image:image>
-      <image:loc>https://recommendica.nevatal.tech/og-image.png</image:loc>
-      <image:title>Recommendica — Grounded Research Paper Recommendations</image:title>
-      <image:caption>Find research papers that answer your question with grounded AI recommendations and faithfulness scoring.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://recommendica.nevatal.tech/search</loc>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/search" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.tech/search" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://recommendica.nevatal.tech/og-image.png</image:loc>
-      <image:title>Search Research Papers — Recommendica</image:title>
-      <image:caption>Query research papers and live arXiv literature with AI relevance grading and verified citations.</image:caption>
-    </image:image>
-  </url>
+  <!-- ── Course Catalog ────────────────────────────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.tech/courses</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/courses" />
@@ -43,7 +17,7 @@
     </image:image>
   </url>
 
-  <!-- ── Course: Create your first research project ──────────────────────── -->
+  <!-- ── Course 1: Create your first research project ───────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.tech/courses/create-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/courses/create-research" />
@@ -85,7 +59,7 @@
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course: Conduct research step by step ────────────────────────────── -->
+  <!-- ── Course 2: Conduct research step by step ────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.tech/courses/research-step-by-step</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/courses/research-step-by-step" />
@@ -127,7 +101,7 @@
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course: How to use Recommendica ──────────────────────────────────── -->
+  <!-- ── Course 3: How to use Recommendica ──────────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.tech/courses/website-tutorial</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/courses/website-tutorial" />
@@ -169,7 +143,7 @@
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course: How to read a research paper ─────────────────────────────── -->
+  <!-- ── Course 4: How to read a research paper ─────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.tech/courses/read-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.tech/courses/read-research" />

@@ -31,8 +31,17 @@ const DOC_TITLE: Record<View, string> = {
   courses: "Research courses — Recommendica",
 };
 
+function getRouteLocation(): string {
+  if (typeof window === "undefined") return "";
+  const hash = window.location.hash;
+  const path = window.location.pathname;
+  if (hash && hash !== "#" && hash !== "#home") return hash;
+  if (path && path !== "/") return path;
+  return hash || "";
+}
+
 function App() {
-  const [hash, setHash] = useState(() => window.location.hash);
+  const [hash, setHash] = useState(() => getRouteLocation());
   const view = viewFromHash(hash);
   const [prompt, setPrompt] = useState(
     "What are the most relevant papers on climate change and public health?"
@@ -62,9 +71,13 @@ function App() {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
-    const syncHash = () => setHash(window.location.hash);
-    window.addEventListener("hashchange", syncHash);
-    return () => window.removeEventListener("hashchange", syncHash);
+    const syncRoute = () => setHash(getRouteLocation());
+    window.addEventListener("hashchange", syncRoute);
+    window.addEventListener("popstate", syncRoute);
+    return () => {
+      window.removeEventListener("hashchange", syncRoute);
+      window.removeEventListener("popstate", syncRoute);
+    };
   }, []);
 
   const cancelSearch = () => {
@@ -229,15 +242,20 @@ function App() {
   };
 
   const handleStartFromLanding = (initialPrompt?: string, autoSubmit?: boolean) => {
+    if (window.location.pathname !== "/" && window.location.pathname !== "") {
+      window.history.pushState(null, "", "/");
+    }
     if (initialPrompt && initialPrompt.trim()) {
       const q = initialPrompt.trim();
       setPrompt(q);
       window.location.hash = "search";
+      setHash("#search");
       if (autoSubmit) {
         void executeSearch(q);
       }
     } else {
       window.location.hash = "search";
+      setHash("#search");
     }
   };
 
@@ -358,7 +376,13 @@ function App() {
       <>
         <Courses
           hash={hash}
-          onHome={() => { window.location.hash = "home"; }}
+          onHome={() => {
+            if (window.location.pathname !== "/" && window.location.pathname !== "") {
+              window.history.pushState(null, "", "/");
+            }
+            window.location.hash = "home";
+            setHash("#home");
+          }}
           onSearch={(initialPrompt) => handleStartFromLanding(initialPrompt)}
           onDonate={openDonate}
         />
@@ -386,7 +410,11 @@ function App() {
         status={status}
         onHome={() => {
           if (abortRef.current) cancelSearch();
+          if (window.location.pathname !== "/" && window.location.pathname !== "") {
+            window.history.pushState(null, "", "/");
+          }
           window.location.hash = "home";
+          setHash("#home");
         }}
         onDonate={openDonate}
       />

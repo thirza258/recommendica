@@ -4,6 +4,7 @@ import { COURSES } from "../src/data/courses.ts";
 import {
   lessonHref,
   lessonKey,
+  lessonPath,
   nextCourseLesson,
   parseCourseProgress,
   resolveLesson,
@@ -12,11 +13,17 @@ import {
 
 test("course and search routes coexist with existing landing section anchors", () => {
   assert.equal(viewFromHash("#courses"), "courses");
+  assert.equal(viewFromHash("/courses"), "courses");
   assert.equal(
     viewFromHash("#courses/create-research/research-question"),
     "courses",
   );
+  assert.equal(
+    viewFromHash("/courses/create-research/research-question"),
+    "courses",
+  );
   assert.equal(viewFromHash("#search"), "app");
+  assert.equal(viewFromHash("/search"), "app");
   for (const hash of [
     "",
     "#home",
@@ -35,9 +42,11 @@ test("every curriculum link resolves to a unique lesson with an answerable knowl
     assert.ok(course.lessons.length > 0);
     for (const lesson of course.lessons) {
       const href = lessonHref(course.id, lesson.id);
+      const path = lessonPath(course.id, lesson.id);
       assert.ok(!hrefs.has(href), `Duplicate lesson link: ${href}`);
       hrefs.add(href);
       assert.deepEqual(resolveLesson(href), { course, lesson });
+      assert.deepEqual(resolveLesson(path), { course, lesson });
       assert.ok(lesson.sections.length > 0);
       assert.ok(lesson.quiz.options.length >= 2);
       assert.ok(Number.isInteger(lesson.quiz.answer));
