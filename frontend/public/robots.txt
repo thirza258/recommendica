@@ -42,6 +42,7 @@ User-agent: Google-Extended
 User-agent: cohere-ai
 User-agent: Omgilibot
 User-agent: FacebookBot
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -50,6 +51,7 @@ Disallow: /docs/
 
 # Default policy for all crawlers
 User-agent: *
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 Allow: /assets/
 Allow: /favicon.svg
