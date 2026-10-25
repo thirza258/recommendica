@@ -1,9 +1,10 @@
 import hashlib
 import json
 import logging
+import random
 import threading
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from django.conf import settings
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -90,6 +91,59 @@ def is_retryable_error(exc: BaseException) -> bool:
 
     message = str(exc).lower()
     return any(hint in message for hint in _RETRYABLE_MESSAGE_HINTS)
+
+
+FREE_OPENROUTER_MODELS = [
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "cohere/north-mini-code:free",
+    "recursive/flint-v1.0:free",
+    "xingchen-agi/xing4.0-29b-a4b:free",
+    "nvidia/nemotron-3.5-super-vl:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-31b-it:free",
+]
+
+
+def get_shuffled_free_models() -> list[str]:
+    models = list(FREE_OPENROUTER_MODELS)
+    random.shuffle(models)
+    return models
+
+
+def is_credit_exhausted_error(exc_or_status: Any, message: str = "") -> bool:
+    code = None
+    if isinstance(exc_or_status, int):
+        code = exc_or_status
+    else:
+        for attr in ("status_code", "http_status", "code"):
+            val = getattr(exc_or_status, attr, None)
+            if isinstance(val, int):
+                code = val
+                break
+        if code is None and hasattr(exc_or_status, "response"):
+            resp = getattr(exc_or_status, "response", None)
+            code = getattr(resp, "status_code", None)
+
+    msg_str = f"{exc_or_status} {message}".lower()
+    if code == 402:
+        return True
+
+    credit_keywords = (
+        "402",
+        "credit",
+        "payment required",
+        "run out of credits",
+        "insufficient balance",
+        "insufficient credits",
+        "insufficient_quota",
+        "exceeded your current quota",
+        "limit exceeded",
+        "out of credit",
+    )
+    return any(kw in msg_str for kw in credit_keywords)
 
 
 class OpenRouterService:
@@ -416,6 +470,28 @@ class OpenRouterService:
                         f"LLM stream ended early after {token_count} tokens "
                         f"({type(exc).__name__}: {exc})"
                     ) from exc
+
+                if is_credit_exhausted_error(exc):
+                    logger.warning("[LLM] Credits exhausted on OpenRouter during stream, falling back to shuffled free models")
+                    for free_model in get_shuffled_free_models():
+                        try:
+                            logger.info("[LLM] Trying free fallback stream model: %s", free_model)
+                            _, free_llm = self._resolve_llm(free_model, effective_timeout)
+                            for chunk in free_llm.stream(messages):
+                                if cancel_event is not None and cancel_event.is_set():
+                                    return
+                                token = self.coerce_text(chunk)
+                                if token:
+                                    token_count += 1
+                                    yield token
+                            return
+                        except Exception as fb_exc:
+                            if token_count:
+                                raise LLMUnavailable(
+                                    f"LLM stream ended early after {token_count} tokens ({type(fb_exc).__name__}: {fb_exc})"
+                                ) from fb_exc
+                            logger.warning("[LLM] Free fallback stream model %s failed: %s", free_model, fb_exc)
+                            continue
 
                 retryable = is_retryable_error(exc)
                 if attempt < attempts_allowed - 1 and retryable:

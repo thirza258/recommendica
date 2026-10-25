@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
-    <loc>https://recommendica.nevatal.tech/sitemap.xml</loc>
+    <loc>https://recommendica.nevatal.id/sitemap.xml</loc>
     <lastmod>2026-09-18T00:00:00+00:00</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://recommendica.nevatal.tech/sitemap-courses.xml</loc>
+    <loc>https://recommendica.nevatal.id/sitemap-courses.xml</loc>
     <lastmod>2026-09-18T00:00:00+00:00</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://recommendica.nevatal.tech/sitemap-topics.xml</loc>
+    <loc>https://recommendica.nevatal.id/sitemap-topics.xml</loc>
     <lastmod>2026-09-18T00:00:00+00:00</lastmod>
   </sitemap>
 </sitemapindex>

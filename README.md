@@ -534,7 +534,7 @@ for curriculum navigation and progress regressions alongside the stream tests.
 
 ## SEO
 
-The deployed site is **https://recommendica.nevatal.tech/**. That origin is
+The deployed site is **https://recommendica.nevatal.id/**. That origin is
 written into four places, all of which need updating together if the domain
 changes:
 

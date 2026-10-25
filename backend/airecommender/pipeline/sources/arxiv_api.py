@@ -360,7 +360,7 @@ class ArxivClient:
         self.sort_by = _setting("ARXIV_SORT_BY", "relevance")
         self.user_agent = _setting(
             "ARXIV_USER_AGENT",
-            "Recommendica/1.0 (research recommender; +https://recommendica.nevatal.tech)",
+            "Recommendica/1.0 (research recommender; +https://recommendica.nevatal.id)",
         )
 
         self._failures = 0

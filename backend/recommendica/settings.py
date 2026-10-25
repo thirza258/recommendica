@@ -192,7 +192,7 @@ ARXIV_FALLBACK_TIMEOUT = float(os.getenv("ARXIV_FALLBACK_TIMEOUT", "15"))
 ARXIV_MIN_REQUEST_INTERVAL = float(os.getenv("ARXIV_MIN_REQUEST_INTERVAL", "3"))
 ARXIV_USER_AGENT = os.getenv(
     "ARXIV_USER_AGENT",
-    "Recommendica/1.0 (research recommender; +https://recommendica.nevatal.tech)",
+    "Recommendica/1.0 (research recommender; +https://recommendica.nevatal.id)",
 )
 # Content terms per search. arXiv ANDs them, so more terms means a narrower
 # search; past half a dozen it starts excluding the papers it wants.
@@ -270,7 +270,7 @@ DEBUG = _env_bool("DEBUG", False)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
-        "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,backend,0.0.0.0,recommendica.nevatal.tech"
+        "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,backend,0.0.0.0,recommendica.nevatal.id"
     ).split(",")
     if host.strip()
 ]
@@ -311,7 +311,7 @@ CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,https://recommendica.nevatal.tech,http://recommendica.nevatal.tech",
+        "http://localhost:5173,http://127.0.0.1:5173,https://recommendica.nevatal.id,http://recommendica.nevatal.id",
     ).split(",")
     if origin.strip()
 ]
@@ -320,7 +320,7 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CSRF_TRUSTED_ORIGINS",
-        "https://recommendica.nevatal.tech,http://recommendica.nevatal.tech",
+        "https://recommendica.nevatal.id,http://recommendica.nevatal.id",
     ).split(",")
     if origin.strip()
 ]

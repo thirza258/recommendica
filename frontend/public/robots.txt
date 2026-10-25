@@ -1,6 +1,6 @@
 # ==============================================================================
 # Recommendica — Robots Exclusion Protocol
-# https://recommendica.nevatal.tech/
+# https://recommendica.nevatal.id/
 # ==============================================================================
 
 # Search Engine Crawlers (Google, Bing, DuckDuckGo, Apple, Yandex, Baidu, etc.)
@@ -69,8 +69,8 @@ Disallow: /schema/
 Disallow: /docs/
 
 # Sitemap & Host
-Sitemap: https://recommendica.nevatal.tech/sitemap.xml
-Sitemap: https://recommendica.nevatal.tech/sitemap-courses.xml
-Sitemap: https://recommendica.nevatal.tech/sitemap-topics.xml
-Sitemap: https://recommendica.nevatal.tech/sitemap-index.xml
-Host: https://recommendica.nevatal.tech
+Sitemap: https://recommendica.nevatal.id/sitemap.xml
+Sitemap: https://recommendica.nevatal.id/sitemap-courses.xml
+Sitemap: https://recommendica.nevatal.id/sitemap-topics.xml
+Sitemap: https://recommendica.nevatal.id/sitemap-index.xml
+Host: https://recommendica.nevatal.id
