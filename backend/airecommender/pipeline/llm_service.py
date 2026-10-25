@@ -627,6 +627,26 @@ class OpenRouterService:
                     exc,
                 )
 
+                if is_credit_exhausted_error(exc):
+                    logger.warning("[LLM] Credits exhausted on OpenRouter (%s), falling back to shuffled free models", exc)
+                    for free_model in get_shuffled_free_models():
+                        try:
+                            logger.info("[LLM] Trying free fallback model: %s", free_model)
+                            _, free_llm = self._resolve_llm(free_model, effective_timeout)
+                            fb_resp = free_llm.invoke(messages)
+                            fb_text = self.coerce_text(fb_resp)
+                            fb_result = self.ensure_json_response(
+                                fb_text,
+                                response_schema_param,
+                                mime_type=response_mime_type_param,
+                            )
+                            if use_cache:
+                                self._cache_set(cache_key, fb_result)
+                            return fb_result
+                        except Exception as fb_exc:
+                            logger.warning("[LLM] Free fallback model %s failed: %s", free_model, fb_exc)
+                            continue
+
                 retryable = is_retryable_error(exc)
                 if attempt < attempts_allowed - 1 and retryable:
                     backoff = 2 ** attempt  # 1 s, 2 s, 4 s, …
