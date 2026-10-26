@@ -27,6 +27,8 @@ User-agent: Applebot
 User-agent: msnbot
 User-agent: Qwantify
 Allow: /
+Allow: /courses
+Allow: /write
 Allow: /assets/
 Allow: /favicon.svg
 Allow: /og-image.png
@@ -53,7 +55,10 @@ User-agent: Google-Extended
 User-agent: cohere-ai
 User-agent: Omgilibot
 User-agent: FacebookBot
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
+Allow: /courses
+Allow: /write
 Disallow: /api/
 Disallow: /admin/
 Disallow: /schema/
@@ -61,7 +66,10 @@ Disallow: /docs/
 
 # Default policy for all crawlers
 User-agent: *
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
+Allow: /courses
+Allow: /write
 Allow: /assets/
 Allow: /favicon.svg
 Allow: /og-image.png
@@ -127,6 +135,19 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
       <image:loc>https://recommendica.nevatal.id/og-image.png</image:loc>
       <image:title>Research Courses &amp; Literature Discovery Tutorials — Recommendica</image:title>
       <image:caption>Free, self-paced research courses on writing questions, literature reviews, evaluating methods, and paper reading.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/write</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/write" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/write" />
+    <lastmod>2026-10-26T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://recommendica.nevatal.id/og-image.png</image:loc>
+      <image:title>Write a Research Paper — LaTeX &amp; Visual Paper Editor — Recommendica</image:title>
+      <image:caption>Free paper editor with live LaTeX math, citations, cross-references, IEEE and APA templates, and PDF or LaTeX export.</image:caption>
     </image:image>
   </url>
 
@@ -1039,7 +1060,7 @@ SITEMAP_INDEX_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>https://recommendica.nevatal.id/sitemap.xml</loc>
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-10-26T00:00:00+00:00</lastmod>
   </sitemap>
   <sitemap>
     <loc>https://recommendica.nevatal.id/sitemap-courses.xml</loc>

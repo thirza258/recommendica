@@ -13,6 +13,7 @@ interface TopBarProps {
   onHome?: () => void;
   onSearch?: () => void;
   isLearning?: boolean;
+  isWriting?: boolean;
   /** Omitted when the server reports donations as unconfigured. */
   onDonate?: () => void;
 }
@@ -22,7 +23,7 @@ interface TopBarProps {
  * Deliberately not a live region — the progress banner announces changes, and
  * two live regions would double up on screen readers.
  */
-function TopBar({ status, onHome, onSearch, isLearning, onDonate }: TopBarProps) {
+function TopBar({ status, onHome, onSearch, isLearning, isWriting, onDonate }: TopBarProps) {
   return (
     <header className="topbar">
       <button
@@ -36,6 +37,13 @@ function TopBar({ status, onHome, onSearch, isLearning, onDonate }: TopBarProps)
       </button>
 
       <div className="topbar-actions">
+        <a
+          href="#write"
+          className="ghost-button topbar-courses-link"
+          aria-current={isWriting ? "page" : undefined}
+        >
+          Write
+        </a>
         <a
           href="#courses"
           className="ghost-button topbar-courses-link"
@@ -63,7 +71,7 @@ function TopBar({ status, onHome, onSearch, isLearning, onDonate }: TopBarProps)
             <span>Donate</span>
           </button>
         )}
-        {!isLearning && (
+        {!isLearning && !isWriting && (
           <div className="status-chip">
             <span className={`status-dot ${status}`} />
             <span>{STATUS_LABEL[status]}</span>

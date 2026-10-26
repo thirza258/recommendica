@@ -16,6 +16,8 @@ User-agent: Applebot
 User-agent: msnbot
 User-agent: Qwantify
 Allow: /
+Allow: /courses
+Allow: /write
 Allow: /assets/
 Allow: /favicon.svg
 Allow: /og-image.png
@@ -44,6 +46,8 @@ User-agent: Omgilibot
 User-agent: FacebookBot
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
+Allow: /courses
+Allow: /write
 Disallow: /api/
 Disallow: /admin/
 Disallow: /schema/
@@ -53,6 +57,8 @@ Disallow: /docs/
 User-agent: *
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
+Allow: /courses
+Allow: /write
 Allow: /assets/
 Allow: /favicon.svg
 Allow: /og-image.png

@@ -1,0 +1,1001 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Paper typography
+
+   One stylesheet for every surface a paper appears on: the visual editor, the
+   LaTeX preview, the print/PDF document and the exported HTML. The page is
+   always white ink-on-paper, independent of the app theme, because it stands
+   for the printed article.
+
+   Layout comes from modifier classes on `.paper` (theme, columns, font,
+   paragraph style) and from the custom properties set beside them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.paper {
+  --paper-width: 210mm;
+  --paper-height: 297mm;
+  --paper-margin: 25.4mm;
+  --paper-font: "KaTeX_Main", "Latin Modern Roman", "CMU Serif", Georgia, "Times New Roman", serif;
+  --paper-size: 11pt;
+  --paper-spacing: 1;
+  --paper-indent: 1.5em;
+  --paper-ink: #111827;
+  --paper-muted: #4b5563;
+  --paper-rule: #111827;
+  --paper-link: #1d4ed8;
+  --paper-gap: 0.33in;
+
+  color: var(--paper-ink);
+  font-family: var(--paper-font);
+  font-size: var(--paper-size);
+  line-height: calc(1.32 * var(--paper-spacing));
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  hyphens: auto;
+  overflow-wrap: break-word;
+  text-align: justify;
+  text-rendering: optimizeLegibility;
+}
+
+.paper--letter {
+  --paper-width: 8.5in;
+  --paper-height: 11in;
+}
+
+.paper--margin-narrow { --paper-margin: 12.7mm; }
+.paper--margin-wide { --paper-margin: 38.1mm; }
+
+.paper--font-times {
+  --paper-font: "Times New Roman", Times, "Nimbus Roman", "TeX Gyre Termes", "Liberation Serif", serif;
+}
+.paper--font-palatino {
+  --paper-font: "Palatino Linotype", Palatino, "TeX Gyre Pagella", "Book Antiqua", "URW Palladio L", serif;
+}
+.paper--font-sans {
+  --paper-font: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.paper--size-9 { --paper-size: 9pt; }
+.paper--size-10 { --paper-size: 10pt; }
+.paper--size-11 { --paper-size: 11pt; }
+.paper--size-12 { --paper-size: 12pt; }
+
+/* ── Page sheet (screen) ──────────────────────────────────────────────── */
+
+.paper-sheet {
+  box-sizing: border-box;
+  width: var(--paper-width);
+  min-height: var(--paper-height);
+  padding: var(--paper-margin);
+  background: #ffffff;
+}
+
+.paper-body {
+  outline: none;
+}
+
+.paper--cols-2 .paper-body {
+  column-count: 2;
+  column-gap: var(--paper-gap);
+  column-fill: balance;
+}
+
+.paper--cols-2 :is(.paper-titleblock, .paper-title, .paper-authors, .paper-date, .paper-abstract, .paper-keywords, .paper-float-wide, .paper-references-title) {
+  column-span: all;
+}
+
+.paper--cols-2 :is(figure, .paper-equation, table, .ltx-tabular-wrap, .ltx-algorithmic, pre) {
+  break-inside: avoid;
+}
+
+/* ── Paragraphs ───────────────────────────────────────────────────────── */
+
+.paper p {
+  margin: 0;
+  orphans: 2;
+  widows: 2;
+}
+
+.paper--indent .paper-body > p,
+.paper--indent .paper-body > div > p,
+.paper--indent .paper-abstract > p + p,
+.paper--indent .ltx-theorem p + p,
+.paper--indent .ltx-proof p + p {
+  text-indent: var(--paper-indent);
+}
+
+/* LaTeX does not indent the first paragraph after a heading or a display. */
+.paper--indent .paper-body > :is(h1, h2, h3, h4, header, section, figure, ul, ol, blockquote, pre, table, hr, .paper-equation, .paper-keywords, .paper-authors, .paper-title, .ltx-tabular-wrap, .ltx-theorem, .ltx-proof, .ltx-algorithmic, .ltx-center, .paper-raw-latex, .paper-pagebreak) + p,
+.paper--indent .paper-body > p:first-child,
+.paper .ltx-noindent {
+  text-indent: 0 !important;
+}
+
+.paper--spaced .paper-body > p,
+.paper--spaced .paper-abstract > p {
+  margin-bottom: 0.75em;
+}
+
+.paper a {
+  color: var(--paper-link);
+  text-decoration: none;
+}
+
+.paper a:hover {
+  text-decoration: underline;
+}
+
+/* ── Title block ──────────────────────────────────────────────────────── */
+
+.paper-titleblock {
+  margin-bottom: 1.6em;
+  text-align: center;
+}
+
+.paper .paper-title {
+  margin: 0.4em 0 0.6em;
+  font-size: 1.72em;
+  font-weight: 400;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: normal;
+  hyphens: manual;
+}
+
+.paper .paper-authors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4em 2.5em;
+  margin: 0 0 0.6em;
+  font-size: 1.1em;
+  line-height: 1.35;
+  text-align: center;
+  text-indent: 0 !important;
+}
+
+/* A visual document's author line is one paragraph, not a flex row. */
+.paper p.paper-authors {
+  display: block;
+}
+
+.paper-author {
+  min-width: 10em;
+}
+
+.paper-author-name,
+.paper-author-affil,
+.paper-author-line {
+  display: block;
+}
+
+.paper-author-affil,
+.paper-author-line {
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.paper-date {
+  margin-top: 0.2em;
+  font-size: 1.05em;
+}
+
+/* ── Abstract and keywords ────────────────────────────────────────────── */
+
+.paper .paper-abstract {
+  margin: 1.2em 2.2em 1.4em;
+  font-size: 0.92em;
+}
+
+.paper-abstract-title,
+.paper .paper-abstract[data-label]::before {
+  display: block;
+  margin: 0 0 0.4em;
+  font-size: 1em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.paper .paper-abstract[data-label]::before {
+  content: attr(data-label);
+}
+
+.paper .paper-keywords {
+  margin: -0.6em 2.4em 1.4em;
+  font-size: 0.92em;
+  text-indent: 0 !important;
+}
+
+.paper .paper-keywords::before {
+  content: "Keywords: ";
+  font-weight: 700;
+}
+
+.paper .paper-keywords:has(.paper-keywords-label)::before {
+  content: none;
+}
+
+.paper-keywords-label {
+  font-weight: 700;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────────── */
+
+.paper .paper-heading {
+  margin: 1.35em 0 0.55em;
+  font-family: var(--paper-font);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+  break-after: avoid;
+  hyphens: manual;
+  letter-spacing: normal;
+}
+
+.paper .paper-h1,
+.paper .paper-references-title,
+.paper .paper-toc-title,
+.paper .paper-chapter { font-size: 1.2em; }
+.paper .paper-h2 { font-size: 1.1em; }
+.paper .paper-h3 { font-size: 1em; }
+.paper .paper-h4 { font-size: 1em; display: block; }
+.paper .paper-chapter { font-size: 1.7em; margin-top: 2em; }
+
+.paper-secnum,
+.paper .paper-heading[data-number]::before {
+  display: inline-block;
+  margin-right: 0.75em;
+}
+
+.paper .paper-heading[data-number]::before {
+  content: attr(data-number);
+}
+
+.ltx-runin {
+  margin-right: 0.5em;
+}
+
+/* ── Floats: figures, tables, algorithms, listings ────────────────────── */
+
+.paper figure {
+  margin: 1.1em 0;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.paper .paper-figure,
+.paper .paper-table-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.paper .ltx-float-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.75em;
+  width: 100%;
+  text-indent: 0 !important;
+}
+
+.paper figure img,
+.paper .ltx-graphic {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.paper .paper-caption {
+  max-width: 100%;
+  margin: 0.55em 0 0;
+  font-size: 0.9em;
+  line-height: 1.35;
+  text-align: center;
+  text-indent: 0 !important;
+}
+
+.paper-table-figure .paper-caption {
+  margin: 0 0 0.55em;
+}
+
+.paper .paper-caption-label,
+.paper .paper-caption[data-label]::before {
+  font-weight: 700;
+}
+
+.paper .paper-caption[data-label]::before {
+  content: attr(data-label) "\00a0";
+}
+
+.ltx-subfigure {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: bottom;
+  max-width: 100%;
+}
+
+.ltx-missing-graphic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60%;
+  min-height: 7em;
+  padding: 1em;
+  border: 1px dashed #9ca3af;
+  color: var(--paper-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8em;
+  background: repeating-linear-gradient(45deg, #fafafa, #fafafa 8px, #f3f4f6 8px, #f3f4f6 16px);
+}
+
+.ltx-unsupported {
+  margin: 1em 0;
+  padding: 1em;
+  border: 1px dashed #9ca3af;
+  color: var(--paper-muted);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.ltx-minipage {
+  display: inline-block;
+  vertical-align: top;
+  max-width: 100%;
+}
+
+/* Tables: booktabs proportions, rules only where the document asks. */
+.paper table,
+.ltx-tabular {
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: 0.92em;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.ltx-ruledtabular {
+  margin: 0.4em 0;
+  border-top: 2.4px double var(--paper-rule);
+  border-bottom: 2.4px double var(--paper-rule);
+}
+
+.ltx-ruledtabular .ltx-tabular {
+  width: 100%;
+}
+
+.ltx-tabular-wrap {
+  max-width: 100%;
+  margin: 0.4em auto;
+  overflow-x: auto;
+}
+
+.ltx-tabular--full {
+  width: 100%;
+}
+
+.paper td,
+.paper th {
+  padding: 0.22em 0.6em;
+  vertical-align: top;
+  text-indent: 0;
+}
+
+.paper .paper-body > table th,
+.paper .paper-table-figure th {
+  font-weight: 700;
+}
+
+.paper .paper-table-figure table,
+.paper .paper-body > table {
+  border-top: 1.2px solid var(--paper-rule);
+  border-bottom: 1.2px solid var(--paper-rule);
+}
+
+.paper .paper-table-figure tr:first-child:has(th) > *,
+.paper .paper-body > table tr:first-child:has(th) > * {
+  border-bottom: 0.6px solid var(--paper-rule);
+}
+
+.paper td p,
+.paper th p {
+  margin: 0;
+  text-indent: 0 !important;
+}
+
+.ltx-al-l { text-align: left; }
+.ltx-al-c { text-align: center; }
+.ltx-al-r { text-align: right; }
+.ltx-al-j { text-align: left; }
+.ltx-vl { border-left: 0.6px solid var(--paper-rule); }
+.ltx-vr { border-right: 0.6px solid var(--paper-rule); }
+.ltx-vl-double { border-left: 2.4px double var(--paper-rule); }
+.ltx-vr-double { border-right: 2.4px double var(--paper-rule); }
+tr.ltx-rule-above > td { border-top: 0.6px solid var(--paper-rule); }
+tr.ltx-rule-above-thick > td { border-top: 1.2px solid var(--paper-rule); }
+tr.ltx-rule-above-double > td { border-top: 2.4px double var(--paper-rule); }
+tr.ltx-rule-below > td { border-bottom: 0.6px solid var(--paper-rule); }
+tr.ltx-rule-below-thick > td { border-bottom: 1.2px solid var(--paper-rule); }
+tr.ltx-rule-below-double > td { border-bottom: 2.4px double var(--paper-rule); }
+td.ltx-cline-above { border-top: 0.6px solid var(--paper-rule); }
+tr.ltx-row-space > td { padding-top: 0.5em; }
+
+.paper-algorithm {
+  display: block !important;
+  border-top: 1.2px solid var(--paper-rule);
+  border-bottom: 1.2px solid var(--paper-rule);
+  text-align: left;
+}
+
+.paper-algorithm .paper-caption {
+  margin: 0;
+  padding: 0.25em 0;
+  border-bottom: 0.6px solid var(--paper-rule);
+  text-align: left;
+}
+
+.ltx-algorithmic {
+  padding: 0.35em 0;
+  font-size: 0.95em;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.ltx-alg-line {
+  position: relative;
+}
+
+.ltx-alg-num {
+  position: absolute;
+  left: 0;
+  width: 1.6em;
+  font-size: 0.85em;
+  text-align: right;
+}
+
+.ltx-alg-comment {
+  float: right;
+  font-style: italic;
+}
+
+.ltx-alg-kw {
+  font-weight: 700;
+}
+
+.paper pre,
+.ltx-verbatim {
+  margin: 0.8em 0;
+  padding: 0.6em 0.8em;
+  overflow-x: auto;
+  border-left: 2px solid #d1d5db;
+  background: #f9fafb;
+  font-family: "Latin Modern Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre;
+}
+
+.paper code,
+.ltx-verb,
+.ltx-tt,
+.ltx-url {
+  font-family: "Latin Modern Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+/* ── Equations ────────────────────────────────────────────────────────── */
+
+.paper .paper-equation {
+  position: relative;
+  margin: 0.7em 0;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.paper .paper-equation .katex-display {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.1em 0;
+}
+
+.paper .paper-equation[data-number]::after {
+  content: "(" attr(data-number) ")";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.paper .paper-equation[data-number] .katex-display {
+  padding-right: 3em;
+}
+
+.paper .katex {
+  font-size: 1.1em;
+  text-indent: 0;
+}
+
+.ltx-math-error {
+  color: #b91c1c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: #fef2f2;
+}
+
+/* ── Lists ────────────────────────────────────────────────────────────── */
+
+.paper ul,
+.paper ol {
+  margin: 0.5em 0;
+  padding-left: 2.2em;
+  text-align: left;
+}
+
+.paper li {
+  margin: 0.15em 0;
+}
+
+.paper li > p {
+  text-indent: 0 !important;
+}
+
+.paper .ltx-list {
+  list-style: none;
+  padding-left: 2.2em;
+}
+
+.paper .ltx-item {
+  position: relative;
+}
+
+.paper .ltx-item-label {
+  position: absolute;
+  left: -2.2em;
+  width: 1.8em;
+  text-align: right;
+}
+
+.ltx-description {
+  margin: 0.5em 0;
+}
+
+.ltx-desc-item p:first-child {
+  text-indent: -1.5em !important;
+  padding-left: 1.5em;
+}
+
+.ltx-desc-label {
+  font-weight: 700;
+}
+
+/* ── Theorems, proofs, quotes ─────────────────────────────────────────── */
+
+.ltx-theorem,
+.ltx-proof {
+  margin: 0.8em 0;
+}
+
+.ltx-theorem-head {
+  font-weight: 700;
+  font-style: normal;
+}
+
+.ltx-theorem--remark .ltx-theorem-head {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.ltx-proof-head {
+  font-style: italic;
+}
+
+.ltx-qed {
+  float: right;
+  margin-left: 1em;
+}
+
+.paper blockquote,
+.ltx-quote {
+  margin: 0.7em 2em;
+  padding: 0;
+  border: 0;
+}
+
+.ltx-center { text-align: center; }
+.ltx-flushleft { text-align: left; }
+.ltx-flushright { text-align: right; }
+.ltx-align-center { text-align: center !important; }
+.ltx-align-left { text-align: left !important; }
+.ltx-align-right { text-align: right !important; }
+
+/* ── Inline text styles from the LaTeX renderer ───────────────────────── */
+
+.ltx-bf { font-weight: 700; }
+.ltx-it { font-style: italic; }
+.ltx-sl { font-style: oblique; }
+.ltx-sc { font-variant: small-caps; }
+.ltx-sf { font-family: Inter, "Helvetica Neue", Arial, sans-serif; }
+.ltx-hl,
+.paper mark { padding: 0 0.05em; background: #fff59d; color: inherit; }
+.ltx-fbox { padding: 0.1em 0.3em; border: 0.6px solid currentColor; }
+.ltx-colorbox { padding: 0.1em 0.3em; }
+.ltx-hspace { display: inline-block; }
+.ltx-hfill { display: inline-block; width: 2em; }
+.ltx-rule { display: inline-block; background: currentColor; vertical-align: baseline; }
+.ltx-dropcap { float: left; margin: 0.05em 0.08em 0 0; font-size: 2.6em; line-height: 0.85; }
+.ltx-multicols { column-gap: var(--paper-gap); }
+.ltx-logo-a { font-size: 0.75em; vertical-align: 0.25em; margin-left: -0.32em; margin-right: -0.12em; }
+.ltx-logo-e { vertical-align: -0.22em; margin-left: -0.1em; margin-right: -0.1em; }
+.ltx-ref-missing,
+.ltx-cite-missing { color: #b91c1c; font-weight: 700; }
+.ltx-env { margin: 0.6em 0; }
+.ltx-vspace { display: block; }
+
+/* ── Footnotes and references ─────────────────────────────────────────── */
+
+.paper-footnote-ref {
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: super;
+}
+
+.paper-footnotes {
+  margin-top: 2em;
+  padding-top: 0.5em;
+  border-top: 0.6px solid var(--paper-rule);
+  font-size: 0.85em;
+  column-span: all;
+}
+
+.paper-footnotes ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paper-footnotes li {
+  margin: 0.25em 0;
+  text-align: left;
+}
+
+.paper-footnote-mark {
+  display: inline-block;
+  min-width: 1.2em;
+  font-size: 0.8em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.paper-footnote-back {
+  font-size: 0.85em;
+}
+
+.paper .paper-references {
+  margin-top: 1.4em;
+}
+
+.paper-reflist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9em;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.paper-ref {
+  position: relative;
+  margin: 0 0 0.45em;
+}
+
+.paper-reflist--ieee .paper-ref {
+  padding-left: 2.6em;
+}
+
+.paper-reflist--ieee .paper-ref-label {
+  position: absolute;
+  left: 0;
+  width: 2.2em;
+}
+
+.paper-reflist--apa .paper-ref {
+  padding-left: 2em;
+  text-indent: -2em;
+}
+
+.paper-references-empty {
+  color: var(--paper-muted);
+  font-style: italic;
+}
+
+.paper-toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.paper-toc a {
+  color: inherit;
+}
+
+.paper-toc-num {
+  display: inline-block;
+  min-width: 2.4em;
+}
+
+.paper-toc-l2 { padding-left: 1.5em; }
+.paper-toc-l3 { padding-left: 3em; }
+
+.paper-pagebreak {
+  height: 0;
+  margin: 1.5em 0;
+  border-top: 1px dashed #cbd5e1;
+  break-after: page;
+}
+
+/* ── Themes ───────────────────────────────────────────────────────────── */
+
+/* IEEE: small caps section heads with Roman numerals, run-in abstract. */
+.paper--theme-ieee .paper-title { font-size: 2.1em; }
+.paper--theme-ieee .paper-heading.paper-h1 {
+  font-size: 1em;
+  font-weight: 400;
+  font-variant: small-caps;
+  text-align: center;
+}
+.paper--theme-ieee .paper-heading.paper-h2 { font-size: 1em; font-weight: 400; font-style: italic; }
+.paper--theme-ieee .paper-heading.paper-h3 { font-size: 1em; font-weight: 400; font-style: italic; }
+.paper--theme-ieee .paper-abstract,
+.paper--theme-ieee .paper-keywords {
+  margin-left: 0;
+  margin-right: 0;
+  font-size: 0.9em;
+  font-weight: 700;
+}
+.paper--theme-ieee .paper-abstract[data-label]::before {
+  content: "Abstract—";
+  display: inline;
+  font-style: italic;
+}
+.paper--theme-ieee .paper-abstract[data-label] > p:first-child { display: inline; }
+.paper--theme-ieee .paper-abstract-inline,
+.paper--theme-ieee .paper-keywords-label { font-style: italic; }
+.paper--theme-ieee .paper-keywords::before { content: "Index Terms—"; font-style: italic; }
+.paper--theme-ieee .paper-table-figure .paper-caption { font-variant: small-caps; }
+.paper--theme-ieee .paper-table-figure .paper-caption-label,
+.paper--theme-ieee .paper-table-figure .paper-caption[data-label]::before {
+  display: block;
+  font-weight: 400;
+  font-variant: normal;
+}
+.paper--theme-ieee .paper-caption { font-size: 0.85em; text-align: left; }
+
+/* APA 7: centred bold level-1 heads, label on its own line above captions. */
+.paper--theme-apa .paper-title { font-weight: 700; font-size: 1.15em; margin-top: 2em; }
+.paper--theme-apa .paper-heading.paper-h1 { font-size: 1em; text-align: center; }
+.paper--theme-apa .paper-heading.paper-h2 { font-size: 1em; }
+.paper--theme-apa .paper-heading.paper-h3 { font-size: 1em; font-style: italic; }
+.paper--theme-apa .paper-abstract { margin-left: 0; margin-right: 0; font-size: 1em; }
+.paper--theme-apa .paper-keywords { margin-left: 0; margin-right: 0; font-size: 1em; text-indent: var(--paper-indent) !important; }
+.paper--theme-apa .paper-keywords::before { font-style: italic; font-weight: 400; }
+.paper--theme-apa .paper-caption { text-align: left; font-style: italic; }
+.paper--theme-apa .paper-caption[data-label]::before,
+.paper--theme-apa .paper-caption-label { display: block; font-style: normal; }
+.paper--theme-apa .paper-references-title { text-align: center; font-size: 1em; }
+
+/* arXiv preprint look-alike: running "A Preprint" head, title between rules,
+   bold author names over plain affiliations. */
+.paper--theme-arxiv.paper-sheet,
+.paper--theme-mlconf.paper-sheet {
+  position: relative;
+}
+.paper--theme-arxiv.paper-sheet::before {
+  content: "A Preprint";
+  position: absolute;
+  top: calc(var(--paper-margin) * 0.45);
+  right: var(--paper-margin);
+  left: var(--paper-margin);
+  padding-bottom: 0.2em;
+  border-bottom: 0.5px solid var(--paper-rule);
+  font-size: 0.8em;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+.paper--theme-arxiv .paper-title,
+.paper--theme-mlconf .paper-title {
+  margin: 0 0 0.8em;
+  padding: 0.55em 0 0.6em;
+  border-top: 2px solid var(--paper-rule);
+  border-bottom: 0.8px solid var(--paper-rule);
+  font-size: 1.6em;
+  font-weight: 700;
+}
+.paper--theme-arxiv .paper-author::first-line,
+.paper--theme-arxiv p.paper-authors::first-line {
+  font-weight: 700;
+}
+.paper--theme-arxiv .paper-keywords::before {
+  content: "Keywords\2002";
+}
+
+/* ML conference preprint: thinner title rules, abstract kept in the first column. */
+.paper--theme-mlconf .paper-title {
+  border-top-width: 1px;
+  border-bottom-width: 1px;
+  font-size: 1.35em;
+}
+.paper--theme-mlconf .paper-authors {
+  font-size: 1em;
+}
+.paper--theme-mlconf .paper-abstract,
+.paper--theme-mlconf .paper-keywords {
+  column-span: none;
+  margin-right: 0.8em;
+  margin-left: 0.8em;
+}
+.paper--theme-mlconf .paper-abstract-title,
+.paper--theme-mlconf .paper-abstract[data-label]::before {
+  font-size: 1.15em;
+}
+.paper--theme-mlconf.paper-sheet::after {
+  content: "Preprint. Under review.";
+  position: absolute;
+  bottom: calc(var(--paper-margin) * 0.45);
+  left: var(--paper-margin);
+  font-size: 0.75em;
+  font-style: italic;
+}
+
+/* APS/REVTeX look-alike: roman heads in small capitals, italic affiliations,
+   "(Dated: …)", abstract without a heading. */
+.paper--theme-revtex .paper-title {
+  margin-bottom: 0.5em;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+.paper--theme-revtex .paper-authors {
+  font-size: 0.92em;
+  font-style: italic;
+}
+.paper--theme-revtex .paper-author::first-line,
+.paper--theme-revtex p.paper-authors::first-line {
+  font-size: 1.08em;
+  font-style: normal;
+}
+.paper--theme-revtex .paper-date {
+  font-size: 0.85em;
+}
+.paper--theme-revtex .paper-date::before {
+  content: "(Dated: ";
+}
+.paper--theme-revtex .paper-date::after {
+  content: ")";
+}
+.paper--theme-revtex .paper-abstract {
+  margin: 0.6em 3em 0.8em;
+  font-size: 0.9em;
+}
+.paper--theme-revtex .paper-abstract-title,
+.paper--theme-revtex .paper-abstract[data-label]::before {
+  display: none;
+}
+.paper--theme-revtex .paper-keywords {
+  margin: 0 3em 1.4em;
+  font-size: 0.85em;
+}
+.paper--theme-revtex .paper-heading.paper-h1 {
+  font-size: 0.92em;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.paper--theme-revtex .paper-heading.paper-h2 {
+  font-size: 0.95em;
+  text-align: center;
+}
+.paper--theme-revtex .paper-heading.paper-h3 {
+  font-size: 0.95em;
+  font-weight: 400;
+  font-style: italic;
+}
+.paper--theme-revtex .paper-caption {
+  text-align: justify;
+}
+.paper--theme-revtex .paper-references-title {
+  text-align: center;
+  font-size: 0.92em;
+  text-transform: uppercase;
+}
+
+/* AMS article: capitals for title and authors, small-caps centred section
+   heads, "Abstract." run into its paragraph. */
+.paper--theme-amsart .paper-title {
+  font-size: 1.05em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.paper--theme-amsart .paper-authors {
+  font-size: 0.85em;
+  font-style: italic;
+}
+.paper--theme-amsart .paper-author::first-line,
+.paper--theme-amsart p.paper-authors::first-line {
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.paper--theme-amsart .paper-abstract {
+  margin: 1em 3em 1em;
+  font-size: 0.85em;
+}
+.paper--theme-amsart .paper-abstract-title,
+.paper--theme-amsart .paper-abstract[data-label]::before {
+  display: inline;
+  margin: 0 0.5em 0 0;
+  font-size: 1em;
+  font-weight: 400;
+  font-variant: small-caps;
+}
+.paper--theme-amsart .paper-abstract[data-label]::before {
+  content: "Abstract.";
+}
+.paper--theme-amsart .paper-abstract-title::after {
+  content: ".";
+}
+.paper--theme-amsart .paper-abstract-title + p,
+.paper--theme-amsart .paper-abstract[data-label] > p:first-child {
+  display: inline;
+}
+.paper--theme-amsart .paper-keywords {
+  margin: 0 3em 1.2em;
+  font-size: 0.85em;
+}
+.paper--theme-amsart .paper-keywords::before,
+.paper--theme-amsart .paper-keywords-label {
+  font-style: italic;
+  font-weight: 400;
+}
+.paper--theme-amsart .paper-heading.paper-h1,
+.paper--theme-amsart .paper-references-title {
+  font-size: 1em;
+  font-weight: 400;
+  font-variant: small-caps;
+  text-align: center;
+}
+.paper--theme-amsart .paper-heading.paper-h2 {
+  font-size: 1em;
+}
+
+/* ACM and LNCS LaTeX classes. */
+.paper--theme-acm .paper-heading { font-family: Inter, "Helvetica Neue", Arial, sans-serif; text-transform: uppercase; font-size: 0.95em; }
+.paper--theme-acm .paper-heading.paper-h2 { text-transform: none; }
+.paper--theme-llncs .paper-heading.paper-h1 { font-size: 1.1em; }
+.paper--theme-llncs .paper-abstract { font-size: 0.88em; }
+
+/* ── Print ────────────────────────────────────────────────────────────── */
+
+@media print {
+  .paper-sheet {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .paper-pagebreak {
+    margin: 0;
+    border: 0;
+  }
+
+  .paper .paper-heading,
+  .paper .paper-caption {
+    break-after: avoid;
+  }
+}

@@ -19,6 +19,9 @@ class TestSeoEndpoints(SimpleTestCase):
         self.assertIn("Allow: /sitemap-courses.xml", content)
         self.assertIn("Allow: /sitemap-topics.xml", content)
         self.assertIn("Allow: /sitemap-index.xml", content)
+        # Every crawler group allows the courses and the paper editor explicitly.
+        self.assertEqual(content.count("Allow: /courses\n"), 3)
+        self.assertEqual(content.count("Allow: /write\n"), 3)
         self.assertIn("Sitemap: https://recommendica.nevatal.id/sitemap.xml", content)
         self.assertIn("Sitemap: https://recommendica.nevatal.id/sitemap-courses.xml", content)
         self.assertIn("Sitemap: https://recommendica.nevatal.id/sitemap-topics.xml", content)
@@ -40,13 +43,14 @@ class TestSeoEndpoints(SimpleTestCase):
         }
 
         urls = [elem.text for elem in root.findall("sm:url/sm:loc", namespaces)]
-        self.assertEqual(len(urls), 53)
+        self.assertEqual(len(urls), 54)
 
         expected_urls = [
             # Core Application
             "https://recommendica.nevatal.id/",
             "https://recommendica.nevatal.id/search",
             "https://recommendica.nevatal.id/courses",
+            "https://recommendica.nevatal.id/write",
             # Sections
             "https://recommendica.nevatal.id/disciplines",
             "https://recommendica.nevatal.id/methodology",

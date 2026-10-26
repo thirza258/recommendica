@@ -42,6 +42,19 @@
       <image:caption>Free, self-paced research courses on writing questions, literature reviews, evaluating methods, and paper reading.</image:caption>
     </image:image>
   </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/write</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/write" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/write" />
+    <lastmod>2026-10-26T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://recommendica.nevatal.id/og-image.png</image:loc>
+      <image:title>Write a Research Paper — LaTeX &amp; Visual Paper Editor — Recommendica</image:title>
+      <image:caption>Free paper editor with live LaTeX math, citations, cross-references, IEEE and APA templates, and PDF or LaTeX export.</image:caption>
+    </image:image>
+  </url>
 
   <!-- ── Informational & Architecture Sections ─────────────────────────── -->
   <url>

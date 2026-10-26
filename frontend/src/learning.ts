@@ -1,8 +1,9 @@
 import { COURSES } from "./data/courses.ts";
 import type { Course } from "./data/courses.ts";
+import { isWriteRoute } from "./write/routes.ts";
 
 export const COURSE_PROGRESS_KEY = "recommendica.course-progress.v1";
-export type View = "landing" | "app" | "courses";
+export type View = "landing" | "app" | "courses" | "write";
 
 export function viewFromHash(hash: string): View {
   const clean = hash.trim();
@@ -29,6 +30,7 @@ export function viewFromHash(hash: string): View {
   ) {
     return "courses";
   }
+  if (isWriteRoute(clean)) return "write";
   return "landing";
 }
 

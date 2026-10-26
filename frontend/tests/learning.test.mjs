@@ -24,6 +24,9 @@ test("course and search routes coexist with existing landing section anchors", (
   );
   assert.equal(viewFromHash("#search"), "app");
   assert.equal(viewFromHash("/search"), "app");
+  for (const route of ["#write", "/write", "#write/", "#write/3f2a-9c", "/write/3f2a-9c", "#write?from=nav"]) {
+    assert.equal(viewFromHash(route), "write", route);
+  }
   for (const hash of [
     "",
     "#home",
@@ -31,6 +34,9 @@ test("course and search routes coexist with existing landing section anchors", (
     "#disciplines",
     "#methodology",
     "#courses-other",
+    "#writer",
+    "#write-x",
+    "#write/a/b",
   ]) {
     assert.equal(viewFromHash(hash), "landing");
   }

@@ -206,6 +206,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
         </nav>
 
         <div className="landing-bar-actions">
+          <a href="#write" className="ghost-button landing-courses-link">Write</a>
           <a href="#courses" className="ghost-button landing-courses-link">Courses</a>
           {onDonate && (
             <button
@@ -331,6 +332,16 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
             <p>Four free courses on creating research, following the research process, using this website, and reading papers critically.</p>
           </div>
           <a href="#courses" className="ghost-button landing-courses-link">Explore courses <ArrowRightIcon size={16} /></a>
+        </section>
+
+        <section className="landing-learning" aria-labelledby="landing-write-heading">
+          <span className="landing-learning-icon"><FileTextIcon size={30} /></span>
+          <div>
+            <p className="section-label">Write with Recommendica</p>
+            <h2 id="landing-write-heading">Turn the papers you find into a paper of your own.</h2>
+            <p>A free paper editor: write like in a word processor with live equations, citations and numbering, or in LaTeX with an instant preview. Export to PDF or LaTeX.</p>
+          </div>
+          <a href="#write" className="ghost-button landing-courses-link">Open the editor <ArrowRightIcon size={16} /></a>
         </section>
 
         {/* ── Interactive Evidence Inspector (Live Research Preview) ──── */}

@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent, useRef } from "react";
+import { lazy, Suspense, useEffect, useState, FormEvent, useRef } from "react";
 import TopBar from "./components/Topbar";
 import Landing from "./components/Landing";
 import HeroPanel from "./components/Hero";
@@ -21,6 +21,9 @@ import {
 import "./App.css";
 import { readSearchStream } from "./searchStream";
 
+// The paper editor carries TipTap, KaTeX and CodeMirror; load it only when used.
+const WriteApp = lazy(() => import("./write/WriteApp"));
+
 let backendHealthCheckSent = false;
 let donationConfigRequested = false;
 let corpusStatsRequested = false;
@@ -29,6 +32,7 @@ const DOC_TITLE: Record<View, string> = {
   landing: "Recommendica — AI Research Paper Recommendations & Grounded Search",
   app: "Search papers — Recommendica",
   courses: "Research courses — Recommendica",
+  write: "Write a paper — Recommendica",
 };
 
 function getRouteLocation(): string {
@@ -157,7 +161,7 @@ function App() {
   // <body>, leaving a keyboard user to re-traverse the page to reach the one
   // control they just asked for.
   useEffect(() => {
-    if (view !== "courses") document.title = DOC_TITLE[view];
+    if (view !== "courses" && view !== "write") document.title = DOC_TITLE[view];
     if (view !== "app" && abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
@@ -387,6 +391,29 @@ function App() {
     <DonateDialog settings={donation} onClose={() => setDonateOpen(false)} />
   );
   const openDonate = donation ? () => setDonateOpen(true) : undefined;
+
+  if (view === "write") {
+    return (
+      <Suspense
+        fallback={
+          <div className="write-loading" role="status">
+            Opening the paper editor…
+          </div>
+        }
+      >
+        <WriteApp
+          route={hash}
+          onHome={() => {
+            if (window.location.pathname !== "/" && window.location.pathname !== "") {
+              window.history.pushState(null, "", "/");
+            }
+            window.location.hash = "home";
+            setHash("#home");
+          }}
+        />
+      </Suspense>
+    );
+  }
 
   if (view === "courses") {
     return (
