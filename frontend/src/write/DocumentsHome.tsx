@@ -16,8 +16,26 @@ interface DocumentsHomeProps {
 }
 
 function TemplateThumb({ template }: { template: TemplateInfo }) {
-  const twoColumn = template.id === "ieee-conference" || template.id === "latex-ieee";
+  const twoColumn = [
+    "ieee-conference",
+    "latex-ieee",
+    "ml-conference",
+    "latex-ml-conference",
+    "physics-revtex",
+    "latex-revtex",
+  ].includes(template.id);
+
+  const latexBadges: Record<string, string> = {
+    "latex-ieee": "IEEEtran",
+    "latex-arxiv-preprint": "arXiv",
+    "latex-ml-conference": "NeurIPS",
+    "latex-revtex": "REVTeX",
+    "latex-amsart": "amsart",
+    "latex-article": "article",
+  };
+
   if (template.kind === "latex") {
+    const badge = latexBadges[template.id] || (twoColumn ? "2-col" : undefined);
     return (
       <span className="write-thumb write-thumb--latex" aria-hidden="true">
         <span className="write-thumb-code">\documentclass</span>
@@ -25,7 +43,7 @@ function TemplateThumb({ template }: { template: TemplateInfo }) {
         <span className="write-thumb-code">\section{"{…}"}</span>
         <span className="write-thumb-code write-thumb-code--dim">$E = mc^2$</span>
         <span className="write-thumb-code">\cite{"{…}"}</span>
-        {twoColumn && <span className="write-thumb-badge">IEEEtran</span>}
+        {badge && <span className="write-thumb-badge">{badge}</span>}
       </span>
     );
   }
@@ -44,7 +62,8 @@ function TemplateThumb({ template }: { template: TemplateInfo }) {
           {Array.from({ length: twoColumn ? 14 : 8 }, (_, index) => (
             <span key={index} className={`write-thumb-line${index % 5 === 4 ? " write-thumb-line--short" : ""}`} />
           ))}
-          {template.id === "research-article" && <span className="write-thumb-eq">∑</span>}
+          {(template.id === "research-article" || template.id === "math-amsart") && <span className="write-thumb-eq">∑</span>}
+          {template.id === "physics-revtex" && <span className="write-thumb-eq">∫</span>}
           {template.id === "literature-review" && <span className="write-thumb-table" />}
         </span>
       )}
@@ -62,6 +81,7 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [templateFilter, setTemplateFilter] = useState<"all" | "visual" | "latex">("all");
   const [renaming, setRenaming] = useState<DocumentSummary | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleting, setDeleting] = useState<DocumentSummary | null>(null);
@@ -171,6 +191,11 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
     await refresh();
   };
 
+  const visibleTemplates = useMemo(() => {
+    if (templateFilter === "all") return TEMPLATES;
+    return TEMPLATES.filter((template) => template.kind === templateFilter);
+  }, [templateFilter]);
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return (docs ?? []).filter((doc) => !needle || doc.title.toLowerCase().includes(needle) || doc.excerpt.toLowerCase().includes(needle));
@@ -219,9 +244,37 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
               <Icon name="alertCircle" size={16} /> {error}
             </p>
           )}
-          <h2 className="write-section-title">Start a new paper</h2>
+          <div className="write-templates-head">
+            <h2 className="write-section-title">Start a new paper</h2>
+            <div className="write-tabs write-templates-filter" role="tablist" aria-label="Filter templates by format">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={templateFilter === "all"}
+                onClick={() => setTemplateFilter("all")}
+              >
+                All formats
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={templateFilter === "visual"}
+                onClick={() => setTemplateFilter("visual")}
+              >
+                Visual
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={templateFilter === "latex"}
+                onClick={() => setTemplateFilter("latex")}
+              >
+                LaTeX
+              </button>
+            </div>
+          </div>
           <ul className="write-templates">
-            {TEMPLATES.map((template) => (
+            {visibleTemplates.map((template) => (
               <li key={template.id}>
                 <button type="button" className="write-template" onClick={() => void create(template.id)} disabled={busy}>
                   <TemplateThumb template={template} />

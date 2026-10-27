@@ -532,6 +532,25 @@ Stable course and lesson IDs form links such as
 Unknown lesson links show a notice and the catalog. Run `cd frontend && npm test`
 for curriculum navigation and progress regressions alongside the stream tests.
 
+**Write**, available from the topbar, landing page, and search result paper cards, opens
+the paper editor at `#write`. It provides an in-browser academic writing workspace:
+
+- **Visual editor (WYSIWYG)**: Draft papers like in a modern word processor with live
+  KaTeX math equations, numbered figures and tables, automatic cross-references,
+  footnotes, and styled bibliographies.
+- **LaTeX source editor**: Full CodeMirror-based LaTeX editor with syntax highlighting,
+  autocompletion for citations/labels, and an offline LaTeX renderer running in a web
+  worker with split-screen synchronized preview.
+- **Academic templates**: Pre-configured designs including arXiv preprints, IEEE conference
+  format (IEEEtran), APA 7, ML conference preprints (NeurIPS/ICML style), APS/REVTeX 4.2
+  physics papers, AMS math articles (`amsart`), and literature reviews.
+- **BibTeX management**: Import citations by DOI, arXiv ID, or raw BibTeX. Search results in
+  Recommendica include instant "Copy BibTeX" and "Cite in Write" buttons.
+- **Export options**: Download publication-ready PDFs (via browser print engine with true
+  page breaks), standalone HTML, raw `.tex`, or complete submission-ready `.zip` projects.
+- **Privacy & offline storage**: Papers are saved locally in the browser's IndexedDB store
+  without requiring an account or cloud upload.
+
 ## SEO
 
 The deployed site is **https://recommendica.nevatal.id/**. That origin is
