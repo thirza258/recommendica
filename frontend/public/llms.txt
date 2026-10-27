@@ -1,0 +1,11 @@
+# Recommendica
+
+> AI research paper recommendations and grounded search over peer-reviewed literature, with citations and faithfulness scores.
+
+## Endpoints
+- Homepage: https://recommendica.nevatal.id/
+- API: https://recommendica.nevatal.id/api/
+- API Catalog: https://recommendica.nevatal.id/.well-known/api-catalog
+- Agent Card: https://recommendica.nevatal.id/.well-known/agent-card.json
+- AI Catalog: https://recommendica.nevatal.id/.well-known/ai-catalog.json
+- Authentication Guide: https://recommendica.nevatal.id/auth.md

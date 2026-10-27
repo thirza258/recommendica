@@ -1,0 +1,46 @@
+{
+  "protocol_version": "0.1",
+  "organization": {
+    "name": "Nevatal",
+    "domain": "recommendica.nevatal.id"
+  },
+  "auth": {
+    "issuer": "https://recommendica.nevatal.id",
+    "direct": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    },
+    "device": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    }
+  },
+  "agent": {
+    "protocols": [
+      {
+        "type": "poppy",
+        "endpoint": "https://recommendica.nevatal.id/api/"
+      }
+    ]
+  },
+  "apis": [
+    {
+      "type": "openapi",
+      "url": "https://recommendica.nevatal.id/api/",
+      "description": "Recommendica API"
+    },
+    {
+      "type": "mcp",
+      "url": "https://recommendica.nevatal.id/mcp",
+      "description": "Recommendica MCP server"
+    }
+  ],
+  "web": {
+    "browser_session_endpoint": "https://recommendica.nevatal.id/"
+  },
+  "extensions": {}
+}

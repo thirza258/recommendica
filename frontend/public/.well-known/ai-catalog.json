@@ -1,0 +1,28 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Recommendica",
+    "identifier": "did:web:recommendica.nevatal.id"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:recommendica.nevatal.id:api:site",
+      "displayName": "Recommendica API",
+      "type": "application/json",
+      "url": "https://recommendica.nevatal.id/api/",
+      "representativeQueries": [
+        "what does Recommendica do",
+        "get data from Recommendica"
+      ]
+    },
+    {
+      "identifier": "urn:air:recommendica.nevatal.id:server:mcp",
+      "displayName": "Recommendica MCP Server",
+      "type": "application/mcp-server-card+json",
+      "url": "https://recommendica.nevatal.id/.well-known/mcp/server-card.json",
+      "representativeQueries": [
+        "query Recommendica"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Recommendica Agent",
+  "description": "AI research paper recommendations and grounded search over peer-reviewed literature, with citations and faithfulness scores.",
+  "url": "https://recommendica.nevatal.id",
+  "provider": {
+    "name": "Nevatal",
+    "url": "https://recommendica.nevatal.id"
+  },
+  "version": "1.0.0",
+  "protocolVersion": "0.3.0",
+  "preferredTransport": "JSONRPC",
+  "supportedInterfaces": [
+    {
+      "url": "https://recommendica.nevatal.id/api",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "0.3.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": [
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "text/plain"
+  ],
+  "skills": [
+    {
+      "id": "recommend-papers",
+      "name": "Recommend Research Papers",
+      "description": "Find papers that answer a research question, with relevance grading and citations."
+    },
+    {
+      "id": "grounded-search",
+      "name": "Grounded Literature Search",
+      "description": "Answer a research question from peer-reviewed sources with faithfulness scores."
+    }
+  ],
+  "authentication": {
+    "type": "oauth2",
+    "discovery_url": "https://recommendica.nevatal.id/.well-known/oauth-authorization-server"
+  }
+}

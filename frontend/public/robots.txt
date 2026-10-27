@@ -56,6 +56,8 @@ Disallow: /docs/
 # Default policy for all crawlers
 User-agent: *
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
+Host: https://recommendica.nevatal.id
+Agentmap: https://recommendica.nevatal.id/.well-known/ai-catalog.json
 Allow: /
 Allow: /courses
 Allow: /write

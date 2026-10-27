@@ -18,7 +18,7 @@
     />
     <meta
       name="keywords"
-      content="research paper recommendations, AI paper search, academic research assistant, arXiv search engine, literature review AI, retrieval augmented generation, RAG research, citation verification, grounded AI search, scientific paper discovery, academic search"
+      content="research paper recommendations, AI paper search, academic research assistant, arXiv search engine, literature review AI, retrieval augmented generation, RAG research, citation verification, grounded AI search, scientific paper discovery, academic search, latex editor, paper editor, bibtex generator, academic paper writer, latex renderer"
     />
     <meta name="author" content="Recommendica Team" />
     <meta name="publisher" content="Recommendica" />
@@ -148,7 +148,10 @@
               "Answers streamed token by token from retrieved papers",
               "Every source paper shown with title, category, authors and summary",
               "Faithfulness scoring of each claim against its sources",
-              "Direct arXiv literature search fallback integration"
+              "Direct arXiv literature search fallback integration",
+              "In-browser research paper editor and LaTeX renderer with KaTeX math",
+              "Visual WYSIWYG paper drafting with citations, numbering, and IEEE/APA styles",
+              "Export papers to publication-ready PDF or full LaTeX project (.zip)"
             ],
             "screenshot": "https://recommendica.nevatal.id/og-image.png",
             "image": "https://recommendica.nevatal.id/og-image.png"
@@ -157,6 +160,14 @@
             "@type": "FAQPage",
             "@id": "https://recommendica.nevatal.id/#faq",
             "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Can I write and format research papers directly on Recommendica?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Recommendica provides a free, in-browser paper editor with both Visual (WYSIWYG) and source LaTeX modes. It supports KaTeX math formulas, BibTeX citations, cross-referencing, multi-column layouts (IEEE, arXiv, REVTeX, AMS), and instant export to PDF and LaTeX projects."
+                }
+              },
               {
                 "@type": "Question",
                 "name": "What is Recommendica and how does it work?",
@@ -309,6 +320,21 @@
           </ul>
         </section>
 
+        <section aria-labelledby="ns-write">
+          <h2 id="ns-write">Write a Research Paper with Recommendica</h2>
+          <p>
+            Recommendica provides a free academic paper editor and LaTeX renderer that runs entirely in your browser.
+            Draft research papers with instant equation rendering, automated BibTeX citations, cross-references, and IEEE/APA templates — or edit LaTeX source directly with split-screen live preview.
+            Export your finished paper to a publication-ready PDF or a complete LaTeX project package.
+          </p>
+          <ul>
+            <li>
+              <strong><a href="/write">Open Recommendica Paper Editor:</a></strong>
+              Create research articles, literature reviews, preprints, and conference papers.
+            </li>
+          </ul>
+        </section>
+
         <section aria-labelledby="ns-faq">
           <h2 id="ns-faq">Frequently Asked Questions</h2>
           <article class="faq-item">
@@ -352,5 +378,43 @@
     <script>
          (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
+<script id="webmcp-tools">
+  (function () {
+    const tools = [
+      {
+        name: "get_recommendica_info",
+        description: "Get the site name, description and API location for Recommendica.",
+        inputSchema: { type: "object", properties: {} },
+        execute: async function () {
+          const res = await fetch("/.well-known/agent-card.json");
+          return await res.json();
+        }
+      }
+    ];
+    function registerTools() {
+      const mc = (typeof navigator !== "undefined" && navigator.modelContext) ||
+        (typeof document !== "undefined" && document.modelContext);
+      if (!mc) return;
+      if (typeof mc.provideContext === "function") {
+        try { mc.provideContext({ tools: tools }); } catch (e) {}
+      }
+      if (typeof mc.registerTool === "function") {
+        tools.forEach(function (tool) {
+          try { mc.registerTool(tool); } catch (e) {}
+        });
+      }
+    }
+    registerTools();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", registerTools);
+    }
+    window.addEventListener("load", registerTools);
+    let count = 0;
+    const interval = setInterval(function () {
+      registerTools();
+      if (++count > 20) clearInterval(interval);
+    }, 250);
+  })();
+</script>
 </body>
 </html>

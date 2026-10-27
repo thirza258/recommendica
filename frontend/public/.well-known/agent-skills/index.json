@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "recommend-papers",
+      "type": "skill-md",
+      "description": "Find papers that answer a research question, with relevance grading and citations.",
+      "url": "https://recommendica.nevatal.id/.well-known/agent-skills/recommend-papers/SKILL.md"
+    },
+    {
+      "name": "grounded-search",
+      "type": "skill-md",
+      "description": "Answer a research question from peer-reviewed sources with faithfulness scores.",
+      "url": "https://recommendica.nevatal.id/.well-known/agent-skills/grounded-search/SKILL.md"
+    }
+  ]
+}

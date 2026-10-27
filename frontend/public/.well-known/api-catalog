@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://recommendica.nevatal.id/api",
+      "service-desc": [
+        {
+          "href": "https://recommendica.nevatal.id/api/",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://recommendica.nevatal.id/auth.md",
+          "type": "text/markdown"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://recommendica.nevatal.id/api/",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}
