@@ -811,6 +811,12 @@
   font-weight: 500;
 }
 
+.landing-courses-action {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-6);
+}
+
 /* ── Comparison Table ─────────────────────────────────────────────────── */
 
 .comparison-table-wrapper {
@@ -1000,9 +1006,18 @@
   color: var(--ink-muted);
 }
 
+.landing-closer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  align-items: center;
+}
+
 .landing-closer-btn {
   font-size: var(--text-base);
   padding: var(--space-3) var(--space-6);
+  text-decoration: none;
 }
 
 /* ── Landing Footer ───────────────────────────────────────────────────── */
@@ -2549,6 +2564,16 @@
   .landing-closer {
     border-radius: var(--radius-lg);
     padding: var(--space-8) var(--space-5);
+  }
+
+  .landing-closer-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .landing-closer-actions .landing-closer-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .topbar {
