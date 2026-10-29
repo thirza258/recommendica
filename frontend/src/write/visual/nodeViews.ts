@@ -23,6 +23,7 @@ export interface PaperViewHooks {
 interface LabelSpec {
   paperLabel?: string;
   missing?: boolean;
+  raw?: boolean;
   html?: string;
 }
 
@@ -143,7 +144,11 @@ export class LabelView implements NodeView {
     } else if (this.typeName === "footnote") {
       this.dom.title = String(node.attrs.text ?? "");
     } else {
-      this.dom.title = spec?.missing ? "This reference points to something that was deleted" : "Cross-reference";
+      this.dom.title = spec?.missing
+        ? "This reference points to something that was deleted"
+        : spec?.raw
+          ? "This label is defined in a LaTeX block; it is resolved when the paper is exported"
+          : "Cross-reference";
     }
   }
 

@@ -10,6 +10,8 @@ interface WorkspaceHeaderProps {
   title: string;
   onTitleChange: (title: string) => void;
   kind: DocumentKind;
+  onSwitchKind: (kind: DocumentKind) => void;
+  switchBusy?: boolean;
   saveState: SaveState;
   persistent: boolean;
   menubar?: ReactNode;
@@ -17,7 +19,17 @@ interface WorkspaceHeaderProps {
 }
 
 /** Document title, save status and the editor's primary actions, as in Docs. */
-export default function WorkspaceHeader({ title, onTitleChange, kind, saveState, persistent, menubar, actions }: WorkspaceHeaderProps) {
+export default function WorkspaceHeader({
+  title,
+  onTitleChange,
+  kind,
+  onSwitchKind,
+  switchBusy = false,
+  saveState,
+  persistent,
+  menubar,
+  actions,
+}: WorkspaceHeaderProps) {
   const status = persistent ? SAVE_LABEL[saveState] : "Not saved — browser storage is unavailable";
   return (
     <header className="write-header">
@@ -32,12 +44,34 @@ export default function WorkspaceHeader({ title, onTitleChange, kind, saveState,
             value={title}
             size={Math.min(Math.max(title.length, 8), 60)}
             maxLength={200}
+            disabled={switchBusy}
             onChange={(event) => onTitleChange(event.target.value)}
             onBlur={(event) => {
               if (!event.target.value.trim()) onTitleChange("Untitled paper");
             }}
           />
-          <span className={`write-kind write-kind--${kind}`}>{kind === "latex" ? "LaTeX" : "Visual"}</span>
+          <div className="write-mode-switch" role="tablist" aria-label="Editor mode" aria-busy={switchBusy || undefined}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={kind === "visual"}
+              disabled={switchBusy}
+              title="Edit in the visual editor"
+              onClick={() => kind !== "visual" && onSwitchKind("visual")}
+            >
+              <Icon name="type" size={13} /> Visual
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={kind === "latex"}
+              disabled={switchBusy}
+              title="Edit the LaTeX source"
+              onClick={() => kind !== "latex" && onSwitchKind("latex")}
+            >
+              <Icon name="braces" size={13} /> LaTeX
+            </button>
+          </div>
           <span
             className={`write-save-state${saveState === "error" || !persistent ? " write-save-state--error" : ""}`}
             role={saveState === "error" ? "alert" : undefined}

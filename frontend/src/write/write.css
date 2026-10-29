@@ -204,6 +204,47 @@
   color: var(--success-fg);
 }
 
+/* Visual | LaTeX editor switch in the workspace header. */
+.write-mode-switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+
+.write-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.write-mode-switch button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.write-mode-switch button[aria-selected="true"] {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+}
+
+.write-mode-switch button:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
 /* Template thumbnails: a miniature page drawn in CSS. */
 .write-thumb {
   position: relative;
@@ -1191,6 +1232,12 @@ textarea.write-code {
 .write-page [data-missing="true"] {
   color: #b91c1c;
   background: #fef2f2;
+}
+
+/* Defined in a raw LaTeX block: valid, but its number is only known on export. */
+.write-page [data-raw-ref="true"] {
+  border-bottom: 1px dashed currentColor;
+  cursor: help;
 }
 
 .write-page .paper-footnote-ref {

@@ -541,6 +541,10 @@ the paper editor at `#write`. It provides an in-browser academic writing workspa
 - **LaTeX source editor**: Full CodeMirror-based LaTeX editor with syntax highlighting,
   autocompletion for citations/labels, and an offline LaTeX renderer running in a web
   worker with split-screen synchronized preview.
+- **One paper, two editors**: Switch between the visual and LaTeX editors from the
+  workspace header without creating a copy. The same document keeps both representations;
+  unsupported LaTeX survives as raw blocks, and a mode you have not changed is reused
+  as-is rather than being reconverted.
 - **Academic templates**: Pre-configured designs including arXiv preprints, IEEE conference
   format (IEEEtran), APA 7, ML conference preprints (NeurIPS/ICML style), APS/REVTeX 4.2
   physics papers, AMS math articles (`amsart`), and literature reviews.

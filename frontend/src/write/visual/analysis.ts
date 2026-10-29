@@ -52,7 +52,8 @@ export interface NodeLabel {
   pos: number;
   size: number;
   attrs: Record<string, string>;
-  spec: { paperLabel: string; missing?: boolean; html?: string };
+  /** `raw` marks a reference to a label that only exists inside a LaTeX block. */
+  spec: { paperLabel: string; missing?: boolean; raw?: boolean; html?: string };
 }
 
 export interface DocAnalysis {
@@ -113,6 +114,9 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
   const labels: NodeLabel[] = [];
   const citations: { pos: number; size: number; keys: string[] }[] = [];
   const crossRefs: { pos: number; size: number; target: string }[] = [];
+  // Labels inside preserved LaTeX cannot be numbered here, but they do exist
+  // (and export correctly), so references to them are not broken links.
+  const rawLabels = new Set<string>();
   let bibliographyNode: { pos: number; size: number } | null = null;
 
   doc.descendants((node, pos) => {
@@ -207,8 +211,15 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
       case "bibliography":
         bibliographyNode = { pos, size: node.nodeSize };
         return false;
+      case "rawLatex": {
+        const source = String(node.attrs.source ?? "");
+        for (const match of source.matchAll(/\\label\{([^}]*)\}/g)) {
+          const label = match[1].trim();
+          if (label) rawLabels.add(label);
+        }
+        return false;
+      }
       case "mathInline":
-      case "rawLatex":
         return false;
       default:
         return true;
@@ -237,12 +248,18 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
   const byId = new Map(targets.map((target) => [target.id, target]));
   for (const ref of crossRefs) {
     const target = byId.get(ref.target);
-    const label = target ? target.label : "[missing reference]";
+    const raw = !target && rawLabels.has(ref.target);
+    // The number is computed by LaTeX, so the visual editor can only show the
+    // label itself; `raw` keeps it from looking like a deleted target.
+    const label = target ? target.label : raw ? ref.target : "[missing reference]";
     labels.push({
       pos: ref.pos,
       size: ref.size,
-      attrs: { "data-label": label, ...(target ? {} : { "data-missing": "true" }) },
-      spec: { paperLabel: label, missing: !target },
+      attrs: {
+        "data-label": label,
+        ...(target ? {} : raw ? { "data-raw-ref": "true" } : { "data-missing": "true" }),
+      },
+      spec: { paperLabel: label, ...(target ? {} : raw ? { raw: true } : { missing: true }) },
     });
   }
 

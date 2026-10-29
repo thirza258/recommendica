@@ -52,6 +52,19 @@ export function useAutosave(store: DocumentStore, build: () => PaperDocument) {
     }, DELAY_MS);
   }, [flush]);
 
+  /**
+   * Drop pending work without saving it. Editors use this when the current
+   * state has just been persisted in another form (a mode conversion), so the
+   * unmount flush must not write the old representation over the new one.
+   */
+  const discard = useCallback(() => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+    dirty.current = false;
+  }, []);
+
   useEffect(() => {
     const onHidden = () => {
       if (document.visibilityState === "hidden") void flush();
@@ -66,7 +79,7 @@ export function useAutosave(store: DocumentStore, build: () => PaperDocument) {
     };
   }, [flush]);
 
-  return { saveState: state, schedule, flush };
+  return { saveState: state, schedule, flush, discard };
 }
 
 export const SAVE_LABEL: Record<SaveState, string> = {

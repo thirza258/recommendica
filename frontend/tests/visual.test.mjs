@@ -5,6 +5,8 @@ import { Node } from "@tiptap/pm/model";
 import { baseExtensions } from "../src/write/visual/extensions.ts";
 import { analyzeDoc } from "../src/write/visual/analysis.ts";
 import { documentToLatex, escapeLatex, wrapMultiline } from "../src/write/visual/toLatex.ts";
+import { importLatex } from "../src/write/visual/fromLatex.ts";
+import { switchToLatex, switchToVisual } from "../src/write/modeSwitch.ts";
 import { INLINE_MATH_PATTERN } from "../src/write/visual/schema.ts";
 import { createFromTemplate, TEMPLATES } from "../src/write/templates.ts";
 import { DEFAULT_SETTINGS } from "../src/write/documents.ts";
@@ -178,4 +180,334 @@ test("inline math input rule ignores prices and escaped dollars", () => {
   assert.equal(match("a$b$"), null);
   assert.equal(wrapMultiline("a &= b \\\\ c &= d"), "\\begin{aligned}a &= b \\\\ c &= d\\end{aligned}");
   assert.equal(wrapMultiline("\\frac{a}{b}"), "\\frac{a}{b}");
+});
+
+test("LaTeX import maps structure, metadata, settings, labels and raw constructs", () => {
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  const source = `\\documentclass[11pt,a4paper]{article}
+\\usepackage[margin=0.5in]{geometry}
+\\usepackage[round]{natbib}
+\\title{A \\textbf{Bold} Title}
+\\author{Ada Lovelace \\\\ University}
+\\begin{document}
+\\maketitle
+\\begin{abstract}
+An abstract with $x$ and \\cite{a2020}.
+\\end{abstract}
+\\section{Introduction}\\label{sec:intro}
+See Section~\\ref{sec:method}, Figure~\\ref{fig:one} and Theorem~\\ref{thm:one}.
+\\begin{equation}\\label{eq:main}
+E = mc^2
+\\end{equation}
+\\begin{figure}[htbp]
+\\centering
+\\includegraphics[width=0.5\\linewidth]{figs/one.png}
+\\caption{A figure}\\label{fig:one}
+\\end{figure}
+\\begin{table}[htbp]
+\\caption{A table}\\label{tab:one}
+\\begin{tabular}{lc}
+A & B \\\\
+1 & 2 \\\\
+\\end{tabular}
+\\end{table}
+\\begin{itemize}
+\\item First
+\\item Second
+\\end{itemize}
+\\begin{theorem}\\label{thm:one}
+A theorem the visual editor keeps verbatim.
+\\end{theorem}
+\\section{Method}\\label{sec:method}
+Method text.
+\\bibliographystyle{apalike}
+\\bibliography{references}
+\\end{document}`;
+  const result = importLatex(source, { files: { "references.bib": BIB }, assets: { "figs/one.png": png } });
+  assert.equal(result.title, "A Bold Title");
+  assert.equal(result.settings.margins, "narrow");
+  assert.equal(result.settings.citationStyle, "apa");
+  assert.equal(result.bib, BIB);
+  assert.deepEqual(result.warnings, []);
+
+  const node = Node.fromJSON(schema, result.content);
+  node.check();
+  const blocks = result.content.content;
+  const types = blocks.map((block) => block.type);
+  for (const type of ["paperTitle", "paperAuthors", "paperAbstract", "heading", "mathBlock", "figure", "tableFigure", "bulletList", "rawLatex", "bibliography"]) {
+    assert.ok(types.includes(type), `missing ${type}`);
+  }
+  const headings = blocks.filter((block) => block.type === "heading");
+  assert.deepEqual(headings.map((heading) => heading.attrs.id), ["sec:intro", "sec:method"]);
+  const figure = blocks.find((block) => block.type === "figure");
+  assert.equal(figure.attrs.src, png);
+  assert.equal(figure.attrs.id, "fig:one");
+  assert.equal(figure.attrs.width, 50);
+  const table = blocks.find((block) => block.type === "tableFigure");
+  assert.equal(table.attrs.id, "tab:one");
+  assert.equal(table.content[1].content.length, 2);
+  const math = blocks.find((block) => block.type === "mathBlock");
+  assert.equal(math.attrs.id, "eq:main");
+  assert.equal(math.attrs.latex, "E = mc^2");
+
+  // A reference to a label that lives inside a preserved raw block still
+  // exports as a real \ref rather than "??".
+  const exported = documentToLatex(result.content, { ...DEFAULT_SETTINGS, ...result.settings }, result.bib);
+  assert.match(exported.tex, /\\ref\{thm:one\}/);
+  assert.match(exported.tex, /\\label\{sec:intro\}/);
+  assert.match(exported.tex, /\\label\{fig:one\}/);
+  assert.match(exported.tex, /\\label\{tab:one\}/);
+  assert.match(exported.tex, /\\label\{eq:main\}/);
+  assert.match(exported.tex, /\\begin\{theorem\}/);
+});
+
+test("mode switching keeps one document and reuses an unchanged representation", async () => {
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  const visual = createFromTemplate("blank", 0);
+  visual.title = "Switching";
+  visual.bib = BIB;
+  visual.content = doc(
+    { type: "paperTitle", content: [text("Switching")] },
+    h(1, "Introduction", "sec-intro"),
+    p("See ", { type: "crossRef", attrs: { target: "sec-intro" } }, " and ", { type: "crossRef", attrs: { target: "fig-one" } }, ", and cite ", { type: "citation", attrs: { keys: ["a2020"] } }, "."),
+    { type: "figure", attrs: { src: png, alt: "one", width: 50, id: "fig-one" }, content: [{ type: "figcaption", content: [text("A figure")] }] },
+    { type: "bibliography" },
+  );
+
+  const first = await switchToLatex(visual);
+  assert.equal(first.document.id, visual.id);
+  assert.equal(first.document.kind, "latex");
+  assert.equal(first.document.title, visual.title);
+  assert.equal(first.document.content, visual.content, "the visual representation is kept");
+  assert.match(first.document.source, /\\label\{sec:intro\}/);
+  assert.match(first.document.source, /\\label\{fig:one\}/);
+  assert.ok(first.document.assets.some((asset) => asset.name === "figures/figure-1.png" && asset.dataUrl === png));
+  assert.ok(first.document.files.some((file) => file.name === "references.bib" && file.content.includes("a2020")));
+
+  const back = await switchToVisual(first.document);
+  assert.equal(back.document.id, visual.id);
+  assert.equal(back.document.kind, "visual");
+  assert.equal(back.document.source, first.document.source, "source is kept");
+  assert.deepEqual(back.document.content, visual.content, "unchanged source reuses the visual representation");
+  Node.fromJSON(schema, back.document.content).check();
+  assert.match(JSON.stringify(back.document.content), /fig-one/);
+  assert.match(JSON.stringify(back.document.content), /a2020/);
+
+  const again = await switchToLatex(back.document);
+  assert.equal(again.document.source, first.document.source, "peeking at the visual editor must not rewrite the source");
+  assert.deepEqual(again.document.assets, first.document.assets);
+});
+
+test("editing LaTeX then switching back and forth preserves the edited source", async () => {
+  const visual = createFromTemplate("research-article", 0);
+  const first = await switchToLatex(visual);
+  const edited = first.document.source.replace("\\section{Introduction}", "\\section{Opening}");
+  assert.notEqual(edited, first.document.source);
+
+  const imported = await switchToVisual({ ...first.document, source: edited });
+  assert.equal(imported.document.kind, "visual");
+  assert.match(JSON.stringify(imported.document.content), /Opening/);
+
+  const returned = await switchToLatex(imported.document);
+  assert.equal(returned.document.source, edited, "unchanged visual content must reuse the edited LaTeX");
+
+  const changedContent = {
+    ...imported.document.content,
+    content: [...imported.document.content.content, p("A paragraph added in the visual editor.")],
+  };
+  const converted = await switchToLatex({ ...imported.document, content: changedContent });
+  assert.notEqual(converted.document.source, edited);
+  assert.match(converted.document.source, /A paragraph added in the visual editor\./);
+});
+
+test("an empty paper does not gain a title when it round-trips", async () => {
+  const visual = createFromTemplate("blank", 0);
+  const first = await switchToLatex(visual);
+  assert.doesNotMatch(first.document.source, /\\title\{/);
+
+  const back = await switchToVisual({ ...first.document, source: `${first.document.source}\n% edited\n` });
+  assert.ok(!JSON.stringify(back.document.content).includes("Untitled paper"), "the exporter's fallback title must not become content");
+});
+
+test("visual settings survive edits to converted LaTeX", async () => {
+  const visual = createFromTemplate("apa-paper", 0);
+  const first = await switchToLatex(visual);
+  assert.match(first.document.source, /^% recommendica-write-settings: \{.*"theme":"apa"/m);
+
+  const edited = first.document.source.replace("\\begin{document}", "\\begin{document}\n\nAn added paragraph.\n");
+  assert.notEqual(edited, first.document.source);
+  const back = await switchToVisual({ ...first.document, source: edited });
+  assert.equal(back.document.settings.theme, "apa", "APA shares the article class, so its theme must be restored from the marker");
+  assert.equal(back.document.settings.lineSpacing, 2);
+  assert.equal(back.document.settings.numberedHeadings, false);
+});
+
+test("mode switching reconverts when visual settings or references change", async () => {
+  const visual = createFromTemplate("blank", 0);
+  visual.bib = BIB;
+  visual.content = doc(p("See ", { type: "citation", attrs: { keys: ["a2020"] } }, "."), { type: "bibliography" });
+  const first = await switchToLatex(visual);
+  assert.match(first.document.source, /\\documentclass\[11pt,a4paper\]\{article\}/);
+  assert.ok(first.document.files.find((file) => file.name === "references.bib").content.includes("a2020"));
+
+  const themed = await switchToLatex({ ...first.document, kind: "visual", settings: { ...first.document.settings, theme: "ieee" } });
+  assert.notEqual(themed.document.source, first.document.source, "changing page settings must regenerate the source");
+  assert.match(themed.document.source, /\{IEEEtran\}/);
+
+  const added = `${BIB}\n@article{c2021, author={Gamma, Greta}, title={Third}, journal={J}, year={2021}}`;
+  const reffed = await switchToLatex({ ...themed.document, kind: "visual", bib: added });
+  assert.ok(reffed.document.files.find((file) => file.name === "references.bib").content.includes("c2021"), "a changed bibliography must be written to the project");
+});
+
+test("mode switching reimports when project files or images change", async () => {
+  const visual = createFromTemplate("blank", 0);
+  visual.content = doc(p("Before"));
+  const first = await switchToLatex(visual);
+  const withInput = {
+    ...first.document,
+    source: first.document.source.replace("Before", "\\input{body}"),
+    files: [...first.document.files, { name: "body.tex", content: "Before" }],
+  };
+  const imported = await switchToVisual(withInput);
+  assert.match(JSON.stringify(imported.document.content), /Before/);
+
+  const reused = await switchToLatex(imported.document);
+  const edited = {
+    ...reused.document,
+    files: reused.document.files.map((file) => (file.name === "body.tex" ? { ...file, content: "After" } : file)),
+  };
+  const reimported = await switchToVisual(edited);
+  assert.match(JSON.stringify(reimported.document.content), /After/, "editing an included file must refresh the visual content");
+
+  const source = first.document.source.replace("Before", "\\begin{figure}\n\\includegraphics[width=0.5\\linewidth]{figs/one.png}\n\\caption{One}\n\\label{fig:one}\n\\end{figure}");
+  const missing = await switchToVisual({ ...first.document, source });
+  const missingFigure = missing.document.content.content.find((block) => block.type === "figure");
+  assert.equal(missingFigure.attrs.src, "");
+  assert.match(missing.notice, /not found/);
+
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  const added = await switchToVisual({
+    ...missing.document,
+    assets: [{ name: "figs/one.png", type: "image/png", dataUrl: png, size: 10 }],
+  });
+  const figure = added.document.content.content.find((block) => block.type === "figure");
+  assert.equal(figure.attrs.src, png, "adding the image must refresh the visual content");
+});
+
+test("every template survives a round trip through the other editor", async () => {
+  for (const template of TEMPLATES) {
+    const created = createFromTemplate(template.id, 0);
+    if (created.kind === "visual") {
+      const latex = await switchToLatex(created);
+      const back = await switchToVisual(latex.document);
+      Node.fromJSON(schema, back.document.content).check();
+      assert.deepEqual(back.document.content, created.content, `${template.id}: visual content changed`);
+      const again = await switchToLatex(back.document);
+      assert.equal(again.document.source, latex.document.source, `${template.id}: LaTeX source changed`);
+    } else {
+      const visual = await switchToVisual(created);
+      Node.fromJSON(schema, visual.document.content).check();
+      const back = await switchToLatex(visual.document);
+      assert.equal(back.document.source, created.source, `${template.id}: LaTeX source changed`);
+    }
+  }
+});
+
+test("LaTeX generated by a mode switch renders and resolves its references", async () => {
+  for (const template of TEMPLATES.filter((entry) => entry.kind === "visual")) {
+    const converted = await switchToLatex(createFromTemplate(template.id, 0));
+    const files = Object.fromEntries(converted.document.files.map((file) => [file.name, file.content]));
+    const assets = Object.fromEntries(converted.document.assets.map((asset) => [asset.name, asset.dataUrl]));
+    const rendered = renderLatex(converted.document.source, { files, assets });
+    assert.deepEqual(rendered.diagnostics, [], template.id);
+    assert.doesNotMatch(htmlToText(rendered.html), /\?\?/, template.id);
+  }
+});
+
+test("references into preserved LaTeX blocks are not reported as missing", async () => {
+  const source = `\\documentclass{article}
+\\begin{document}
+\\section{Introduction}\\label{sec:intro}
+See \\ref{thm:one} and \\ref{sec:intro}.
+\\begin{theorem}\\label{thm:one}
+Holds.
+\\end{theorem}
+\\end{document}`;
+  const latex = createFromTemplate("latex-blank", 0);
+  const imported = await switchToVisual({ ...latex, source });
+  const node = Node.fromJSON(schema, imported.document.content);
+  node.check();
+  const analysis = analyzeDoc(node, context(imported.document.settings, imported.document.bib));
+  assert.ok(!analysis.labels.some((label) => label.spec.missing), "a label inside a LaTeX block is a real target");
+  const raw = analysis.labels.find((label) => label.spec.raw);
+  assert.equal(raw?.spec.paperLabel, "thm:one", "the reference shows the label LaTeX will resolve");
+});
+
+test("marks, nested blocks and structured tables survive a round trip", async () => {
+  const visual = createFromTemplate("blank", 0);
+  visual.title = "Rich";
+  visual.bib = BIB;
+  visual.content = doc(
+    { type: "paperTitle", content: [text("Rich title")] },
+    h(1, "Introduction", "sec-intro"),
+    p(
+      "Plain, ",
+      text("bold", [{ type: "bold" }]),
+      ", ",
+      text("italic", [{ type: "italic" }]),
+      ", ",
+      text("underlined", [{ type: "underline" }]),
+      ", ",
+      text("struck", [{ type: "strike" }]),
+      ", ",
+      text("code", [{ type: "code" }]),
+      ", ",
+      text("red", [{ type: "textStyle", attrs: { color: "#b91c1c" } }]),
+      ", ",
+      text("highlighted", [{ type: "highlight", attrs: { color: "#fff3a3" } }]),
+      ", ",
+      text("link", [{ type: "link", attrs: { href: "https://example.com" } }]),
+      ", ref ", { type: "crossRef", attrs: { target: "sec-method" } },
+      ", cite ", { type: "citation", attrs: { keys: ["a2020"] } },
+      ", note", { type: "footnote", attrs: { text: "A footnote." } },
+      ".",
+    ),
+    p("Inline ", { type: "mathInline", attrs: { latex: "y" } }, " and display math."),
+    { type: "mathBlock", attrs: { latex: "E = mc^2", numbered: true, id: "eq-one" } },
+    {
+      type: "tableFigure",
+      attrs: { id: "tab-one" },
+      content: [
+        { type: "figcaption", content: [text("A table")] },
+        {
+          type: "table",
+          content: [
+            { type: "tableRow", content: [{ type: "tableHeader", attrs: { colspan: 2, rowspan: 1, colwidth: null }, content: [p("Head")] }] },
+            {
+              type: "tableRow",
+              content: [
+                { type: "tableCell", attrs: { colspan: 1, rowspan: 1, colwidth: null }, content: [p("A")] },
+                { type: "tableCell", attrs: { colspan: 1, rowspan: 1, colwidth: null }, content: [p("B")] },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { type: "bulletList", content: [{ type: "listItem", content: [p("First")] }, { type: "listItem", content: [p("Second")] }] },
+    { type: "blockquote", content: [p("Quoted")] },
+    { type: "codeBlock", attrs: { language: "python" }, content: [text("print(1)")] },
+    { type: "horizontalRule" },
+    { type: "pageBreak" },
+    h(1, "Method", "sec-method"),
+    p("After."),
+    { type: "bibliography" },
+  );
+
+  const latex = await switchToLatex(visual);
+  const back = await switchToVisual(latex.document);
+  Node.fromJSON(schema, back.document.content).check();
+  assert.deepEqual(back.document.content, visual.content);
+  const again = await switchToLatex(back.document);
+  assert.equal(again.document.source, latex.document.source);
 });

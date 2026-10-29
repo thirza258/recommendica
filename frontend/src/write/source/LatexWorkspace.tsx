@@ -9,7 +9,7 @@ import { Icon } from "../icons";
 import { Dialog, MenuButton, ToolButton, ToolSeparator } from "../ui";
 import type { MenuEntry } from "../ui";
 import { BIB_FILE, MAIN_FILE, fileBaseName } from "../documents.ts";
-import type { PaperDocument, ProjectAsset } from "../documents.ts";
+import type { DocumentKind, PaperDocument, ProjectAsset } from "../documents.ts";
 import type { DocumentStore } from "../storage.ts";
 import { useAutosave } from "../useAutosave.ts";
 import { readImageFile } from "../images.ts";
@@ -21,6 +21,8 @@ import { shortcut } from "../keys.ts";
 interface LatexWorkspaceProps {
   initial: PaperDocument;
   store: DocumentStore;
+  onSwitchMode: (current: PaperDocument, kind: DocumentKind) => Promise<void>;
+  initialNotice?: string;
 }
 
 const SNIPPETS = {
@@ -156,7 +158,7 @@ function diagnosticWhere(diagnostic: RenderDiagnostic): string {
   return `line ${diagnostic.line}`;
 }
 
-export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) {
+export default function LatexWorkspace({ initial, store, onSwitchMode, initialNotice = "" }: LatexWorkspaceProps) {
   const [title, setTitle] = useState(initial.title);
   const [fileNames, setFileNames] = useState<string[]>(() => [MAIN_FILE, ...initial.files.map((file) => file.name).filter((name) => name !== MAIN_FILE)]);
   const [active, setActive] = useState(MAIN_FILE);
@@ -173,8 +175,9 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
   const [dialog, setDialog] = useState<"new-file" | "help" | { remove: string } | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(initialNotice);
   const [changedElsewhere, setChangedElsewhere] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   // React clears an imperative handle before unmount cleanups run; the final
   // save still needs it, so keep the last one (it reads CodeMirror's saved states).
@@ -191,6 +194,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
   const syncTimer = useRef<number | null>(null);
   const lastDuration = useRef(150);
   const activeRef = useRef(active);
+  const switchingRef = useRef(false);
 
   useEffect(() => {
     activeRef.current = active;
@@ -228,7 +232,12 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
     };
   }, [initial, title, fileNames, assets, getText]);
 
-  const { saveState, schedule, flush } = useAutosave(store, buildDoc);
+  const { saveState, schedule, flush, discard } = useAutosave(store, buildDoc);
+
+  // While a conversion runs, edits must not schedule a save over the result.
+  const scheduleEdit = useCallback(() => {
+    if (!switchingRef.current) schedule();
+  }, [schedule]);
 
   // Renders run one at a time; edits made during a render queue exactly one more.
   const runRender = useCallback(async () => {
@@ -311,9 +320,9 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
   }, [recompile]);
 
   const onChange = useCallback(() => {
-    schedule();
+    scheduleEdit();
     if (autoCompile) requestRender();
-  }, [schedule, requestRender, autoCompile]);
+  }, [scheduleEdit, requestRender, autoCompile]);
 
   const onCursorLine = useCallback((line: number) => {
     if (activeRef.current !== MAIN_FILE) return;
@@ -338,7 +347,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
 
   const changeTitle = (value: string) => {
     setTitle(value);
-    schedule();
+    scheduleEdit();
   };
 
   const insert = (key: keyof typeof SNIPPETS) => {
@@ -366,7 +375,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
     setFileNames((names) => [...names, name]);
     setActive(name);
     setDialog(null);
-    schedule();
+    scheduleEdit();
   };
 
   const removeFile = (name: string) => {
@@ -376,7 +385,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
     editorRef.current?.forget(name);
     if (active === name) setActive(MAIN_FILE);
     setDialog(null);
-    schedule();
+    scheduleEdit();
   };
 
   const uploadImages = async (list: FileList | null) => {
@@ -392,7 +401,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
       }
       setAssets((current) => [...current, ...added]);
       setNotice(`${added.length === 1 ? `${added[0].name} was` : `${added.length} images were`} added. Use \\includegraphics{${added[0].name}} to place it.`);
-      schedule();
+      scheduleEdit();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The image could not be added.");
     } finally {
@@ -402,7 +411,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
 
   const removeAsset = (name: string) => {
     setAssets((current) => current.filter((asset) => asset.name !== name));
-    schedule();
+    scheduleEdit();
   };
 
   const exportAs = async (format: "pdf" | "html" | "tex" | "zip" | "bib") => {
@@ -433,6 +442,25 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Export failed.");
+    }
+  };
+
+  const switchMode = async (kind: DocumentKind) => {
+    if (switchingRef.current || kind === "latex") return;
+    switchingRef.current = true;
+    setSwitching(true);
+    setDialog(null);
+    try {
+      await flush();
+      // The converted document is about to replace this one; its unmount flush
+      // must not write the old representation back over it.
+      discard();
+      await onSwitchMode(buildDoc(), kind);
+    } catch (error) {
+      switchingRef.current = false;
+      setSwitching(false);
+      schedule();
+      setNotice(error instanceof Error ? error.message : "The editor could not be switched.");
     }
   };
 
@@ -471,6 +499,8 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
         title={title}
         onTitleChange={changeTitle}
         kind="latex"
+        onSwitchKind={(kind) => void switchMode(kind)}
+        switchBusy={switching}
         saveState={saveState}
         persistent={store.persistent}
         actions={
@@ -640,6 +670,7 @@ export default function LatexWorkspace({ initial, store }: LatexWorkspaceProps) 
             completions={completions}
             handleRef={keepHandle}
             label="LaTeX source"
+            readOnly={switching}
           />
         </section>
 

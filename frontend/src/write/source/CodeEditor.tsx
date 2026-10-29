@@ -1,6 +1,6 @@
-import { useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { Ref } from "react";
-import { EditorSelection, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import type { Extension } from "@codemirror/state";
 import {
   EditorView,
@@ -42,6 +42,8 @@ interface CodeEditorProps {
   completions: ProjectCompletions;
   handleRef: Ref<CodeEditorHandle>;
   label: string;
+  /** Prevent edits while the project is being converted to another editor. */
+  readOnly?: boolean;
 }
 
 /**
@@ -50,16 +52,22 @@ interface CodeEditorProps {
  * reports *that* a file changed, not its text: the text is read only when
  * the preview or a save needs it, which keeps keystrokes cheap.
  */
-export default function CodeEditor({ file, initialText, onChange, onCursorLine, onSave, completions, handleRef, label }: CodeEditorProps) {
+export default function CodeEditor({ file, initialText, onChange, onCursorLine, onSave, completions, handleRef, label, readOnly = false }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const states = useRef(new Map<string, EditorState>());
   const activeFile = useRef(file);
-  const callbacks = useRef({ onChange, onCursorLine, onSave, completions, initialText });
+  const callbacks = useRef({ onChange, onCursorLine, onSave, completions, initialText, readOnly });
+  const editable = useMemo(() => new Compartment(), []);
 
   useEffect(() => {
-    callbacks.current = { onChange, onCursorLine, onSave, completions, initialText };
+    callbacks.current = { onChange, onCursorLine, onSave, completions, initialText, readOnly };
   });
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view) view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!readOnly)) });
+  }, [editable, readOnly]);
 
   const createState = (name: string, text: string): EditorState => {
     const language: Extension = name.toLowerCase().endsWith(".bib") ? bibtexLanguage : latexLanguage;
@@ -87,6 +95,7 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
         highlightSelectionMatches(),
         search({ top: true }),
         EditorView.lineWrapping,
+        editable.of(EditorView.editable.of(!callbacks.current.readOnly)),
         language,
         latexHighlight,
         autocompletion({ override: name.toLowerCase().endsWith(".bib") ? [] : [latexCompletions(project)], icons: false }),
@@ -154,7 +163,11 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
     states.current.set(activeFile.current, view.state);
     activeFile.current = file;
     view.setState(stateFor(file));
+    // Saved states keep the editability they had when they were left, so a
+    // file opened during a conversion must be locked again explicitly.
+    view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!callbacks.current.readOnly)) });
     view.focus();
+    // stateFor reads refs only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 

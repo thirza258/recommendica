@@ -41,6 +41,18 @@ export interface ProjectAsset {
   size: number;
 }
 
+/**
+ * Signatures of the two representations at their last conversion. `content`
+ * covers the visual document (content, settings and bibliography); `source`
+ * covers the LaTeX project (source, files and images). Switching editors
+ * compares these so that looking at the other mode and coming back does not
+ * rewrite either representation.
+ */
+export interface DocumentSync {
+  content: string;
+  source: string;
+}
+
 export interface PaperDocument {
   id: string;
   title: string;
@@ -59,6 +71,8 @@ export interface PaperDocument {
   files: ProjectFile[];
   /** LaTeX documents: uploaded images. */
   assets: ProjectAsset[];
+  /** Both editors: the representations produced by the last mode switch. */
+  sync?: DocumentSync;
 }
 
 export interface DocumentSummary {
@@ -141,6 +155,9 @@ export function normalizeDocument(value: unknown): PaperDocument | null {
       )
     : [];
   const now = Date.now();
+  const sync = isRecord(value.sync) && typeof value.sync.content === "string" && typeof value.sync.source === "string"
+    ? { content: value.sync.content, source: value.sync.source }
+    : undefined;
   return {
     id: value.id,
     title: typeof value.title === "string" && value.title.trim() ? value.title : "Untitled paper",
@@ -154,6 +171,7 @@ export function normalizeDocument(value: unknown): PaperDocument | null {
     source: typeof value.source === "string" ? value.source : "",
     files,
     assets: assets.map((asset) => ({ ...asset, type: typeof asset.type === "string" ? asset.type : "image/png", size: typeof asset.size === "number" ? asset.size : asset.dataUrl.length })),
+    ...(sync ? { sync } : {}),
   };
 }
 

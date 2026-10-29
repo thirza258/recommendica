@@ -8,13 +8,12 @@ import { Icon } from "../icons";
 import { Dialog, MenuBar, MenuButton, ToolButton, ToolSeparator } from "../ui";
 import { useOutsideClose } from "../useOutsideClose.ts";
 import type { MenuEntry } from "../ui";
-import { BIB_FILE, DEFAULT_SETTINGS, fileBaseName, newDocumentId, plainText } from "../documents.ts";
-import type { PaperDocument, PaperSettings } from "../documents.ts";
+import { BIB_FILE, DEFAULT_SETTINGS, fileBaseName, plainText } from "../documents.ts";
+import type { DocumentKind, PaperDocument, PaperSettings } from "../documents.ts";
 import type { DocumentStore } from "../storage.ts";
 import { useAutosave } from "../useAutosave.ts";
 import { lookFromSettings, paperClassName, paperStyle } from "../paperStyle.ts";
 import { readImageFile, toLatexImage } from "../images.ts";
-import { createFromTemplate } from "../templates.ts";
 import { shortcut } from "../keys.ts";
 import { editorExtensions, EDITABLE_ATOMS } from "./editorExtensions.ts";
 import type { EditorHooks } from "./editorExtensions.ts";
@@ -28,6 +27,8 @@ import { CitationDialog, CrossRefDialog, MathDialog, PageSetupDialog, RawLatexDi
 interface VisualWorkspaceProps {
   initial: PaperDocument;
   store: DocumentStore;
+  onSwitchMode: (current: PaperDocument, kind: DocumentKind) => Promise<void>;
+  initialNotice?: string;
 }
 
 type DialogState =
@@ -598,7 +599,7 @@ function StatusBar({ editor, settings, onPageSetup, onWordCount }: { editor: Edi
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps) {
+export default function VisualWorkspace({ initial, store, onSwitchMode, initialNotice = "" }: VisualWorkspaceProps) {
   const [title, setTitle] = useState(initial.title);
   const [settings, setSettings] = useState<PaperSettings>(initial.settings ?? DEFAULT_SETTINGS);
   const [bib, setBib] = useState(initial.bib);
@@ -608,14 +609,16 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
   const [zoomMode, setZoomMode] = useState<number | "fit">(() => (typeof window !== "undefined" && window.innerWidth < 900 ? "fit" : 1));
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(initialNotice);
   const [changedElsewhere, setChangedElsewhere] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const footnotesRef = useRef<HTMLElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const imageTarget = useRef<number | null | "new">("new");
   const bibRef = useRef(bib);
+  const switchingRef = useRef(false);
   const handlers = useRef<Omit<EditorHooks, "getBib">>({ edit: () => undefined, pickImage: () => undefined, command: () => undefined, imageFiles: () => undefined });
 
   useEffect(() => {
@@ -663,11 +666,17 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
     }),
     [initial, title, settings, bib, editor],
   );
-  const { saveState, schedule, flush } = useAutosave(store, buildDoc);
+  const { saveState, schedule, flush, discard } = useAutosave(store, buildDoc);
+
+  // Changes made while a conversion is running belong to neither
+  // representation, so they must not schedule a save over the converted file.
+  const scheduleEdit = useCallback(() => {
+    if (!switchingRef.current) schedule();
+  }, [schedule]);
 
   useEffect(() => {
-    scheduleRef.current = schedule;
-  }, [schedule]);
+    scheduleRef.current = scheduleEdit;
+  }, [scheduleEdit]);
 
   // Settings and references live outside the document; numbering needs both.
   useEffect(() => {
@@ -710,11 +719,11 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
 
   const updateSettings = (next: PaperSettings) => {
     setSettings(next);
-    schedule();
+    scheduleEdit();
   };
   const updateBib = (next: string) => {
     setBib(next);
-    schedule();
+    scheduleEdit();
   };
 
   // ── Commands ─────────────────────────────────────────────────────────────
@@ -782,28 +791,25 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
     }
   };
 
-  const openAsLatex = async () => {
-    if (!editor) return;
-    await flush();
-    const result = documentToLatex(editor.getJSON(), settings, bib);
-    const assets = await Promise.all(
-      result.images.map(async (image) => {
-        const dataUrl = await toLatexImage(image.dataUrl);
-        return { name: image.path, type: dataUrl.startsWith("data:image/jpeg") ? "image/jpeg" : "image/png", dataUrl, size: Math.round((dataUrl.length * 3) / 4) };
-      }),
-    );
-    const base = createFromTemplate("latex-blank");
-    const doc: PaperDocument = {
-      ...base,
-      id: newDocumentId(),
-      title: `${title} (LaTeX)`,
-      template: "converted",
-      source: result.tex,
-      files: [{ name: BIB_FILE, content: result.bib }],
-      assets,
-    };
-    await store.put(doc);
-    window.location.hash = `write/${doc.id}`;
+  const switchMode = async (kind: DocumentKind) => {
+    if (!editor || switchingRef.current || kind === "visual") return;
+    switchingRef.current = true;
+    setSwitching(true);
+    setDialog(null);
+    editor.setEditable(false);
+    try {
+      await flush();
+      // The converted document is about to replace this one; its unmount flush
+      // must not write the old representation back over it.
+      discard();
+      await onSwitchMode(buildDoc(), kind);
+    } catch (error) {
+      switchingRef.current = false;
+      setSwitching(false);
+      editor.setEditable(true);
+      schedule();
+      setNotice(error instanceof Error ? error.message : "The editor could not be switched.");
+    }
   };
 
   handlers.current = {
@@ -970,7 +976,7 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
             "separator",
             { label: "Page setup…", icon: "settings", onSelect: () => setDialog({ kind: "pageSetup" }) },
             { label: "Download", icon: "download", submenu: downloadItems },
-            { label: "Open as LaTeX copy", icon: "fileCode", onSelect: () => void openAsLatex() },
+            { label: "Switch to LaTeX editor", icon: "fileCode", onSelect: () => void switchMode("latex") },
             "separator",
             { label: "Print", icon: "print", shortcut: shortcut("Mod+P"), onSelect: () => void exportAs("pdf") },
           ],
@@ -1094,9 +1100,11 @@ export default function VisualWorkspace({ initial, store }: VisualWorkspaceProps
         title={title}
         onTitleChange={(value) => {
           setTitle(value);
-          schedule();
+          scheduleEdit();
         }}
         kind="visual"
+        onSwitchKind={(kind) => void switchMode(kind)}
+        switchBusy={switching}
         saveState={saveState}
         persistent={store.persistent}
         menubar={<MenuBar label="Editor menu" menus={menus} />}

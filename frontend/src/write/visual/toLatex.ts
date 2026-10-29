@@ -80,7 +80,7 @@ const HEADING_COMMANDS = ["section", "subsection", "subsubsection", "paragraph"]
 interface Context {
   settings: PaperSettings;
   referenced: Set<string>;
-  kinds: Map<string, { type: string; numbered: boolean }>;
+  kinds: Map<string, { type: string; numbered: boolean; label?: string }>;
   images: LatexImage[];
   warnings: string[];
   packages: Set<string>;
@@ -94,10 +94,23 @@ function attr<T>(node: JSONContent, name: string, fallback: T): T {
   return value === undefined || value === null ? fallback : (value as T);
 }
 
-/** `fig-overview` becomes `fig:overview`, the usual LaTeX label convention. */
+/**
+ * `fig-overview` becomes `fig:overview`, the usual LaTeX label convention.
+ * IDs imported from LaTeX already carry a label (`sec:intro`), and those are
+ * kept exactly so switching editors does not rename the document's labels.
+ */
 function labelFor(type: string, id: string): string {
+  if (isImportedLabel(id)) return id;
   const prefix = type === "heading" ? "sec" : type === "figure" ? "fig" : type === "tableFigure" ? "tab" : "eq";
   return `${prefix}:${id.replace(/^(sec|fig|tab|eq)-/, "")}`;
+}
+
+/**
+ * IDs with a colon come from imported LaTeX (`sec:intro`). The visual editor
+ * generates hyphenated IDs (`sec-a1b2c3`), so a colon is unambiguous.
+ */
+function isImportedLabel(id: string): boolean {
+  return id.includes(":");
 }
 
 function collect(node: JSONContent, context: Context): void {
@@ -108,6 +121,15 @@ function collect(node: JSONContent, context: Context): void {
   if (node.type && ["heading", "figure", "tableFigure", "mathBlock"].includes(node.type)) {
     const id = attr(node, "id", "");
     if (id) context.kinds.set(id, { type: node.type, numbered: attr<boolean>(node, "numbered", true) !== false });
+  }
+  if (node.type === "rawLatex") {
+    // Labels inside preserved LaTeX still exist, so references to them can
+    // point at the same label instead of becoming "??" after a round trip.
+    const source = attr(node, "source", "");
+    for (const match of source.matchAll(/\\label\{([^}]+)\}/g)) {
+      const label = match[1].trim();
+      if (label) context.kinds.set(label, { type: "raw", numbered: true, label });
+    }
   }
   node.content?.forEach((child) => collect(child, context));
 }
@@ -219,7 +241,8 @@ function crossRef(target: string, context: Context): string {
     context.warnings.push("A cross-reference points to something that no longer exists; it is exported as ??.");
     return "??";
   }
-  const label = labelFor(kind.type, target);
+  const label = kind.label ?? labelFor(kind.type, target);
+  if (kind.type === "raw") return `\\ref{${label}}`;
   const style = conventions(context.settings.theme);
   switch (kind.type) {
     case "heading":
@@ -274,7 +297,7 @@ function figure(node: JSONContent, context: Context): string {
     graphic = `\\fbox{\\parbox[c][4cm][c]{${width}\\linewidth}{\\centering Figure placeholder}}`;
   }
   const lines = ["\\begin{figure}[htbp]", "  \\centering", `  ${graphic}`, `  \\caption{${caption}}`];
-  if (id && context.referenced.has(id)) lines.push(`  \\label{${labelFor("figure", id)}}`);
+  if (id && (context.referenced.has(id) || isImportedLabel(id))) lines.push(`  \\label{${labelFor("figure", id)}}`);
   lines.push("\\end{figure}");
   return lines.join("\n");
 }
@@ -342,7 +365,7 @@ function tableFigure(node: JSONContent, context: Context): string {
   const table = node.content?.find((child) => child.type === "table");
   const id = attr(node, "id", "");
   const lines = ["\\begin{table}[htbp]", "  \\centering", `  \\caption{${inline(caption?.content, context)}}`];
-  if (id && context.referenced.has(id)) lines.push(`  \\label{${labelFor("tableFigure", id)}}`);
+  if (id && (context.referenced.has(id) || isImportedLabel(id))) lines.push(`  \\label{${labelFor("tableFigure", id)}}`);
   if (table) lines.push(tabular(table, context));
   lines.push("\\end{table}");
   return lines.join("\n");
@@ -372,7 +395,7 @@ function block(node: JSONContent, context: Context, depth = 0): string {
       const level = Math.min(Math.max(Number(node.attrs?.level) || 1, 1), 4);
       const numbered = context.settings.numberedHeadings && context.settings.theme !== "apa" && node.attrs?.numbered !== false && level <= 3;
       const id = attr(node, "id", "");
-      const label = id && context.referenced.has(id) ? `\\label{${labelFor("heading", id)}}` : "";
+      const label = id && (context.referenced.has(id) || isImportedLabel(id)) ? `\\label{${labelFor("heading", id)}}` : "";
       return `\\${HEADING_COMMANDS[level - 1]}${numbered ? "" : "*"}{${inline(node.content, context)}}${label}`;
     }
     case "paperTitle":
@@ -400,7 +423,7 @@ function block(node: JSONContent, context: Context, depth = 0): string {
       if (!latex) return "";
       const id = attr(node, "id", "");
       if (attr<boolean>(node, "numbered", true) === false) return `\\[\n  ${latex}\n\\]`;
-      const label = id && context.referenced.has(id) ? `\\label{${labelFor("mathBlock", id)}}\n  ` : "";
+      const label = id && (context.referenced.has(id) || isImportedLabel(id)) ? `\\label{${labelFor("mathBlock", id)}}\n  ` : "";
       return `\\begin{equation}\n  ${label}${latex}\n\\end{equation}`;
     }
     case "figure":
@@ -525,16 +548,19 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     else body.push(text);
   }
   if (frontMatterFirst) {
-    const titleBlock: string[] = [`\\title{${title || "Untitled paper"}}`];
-    for (const block of authors) {
-      const { names, affiliations } = splitAuthors(block);
-      for (const name of names) {
-        titleBlock.push(`\\author{${name}}`);
-        if (amsart) for (const affiliation of affiliations) titleBlock.push(`\\address{${affiliation}}`);
+    // A completely blank paper needs no front matter (and no fallback title).
+    if (title || authors.length || front.length) {
+      const titleBlock: string[] = [`\\title{${title || "Untitled paper"}}`];
+      for (const block of authors) {
+        const { names, affiliations } = splitAuthors(block);
+        for (const name of names) {
+          titleBlock.push(`\\author{${name}}`);
+          if (amsart) for (const affiliation of affiliations) titleBlock.push(`\\address{${affiliation}}`);
+        }
+        if (revtex) for (const affiliation of affiliations) titleBlock.push(`\\affiliation{${affiliation}}`);
       }
-      if (revtex) for (const affiliation of affiliations) titleBlock.push(`\\affiliation{${affiliation}}`);
+      body.unshift(...titleBlock, ...front, "\\maketitle");
     }
-    body.unshift(...titleBlock, ...front, "\\maketitle");
   } else if (!titleWritten && title) {
     body.unshift("\\maketitle");
   }
@@ -556,7 +582,14 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     documentClass = `\\documentclass[${[`${theme === "apa" ? 12 : settings.fontSize}pt`, paperOption, ...(settings.columns === 2 ? ["twocolumn"] : [])].join(",")}]{article}`;
   }
 
-  const preamble = [documentClass, "\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}"];
+  const preamble = [
+    // Lets the importer restore visual-only settings (such as the APA theme,
+    // which shares the article class) after the source has been edited.
+    `% recommendica-write-settings: ${JSON.stringify(settings)}`,
+    documentClass,
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+  ];
   // IEEEtran and REVTeX choose their own fonts (and REVTeX loads the AMS packages).
   if (ieee) preamble.push("\\usepackage{amsmath,amssymb}");
   else if (!revtex) preamble.push(...fontPackages(settings));
@@ -592,7 +625,7 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
   else if (ieee) preamble.push("\\usepackage{cite}");
   if (preprint) preamble.push(`\\usepackage{${preprint}}`);
   preamble.push("\\usepackage{hyperref}");
-  if (!frontMatterFirst) {
+  if (!frontMatterFirst && (title || authors.length)) {
     preamble.push("");
     preamble.push(`\\title{${title || "Untitled paper"}}`);
     if (authors.length) preamble.push(`\\author{${authors.join(" \\and\n  ")}}`);
