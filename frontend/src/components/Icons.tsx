@@ -173,6 +173,22 @@ export function GraduationCapIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function MenuIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 /** Indeterminate spinner — pair with a text label, never on its own. */
 export function SpinnerIcon({ size = 16, className }: IconProps) {
   return (

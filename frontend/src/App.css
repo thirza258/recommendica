@@ -43,18 +43,28 @@
 }
 
 .landing-bar {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
+/* The section links own a full row: brand and actions share the first, and
+   the links centre underneath. They cannot share one row inside the content
+   width once the Donate button is present, so a separate row is the layout
+   that never squeezes or wraps mid-link. */
 .landing-nav {
+  order: 3;
+  flex-basis: 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-6);
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
 }
 
 .nav-link {
@@ -62,6 +72,7 @@
   font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
   transition: color var(--dur-base) var(--ease-out);
 }
 
@@ -106,9 +117,16 @@
 .landing-main {
   flex: 1;
   display: grid;
+  /* Without an explicit track, the comparison table's min-content width
+     widens the column past a phone viewport and the page scrolls sideways. */
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: var(--space-12);
   padding: var(--space-10) 0;
+}
+
+.landing-main > * {
+  min-width: 0;
 }
 
 /* ── Landing Hero ─────────────────────────────────────────────────────── */
@@ -2168,12 +2186,6 @@
 .landing-learning p { margin: 0; color: var(--ink-muted); font-size: var(--text-sm); }
 .landing-learning .section-label { color: var(--accent); }
 
-@media (max-width: 1120px) {
-  .landing-nav { gap: var(--space-3); }
-  .landing-bar { flex-wrap: wrap; }
-  .landing-nav { order: 3; width: 100%; justify-content: center; }
-}
-
 @media (max-width: 700px) {
   .landing-learning { flex-wrap: wrap; }
   .landing-learning > div { flex-basis: calc(100% - 60px); }
@@ -2183,7 +2195,6 @@
 }
 
 @media (max-width: 420px) {
-  .landing-bar-actions { width: 100%; flex-wrap: wrap; }
   .landing-header-cta { flex: 1; width: auto; }
   .landing-learning > a { margin-left: 0; }
 }
@@ -2193,9 +2204,33 @@
    the backdrop deliberately stays below Paddle's z-index range. */
 
 .landing-bar-actions {
+  order: 2;
+  margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+.landing-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+
+.landing-menu-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
 }
 
 .landing-header-donate,
@@ -2479,8 +2514,49 @@
 }
 
 @media (max-width: 768px) {
+  .landing-menu-toggle {
+    display: inline-flex;
+    order: 2;
+  }
+
+  .landing-bar-actions {
+    order: 4;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  /* Below this width the section links collapse into a disclosure panel
+     opened from the menu button, rather than disappearing entirely. */
   .landing-nav {
     display: none;
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    left: 0;
+    right: 0;
+    z-index: 20;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .landing-nav.is-open {
+    display: flex;
+  }
+
+  .landing-nav .nav-link {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+  }
+
+  .landing-nav .nav-link:hover {
+    background: var(--surface-hover);
   }
 
   .hero-search-box {

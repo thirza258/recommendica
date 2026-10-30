@@ -5,10 +5,12 @@ import {
   BookMarkIcon,
   CheckIcon,
   ChevronRightIcon,
+  CloseIcon,
   FileTextIcon,
   GraduationCapIcon,
   HeartIcon,
   LayersIcon,
+  MenuIcon,
   SearchIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -114,6 +116,16 @@ const FAST_START_PROMPTS = [
   "Single-cell RNA sequencing batch correction algorithms",
 ];
 
+const NAV_LINKS = [
+  { href: "#evidence-demo", label: "Live Preview" },
+  { href: "#disciplines", label: "Disciplines" },
+  { href: "#methodology", label: "Architecture" },
+  { href: "#courses-info", label: "Courses" },
+  { href: "#editor-info", label: "LaTeX Editor" },
+  { href: "#comparison", label: "Comparison" },
+  { href: "#faq", label: "FAQ" },
+];
+
 const FAQS = [
   {
     q: "How does Recommendica determine paper relevance?",
@@ -149,6 +161,24 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
   const [heroInput, setHeroInput] = useState("");
   const [activeTab, setActiveTab] = useState<"synthesis" | "sources">("synthesis");
   const [paperCount, setPaperCount] = useState<number>(initialTotalPapers ?? 323300);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    const wideViewport = window.matchMedia("(min-width: 769px)");
+    const closeOnWide = () => {
+      if (wideViewport.matches) setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    wideViewport.addEventListener("change", closeOnWide);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      wideViewport.removeEventListener("change", closeOnWide);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (typeof initialTotalPapers === "number" && initialTotalPapers > 0) {
@@ -195,28 +225,21 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
           <span className="wordmark-text">Recommendica</span>
         </div>
 
-        <nav className="landing-nav" aria-label="Landing Navigation">
-          <a href="#evidence-demo" className="nav-link">
-            Live Preview
-          </a>
-          <a href="#disciplines" className="nav-link">
-            Disciplines
-          </a>
-          <a href="#methodology" className="nav-link">
-            Architecture
-          </a>
-          <a href="#courses-info" className="nav-link">
-            Courses
-          </a>
-          <a href="#editor-info" className="nav-link">
-            LaTeX Editor
-          </a>
-          <a href="#comparison" className="nav-link">
-            Comparison
-          </a>
-          <a href="#faq" className="nav-link">
-            FAQ
-          </a>
+        <nav
+          id="landing-nav"
+          className={`landing-nav${menuOpen ? " is-open" : ""}`}
+          aria-label="Landing Navigation"
+        >
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="nav-link"
+              onClick={() => setMenuOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
 
         <div className="landing-bar-actions">
@@ -241,6 +264,17 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
             <ArrowRightIcon size={16} />
           </button>
         </div>
+
+        <button
+          type="button"
+          className="landing-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="landing-nav"
+          aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          {menuOpen ? <CloseIcon size={20} /> : <MenuIcon size={20} />}
+        </button>
       </header>
 
       <main className="landing-main">
