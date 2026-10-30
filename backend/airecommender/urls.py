@@ -8,6 +8,7 @@ urlpatterns = [
     path("research/", views.GetAllResearch.as_view(), name="research"),
     path("prompt/", views.RecommendationSystem.as_view(), name="prompt"),
     path("prompt/stream/", views.RecommendationSystemStream.as_view(), name="prompt-stream"),
+    path("assistant/", views.AssistantStream.as_view(), name="assistant"),
     path("donate/config/", views.DonationConfig.as_view(), name="donate-config"),
     path("donate/checkout/", views.DonationCheckout.as_view(), name="donate-checkout"),
     # Paddle posts here; the URL is public but every request must carry a valid

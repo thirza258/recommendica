@@ -13,6 +13,7 @@ import type { DocumentKind, PaperDocument, ProjectAsset } from "../documents.ts"
 import type { DocumentStore } from "../storage.ts";
 import { useAutosave } from "../useAutosave.ts";
 import { readImageFile } from "../images.ts";
+import AssistantPanel from "../assistant/AssistantPanel";
 import { lookFromLayout, paperClassName, paperStyle } from "../paperStyle.ts";
 import { parseBibtex } from "../latex/bibtex.ts";
 import type { RenderDiagnostic, RenderResult } from "../latex/render.ts";
@@ -169,6 +170,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
   const [autoCompile, setAutoCompile] = useState(true);
   const [showFiles, setShowFiles] = useState(() => typeof window === "undefined" || window.innerWidth > 980);
   const [showProblems, setShowProblems] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [mobileView, setMobileView] = useState<"source" | "preview">("source");
   const [zoom, setZoom] = useState<number | "fit">("fit");
   const [syncLine, setSyncLine] = useState<number | null>(null);
@@ -505,6 +507,16 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
         persistent={store.persistent}
         actions={
           <>
+            <button
+              type="button"
+              className={showAssistant ? "primary-button write-tool--active" : "primary-button"}
+              aria-pressed={showAssistant}
+              title="AI assistant"
+              onClick={() => setShowAssistant(!showAssistant)}
+            >
+              <Icon name="sparkles" size={16} />
+              <span className="write-hide-small">AI</span>
+            </button>
             <button type="button" className="primary-button" onClick={recompile} title={`Recompile (${shortcut("Mod+S")})`}>
               <Icon name="refresh" size={16} className={rendering ? "write-spin" : undefined} />
               <span className="write-hide-small">Recompile</span>
@@ -577,7 +589,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
         )}
       </div>
 
-      <div className="write-latex-body" data-mobile-view={mobileView}>
+      <div className={`write-latex-body${showAssistant ? " has-assistant" : ""}`} data-mobile-view={mobileView}>
         {showFiles ? (
           <aside className="write-panel write-panel--left write-files" aria-label="Project files">
             <div className="write-panel-body">
@@ -675,6 +687,19 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
         </section>
 
         <LatexPreview result={result} zoom={zoom} syncLine={syncLine} onJump={jumpTo} />
+
+        {showAssistant && (
+          <AssistantPanel
+            paperTitle={title}
+            documentText={() => getText(MAIN_FILE)}
+            onApplyEdit={(latex) => {
+              // setText marks the file changed (autosave + re-render);
+              // recompile flushes the save and renders immediately.
+              if (editorRef.current?.setText(MAIN_FILE, latex)) recompile();
+            }}
+            onClose={() => setShowAssistant(false)}
+          />
+        )}
       </div>
 
       {showProblems && diagnostics.length > 0 && (

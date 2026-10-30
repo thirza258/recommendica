@@ -1,9 +1,9 @@
 import type { StreamEvent } from "./interface";
 
 /** Read SSE across arbitrary UTF-8/network boundaries until a terminal event. */
-export async function readSearchStream(
+export async function readSearchStream<T extends { type: string } = StreamEvent>(
   response: Response,
-  onEvent: (event: StreamEvent) => void,
+  onEvent: (event: T) => void,
 ) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("This browser cannot read the search response.");
@@ -17,7 +17,7 @@ export async function readSearchStream(
       .map((line) => line.slice(5).replace(/^ /, ""))
       .join("\n");
     if (!data) return; // SSE comments are heartbeats.
-    let event: StreamEvent;
+    let event: T;
     try {
       event = JSON.parse(data);
     } catch {

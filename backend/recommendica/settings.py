@@ -238,7 +238,10 @@ DEEP_REVIEW_DEADLINE = float(os.getenv("DEEP_REVIEW_DEADLINE", "90"))
 # Concurrent pipeline runs allowed per process; excess requests get a 503 with
 # Retry-After rather than all timing out together.
 MAX_CONCURRENT_QUERIES = int(os.getenv("MAX_CONCURRENT_QUERIES", "8"))
+MAX_CONCURRENT_ASSISTANT = int(os.getenv("MAX_CONCURRENT_ASSISTANT", "4"))
 SSE_HEARTBEAT_SECONDS = float(os.getenv("SSE_HEARTBEAT_SECONDS", "15"))
+# Longest paper text the paper assistant accepts per request.
+MAX_ASSISTANT_DOC_CHARS = int(os.getenv("MAX_ASSISTANT_DOC_CHARS", "60000"))
 READINESS_CACHE_SECONDS = float(os.getenv("READINESS_CACHE_SECONDS", "10"))
 # Health checks must answer fast even when a dependency is stalled.
 READINESS_TIMEOUT = float(os.getenv("READINESS_TIMEOUT", "10"))
@@ -351,9 +354,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # Applied per view via throttle_scope, not globally: the search endpoints
     # are already bounded by MAX_CONCURRENT_QUERIES, while the donation
-    # checkout is unauthenticated and creates a record at Paddle per call.
+    # checkout and the paper assistant are unauthenticated.
     'DEFAULT_THROTTLE_RATES': {
         'donation': os.getenv("DONATION_THROTTLE_RATE", "20/hour"),
+        'assistant': os.getenv("ASSISTANT_THROTTLE_RATE", "20/min"),
     },
     # Required for throttling to mean anything behind a proxy.  Left unset,
     # DRF keys the rate limit on the whole X-Forwarded-For header — and nginx

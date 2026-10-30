@@ -18,10 +18,16 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from . import donations
+from .assistant import ASSISTANT_SYSTEM_PROMPT, build_prompt
 from .main import get_rag_index
 from .models import Donation, ResearchInfo
 from .pipeline.errors import PipelineError
-from .serializers import DonationCheckoutSerializer, RecommendationRequestSerializer, ResearchInfoSerializer
+from .serializers import (
+    AssistantRequestSerializer,
+    DonationCheckoutSerializer,
+    RecommendationRequestSerializer,
+    ResearchInfoSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -470,6 +476,145 @@ class RecommendationSystemStream(APIView):
             slot.release()
             logger.info(
                 "[VIEW] Stream closed after %.1fs (completed=%s)",
+                time.monotonic() - request_start,
+                completed,
+            )
+
+
+# ── Paper assistant ──────────────────────────────────────────────────────────
+# One LLM stream per request — no retrieval pipeline — so it gets its own,
+# smaller concurrency pool instead of competing with full searches.
+
+_MAX_CONCURRENT_ASSISTANT = int(getattr(settings, "MAX_CONCURRENT_ASSISTANT", 4))
+_assistant_slots = threading.BoundedSemaphore(_MAX_CONCURRENT_ASSISTANT)
+
+
+def _acquire_assistant_slot():
+    if _assistant_slots.acquire(blocking=False):
+        return _Slot(_assistant_slots)
+    return None
+
+
+class AssistantStream(APIView):
+    """
+    POST /assistant/
+
+    Streams an assistant answer about the paper currently open in the Write
+    editor.  The editor supplies the paper's LaTeX and the question; edits
+    come back as a complete fenced ```latex block inside the streamed text,
+    which the frontend extracts and offers to apply.
+
+    SSE event types emitted
+    -----------------------
+    ``token``     — one text token ({"text": ...})
+    ``complete``  — the stream finished successfully
+    ``error``     — the stream failed; the stream ends after this
+
+    Request body:
+        { "question": "...", "document_title": "...", "document_text": "...",
+          "history": [{"role": "user"|"assistant", "content": "..."}] }
+    """
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "assistant"
+
+    @extend_schema(request=AssistantRequestSerializer)
+    def post(self, request):
+        serializer = AssistantRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Invalid assistant request.", "fields": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = serializer.validated_data
+        prompt = build_prompt(
+            data.get("document_title", ""),
+            data.get("document_text", ""),
+            data["history"],
+            data["question"],
+        )
+
+        slot = _acquire_assistant_slot()
+        if slot is None:
+            logger.warning(
+                "[VIEW] Rejecting assistant stream — %s concurrent chats in flight",
+                _MAX_CONCURRENT_ASSISTANT,
+            )
+            return _busy_response()
+
+        try:
+            response = StreamingHttpResponse(
+                self._event_stream(prompt, slot),
+                content_type="text/event-stream",
+                status=200,
+            )
+        except Exception:
+            slot.release()
+            raise
+
+        response._resource_closers.append(slot.release)
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response["X-Accel-Buffering"] = "no"
+        return response
+
+    def _event_stream(self, prompt: str, slot):
+        """Yield SSE frames, with keep-alives while the LLM is quiet."""
+        request_start = time.monotonic()
+        cancel_event = threading.Event()
+        events: queue.SimpleQueue = queue.SimpleQueue()
+        done = object()
+
+        def run_llm():
+            try:
+                # Late import so tests patching airecommender.main.get_llm_service
+                # are picked up at call time, not import time.
+                from .main import get_llm_service
+
+                service = get_llm_service()
+                for token in service.generate_response_stream(
+                    prompt, ASSISTANT_SYSTEM_PROMPT, cancel_event=cancel_event
+                ):
+                    events.put({"type": "token", "text": token})
+                events.put({"type": "complete"})
+            except PipelineError as exc:
+                logger.warning("[VIEW] Assistant stream failed: %s", exc)
+                events.put({"type": "error", "message": exc.user_message()})
+            except Exception:
+                logger.exception("[VIEW] Assistant stream crashed")
+                events.put(
+                    {
+                        "type": "error",
+                        "message": "The assistant is temporarily unavailable. Please try again.",
+                    }
+                )
+            finally:
+                events.put(done)
+
+        worker = threading.Thread(target=run_llm, name="assistant-llm", daemon=True)
+        worker.start()
+
+        heartbeat = _heartbeat_seconds()
+        completed = False
+        try:
+            while True:
+                try:
+                    event = events.get(timeout=heartbeat)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+
+                if event is done:
+                    completed = True
+                    break
+
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+        finally:
+            # Also reached on client disconnect: stop billing for tokens
+            # nobody reads and hand back the concurrency permit.
+            cancel_event.set()
+            slot.release()
+            logger.info(
+                "[VIEW] Assistant stream closed after %.1fs (completed=%s)",
                 time.monotonic() - request_start,
                 completed,
             )

@@ -24,6 +24,8 @@ import type { ProjectCompletions } from "./latexLanguage";
 export interface CodeEditorHandle {
   /** Current text of a file, whether or not it has been opened. */
   getText: (name: string) => string;
+  /** Replace a file's text wholesale; reports whether it was applied. */
+  setText: (name: string, text: string) => boolean;
   insertSnippet: (template: string) => void;
   goToLine: (line: number, name?: string) => void;
   openSearch: () => void;
@@ -180,6 +182,19 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
         const state = states.current.get(name);
         return state ? state.doc.toString() : callbacks.current.initialText(name);
       },
+      setText: (name: string, text: string) => {
+        const view = viewRef.current;
+        if (!view) return false;
+        if (activeFile.current === name) {
+          // One transaction, so the whole replacement is a single undo step
+          // and the change listener fires once.
+          view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+        } else {
+          // getText prefers a cached state, so the cache must hold the new text.
+          states.current.set(name, createState(name, text));
+        }
+        return true;
+      },
       insertSnippet: (template: string) => {
         const view = viewRef.current;
         if (!view) return;
@@ -215,6 +230,8 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
         states.current.delete(name);
       },
     }),
+    // Everything captured reads refs only; createState is stable in effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

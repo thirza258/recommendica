@@ -20,7 +20,9 @@ import type { EditorHooks } from "./editorExtensions.ts";
 import { getAnalysis, updatePaperContext } from "./paperPlugin.ts";
 import { getFindState, replaceAll, replaceCurrent, setFind, stepFind } from "./findReplace.ts";
 import { documentToLatex } from "./toLatex.ts";
+import { importLatex } from "./fromLatex.ts";
 import { bibEntries } from "./analysis.ts";
+import AssistantPanel from "../assistant/AssistantPanel";
 import ReferencesPanel from "./ReferencesPanel";
 import { CitationDialog, CrossRefDialog, MathDialog, PageSetupDialog, RawLatexDialog, TextDialog } from "./dialogs";
 
@@ -606,6 +608,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   const [showOutline, setShowOutline] = useState(() => typeof window === "undefined" || window.innerWidth > 1180);
   const [showReferences, setShowReferences] = useState(false);
   const [showFind, setShowFind] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [zoomMode, setZoomMode] = useState<number | "fit">(() => (typeof window !== "undefined" && window.innerWidth < 900 ? "fit" : 1));
   const [canvasWidth, setCanvasWidth] = useState(1200);
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -724,6 +727,23 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   const updateBib = (next: string) => {
     setBib(next);
     scheduleEdit();
+  };
+
+  // The assistant edits LaTeX; a visual paper round-trips through the same
+  // importer the mode switch uses. Leaving `sync` stale is what makes the next
+  // mode switch re-export the AI's version instead of reusing an old conversion.
+  const applyAssistantEdit = (latex: string) => {
+    if (!editor || editor.isDestroyed) return;
+    const files: Record<string, string> = Object.fromEntries(initial.files.map((file) => [file.name, file.content]));
+    const assets: Record<string, string> = Object.fromEntries(initial.assets.map((asset) => [asset.name, asset.dataUrl]));
+    const imported = importLatex(latex, { files, assets, bib: bibRef.current });
+    editor.commands.setContent(imported.content);
+    updateSettings({ ...settings, ...imported.settings });
+    updateBib(imported.bib);
+    void flush();
+    if (imported.warnings.length) {
+      setNotice(`The assistant's edit was applied with notes: ${imported.warnings.join(" ")}`);
+    }
   };
 
   // ── Commands ─────────────────────────────────────────────────────────────
@@ -1110,6 +1130,9 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         menubar={<MenuBar label="Editor menu" menus={menus} />}
         actions={
           <>
+            <button type="button" className="ghost-button write-hide-small" onClick={() => setShowAssistant(!showAssistant)} aria-pressed={showAssistant}>
+              <Icon name="sparkles" size={16} /> AI assistant
+            </button>
             <button type="button" className="ghost-button write-hide-small" onClick={() => setShowReferences(!showReferences)} aria-pressed={showReferences}>
               <Icon name="bookOpen" size={16} /> References
             </button>
@@ -1155,7 +1178,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         )}
       </div>
 
-      <div className="write-body">
+      <div className={`write-body${showAssistant ? " has-assistant" : ""}`}>
         {showOutline ? <Outline editor={editor} onClose={() => setShowOutline(false)} /> : <div />}
         <div ref={canvasRef} className="write-canvas" onClick={(event) => {
           // A click on the grey canvas below the text puts the caret at the end.
@@ -1181,6 +1204,14 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
           />
         ) : (
           <div />
+        )}
+        {showAssistant && (
+          <AssistantPanel
+            paperTitle={title}
+            documentText={() => documentToLatex(editor.getJSON(), settings, bib).tex}
+            onApplyEdit={applyAssistantEdit}
+            onClose={() => setShowAssistant(false)}
+          />
         )}
       </div>
 

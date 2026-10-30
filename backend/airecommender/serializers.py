@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from . import donations
+from .assistant import ASSISTANT_DOC_LIMIT
 from .models import ResearchInfo
 from .pipeline.modes import DEFAULT_SEARCH_MODE, SearchMode
 
@@ -10,6 +11,39 @@ class RecommendationRequestSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(
         choices=[mode.value for mode in SearchMode], default=DEFAULT_SEARCH_MODE
     )
+
+
+class AssistantRequestSerializer(serializers.Serializer):
+    """
+    Body of ``POST /assistant/``.
+
+    The editor sends the paper's current LaTeX (or plain text) plus the
+    question.  ``history`` is the visible chat so far; each turn is capped
+    so one long conversation cannot blow the model's context on its own.
+    """
+
+    question = serializers.CharField(max_length=2000, trim_whitespace=True)
+    document_title = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    document_text = serializers.CharField(
+        max_length=ASSISTANT_DOC_LIMIT, required=False, allow_blank=True
+    )
+    history = serializers.ListField(
+        child=serializers.DictField(), max_length=12, required=False, default=list
+    )
+
+    def validate_history(self, value):
+        for index, turn in enumerate(value):
+            role = turn.get("role")
+            content = turn.get("content")
+            if role not in ("user", "assistant"):
+                raise serializers.ValidationError(
+                    f"history[{index}]: role must be 'user' or 'assistant'."
+                )
+            if not isinstance(content, str):
+                raise serializers.ValidationError(
+                    f"history[{index}]: content must be a string."
+                )
+        return value
 
 class ResearchInfoSerializer(serializers.ModelSerializer):
     class Meta:
