@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { COURSES } from "../data/courses.ts";
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
@@ -32,6 +33,19 @@ interface DomainTaxonomy {
   description: string;
   prompts: string[];
 }
+
+function courseMeta(id: string) {
+  const course = COURSES.find((course) => course.id === id);
+  const minutes = course ? course.lessons.reduce((sum, lesson) => sum + lesson.minutes, 0) : 0;
+  return { lessons: course?.lessons.length ?? 0, minutes };
+}
+
+const COURSE_CARDS = [
+  { id: "create-research", category: "Foundations" },
+  { id: "research-step-by-step", category: "Workflow" },
+  { id: "read-research", category: "Critical reading" },
+  { id: "website-tutorial", category: "Platform tutorial" },
+].map(({ id, category }) => ({ category, meta: courseMeta(id) }));
 
 const DOMAINS: DomainTaxonomy[] = [
   {
@@ -797,8 +811,8 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               </p>
               <div className="step-meta">
                 <span>Foundations</span>
-                <span>4 lessons</span>
-                <span>~26 min</span>
+                <span>{COURSE_CARDS[0].meta.lessons} lessons</span>
+                <span>~{COURSE_CARDS[0].meta.minutes} min</span>
               </div>
             </div>
 
@@ -811,8 +825,8 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               </p>
               <div className="step-meta">
                 <span>Workflow</span>
-                <span>4 lessons</span>
-                <span>~30 min</span>
+                <span>{COURSE_CARDS[1].meta.lessons} lessons</span>
+                <span>~{COURSE_CARDS[1].meta.minutes} min</span>
               </div>
             </div>
 
@@ -825,8 +839,8 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               </p>
               <div className="step-meta">
                 <span>Critical reading</span>
-                <span>4 lessons</span>
-                <span>~28 min</span>
+                <span>{COURSE_CARDS[2].meta.lessons} lessons</span>
+                <span>~{COURSE_CARDS[2].meta.minutes} min</span>
               </div>
             </div>
 
@@ -839,8 +853,8 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               </p>
               <div className="step-meta">
                 <span>Platform tutorial</span>
-                <span>4 lessons</span>
-                <span>~20 min</span>
+                <span>{COURSE_CARDS[3].meta.lessons} lessons</span>
+                <span>~{COURSE_CARDS[3].meta.minutes} min</span>
               </div>
             </div>
           </div>
