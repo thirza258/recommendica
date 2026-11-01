@@ -6,6 +6,7 @@ import ChunksList from "./components/ChunkList";
 import DonateDialog from "./components/DonateDialog";
 import EmptyState from "./components/EmptyState";
 import Courses from "./components/Courses";
+import Legal from "./components/Legal";
 import { viewFromHash } from "./learning";
 import type { View } from "./learning";
 import { AlertTriangleIcon } from "./components/Icons";
@@ -33,6 +34,7 @@ const DOC_TITLE: Record<View, string> = {
   app: "Search papers — Recommendica",
   courses: "Research courses — Recommendica",
   write: "Write a paper — Recommendica",
+  legal: "Privacy Policy & Terms of Service — Recommendica",
 };
 
 function getRouteLocation(): string {
@@ -433,6 +435,10 @@ function App() {
         {donateDialog}
       </>
     );
+  }
+
+  if (view === "legal") {
+    return <Legal />;
   }
 
   if (view === "landing") {

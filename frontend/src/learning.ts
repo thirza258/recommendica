@@ -3,11 +3,27 @@ import type { Course } from "./data/courses.ts";
 import { isWriteRoute } from "./write/routes.ts";
 
 export const COURSE_PROGRESS_KEY = "recommendica.course-progress.v1";
-export type View = "landing" | "app" | "courses" | "write";
+export type View = "landing" | "app" | "courses" | "write" | "legal";
 
 export function viewFromHash(hash: string): View {
   const clean = hash.trim();
   const pathOnly = clean.split("?")[0];
+  if (
+    clean === "#privacy" ||
+    clean === "/privacy" ||
+    clean === "#terms" ||
+    clean === "/terms" ||
+    clean === "#legal" ||
+    clean === "/legal" ||
+    pathOnly === "#privacy" ||
+    pathOnly === "/privacy" ||
+    pathOnly === "#terms" ||
+    pathOnly === "/terms" ||
+    pathOnly === "#legal" ||
+    pathOnly === "/legal"
+  ) {
+    return "legal";
+  }
   if (
     clean === "#search" ||
     clean === "/search" ||

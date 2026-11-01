@@ -1240,7 +1240,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
             </p>
             <p className="footer-subtext">
               Federated with arXiv preprint retrieval and indexed scientific corpora ({paperCount.toLocaleString()} indexed papers).
-              Open research access.
+              Open research access. · <a href="#privacy" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Terms of Service</a>
             </p>
           </div>
         </div>
