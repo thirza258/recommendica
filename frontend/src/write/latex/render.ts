@@ -17,6 +17,7 @@
  */
 
 import katex from "katex";
+import { isAssetUrl } from "../assetSource.ts";
 import { IMPLICIT_THEOREMS, nodesToText, parseKeyValues, parseLatex } from "./parser.ts";
 import type {
   Argument,
@@ -2640,14 +2641,14 @@ class LatexRenderer {
       const found = assets[candidate] !== undefined ? candidate : lower.get(candidate.toLowerCase());
       if (found !== undefined) {
         const url = assets[found];
-        if (/^(data:image\/|blob:)/.test(url)) return url;
+        if (/^(data:image\/|blob:)/.test(url) || isAssetUrl(url)) return url;
       }
     }
     // Same file name in another folder (figures/plot.png vs plot.png).
     const base = stem.split("/").pop()?.toLowerCase();
     for (const name of names) {
       const nameStem = name.replace(/\.[A-Za-z0-9]+$/, "").split("/").pop()?.toLowerCase();
-      if (base && nameStem === base && /^(data:image\/|blob:)/.test(assets[name])) return assets[name];
+      if (base && nameStem === base && (/^(data:image\/|blob:)/.test(assets[name]) || isAssetUrl(assets[name]))) return assets[name];
     }
     return null;
   }

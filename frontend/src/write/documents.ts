@@ -8,6 +8,7 @@
  */
 
 import type { JSONContent } from "@tiptap/core";
+import { isEmbeddableImageSource } from "./assetSource.ts";
 import type { CitationStyle } from "./latex/bibtex.ts";
 import type { PaperFont } from "./latex/render.ts";
 import { VISUAL_THEMES } from "./themes.ts";
@@ -37,6 +38,7 @@ export interface ProjectFile {
 export interface ProjectAsset {
   name: string;
   type: string;
+  /** An inline data URL, or a same-origin /api/v1/assets/... URL. */
   dataUrl: string;
   size: number;
 }
@@ -151,7 +153,7 @@ export function normalizeDocument(value: unknown): PaperDocument | null {
   const assets = Array.isArray(value.assets)
     ? value.assets.filter(
         (asset): asset is ProjectAsset =>
-          isRecord(asset) && typeof asset.name === "string" && typeof asset.dataUrl === "string" && /^data:image\//.test(asset.dataUrl),
+          isRecord(asset) && typeof asset.name === "string" && isEmbeddableImageSource(asset.dataUrl),
       )
     : [];
   const now = Date.now();

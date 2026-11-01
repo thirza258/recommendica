@@ -45,6 +45,21 @@ class AssistantRequestSerializer(serializers.Serializer):
                 )
         return value
 
+class AssetUploadSerializer(serializers.Serializer):
+    """Multipart body of ``POST /assets/``."""
+
+    file = serializers.FileField()
+
+
+class AssetSerializer(serializers.Serializer):
+    """A stored image, addressed through this API rather than MinIO directly."""
+
+    url = serializers.CharField()
+    key = serializers.CharField()
+    type = serializers.CharField()
+    size = serializers.IntegerField()
+
+
 class ResearchInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResearchInfo

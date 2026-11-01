@@ -9,6 +9,7 @@ import type { TemplateInfo } from "./templates.ts";
 import { documentHref } from "./routes.ts";
 import type { DocumentStore } from "./storage.ts";
 import { readImageFile } from "./images.ts";
+import { storeImage } from "./assetClient.ts";
 
 interface DocumentsHomeProps {
   store: DocumentStore;
@@ -133,7 +134,8 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
           files.push({ name: file.name, content: await file.text() });
         } else if (file.type.startsWith("image/")) {
           const image = await readImageFile(file);
-          assets.push({ name: file.name, type: image.type, dataUrl: image.dataUrl, size: image.size });
+          const stored = await storeImage(image, file.name);
+          assets.push({ name: file.name, type: image.type, dataUrl: stored.src, size: image.size });
         }
       }
       const texFiles = files.filter((file) => file.name.toLowerCase().endsWith(".tex"));

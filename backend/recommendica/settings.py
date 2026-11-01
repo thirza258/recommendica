@@ -358,6 +358,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'donation': os.getenv("DONATION_THROTTLE_RATE", "20/hour"),
         'assistant': os.getenv("ASSISTANT_THROTTLE_RATE", "20/min"),
+        'asset-upload': os.getenv("ASSET_UPLOAD_THROTTLE_RATE", "120/hour"),
     },
     # Required for throttling to mean anything behind a proxy.  Left unset,
     # DRF keys the rate limit on the whole X-Forwarded-For header — and nginx
@@ -473,6 +474,18 @@ USE_I18N = True
 
 USE_TZ = True
 
+
+# ── Paper images (MinIO) ─────────────────────────────────────────────────────
+# The Write editor keeps documents in the browser; their figures live here.
+# Defaults match the MinIO instance already deployed for decalove, so a local
+# run works without extra configuration. docker compose points the endpoint at
+# host.docker.internal because the app runs in its own container network.
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:4530")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_SECURE = _env_bool("MINIO_SECURE", False)
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "recommendica-assets")
+ASSET_MAX_UPLOAD_BYTES = int(os.getenv("ASSET_MAX_UPLOAD_BYTES", "15000000"))
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

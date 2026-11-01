@@ -10,6 +10,7 @@
  */
 
 import { Extension, InputRule, Node, mergeAttributes } from "@tiptap/core";
+import { isImageSource } from "../assetSource.ts";
 
 /** Node types that can be the target of a cross-reference. */
 export const LABELED_TYPES = ["heading", "figure", "tableFigure", "mathBlock"] as const;
@@ -20,10 +21,10 @@ const idAttribute = {
   renderHTML: (attributes: Record<string, unknown>) => (attributes.id ? { "data-id": String(attributes.id) } : {}),
 };
 
-/** Images may come from an upload (data:) or a pasted https URL, nothing else. */
+/** Images may come from an upload (data: or the asset API) or a pasted https URL. */
 export function safeImageSource(value: unknown): string {
   const source = typeof value === "string" ? value.trim() : "";
-  return /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(source) || /^https:\/\/[^\s"'<>]+$/i.test(source) ? source : "";
+  return isImageSource(source) ? source : "";
 }
 
 export const PaperHeadingAttributes = Extension.create({

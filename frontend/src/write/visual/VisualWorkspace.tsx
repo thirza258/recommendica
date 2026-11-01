@@ -14,6 +14,7 @@ import type { DocumentStore } from "../storage.ts";
 import { useAutosave } from "../useAutosave.ts";
 import { lookFromSettings, paperClassName, paperStyle } from "../paperStyle.ts";
 import { readImageFile, toLatexImage } from "../images.ts";
+import { storeImage } from "../assetClient.ts";
 import { shortcut } from "../keys.ts";
 import { editorExtensions, EDITABLE_ATOMS } from "./editorExtensions.ts";
 import type { EditorHooks } from "./editorExtensions.ts";
@@ -751,15 +752,27 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   const insertImages = async (files: File[], pos: number | null) => {
     if (!editor) return;
     try {
+      let keptLocal = 0;
+      let reason = "";
       for (const file of files) {
         const image = await readImageFile(file);
+        const stored = await storeImage(image, file.name);
+        if (!stored.uploaded) {
+          keptLocal += 1;
+          reason = stored.error ?? reason;
+        }
         const figure: JSONContent = {
           type: "figure",
-          attrs: { src: image.dataUrl, alt: file.name.replace(/\.[a-z0-9]+$/i, ""), width: 80, id: "" },
+          attrs: { src: stored.src, alt: file.name.replace(/\.[a-z0-9]+$/i, ""), width: 80, id: "" },
           content: [{ type: "figcaption" }],
         };
         if (pos === null) insertNode(figure);
         else editor.chain().focus().insertContentAt(pos, figure).run();
+      }
+      if (keptLocal) {
+        setNotice(
+          `${keptLocal === 1 ? "The image was" : `${keptLocal} images were`} kept in this browser because the image store is unavailable.${reason ? ` ${reason}` : ""}`,
+        );
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The image could not be added.");
@@ -788,7 +801,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       if (format === "pdf" || format === "html") {
         const body = exporting.cleanForExport(editor.view.dom as HTMLElement) + (footnotesRef.current ? exporting.cleanForExport(footnotesRef.current) : "");
         if (format === "pdf") await exporting.printPaper(body, look, title);
-        else exporting.downloadText(exporting.standaloneHtml(body, look, title), `${base}.html`, "text/html");
+        else exporting.downloadText(exporting.standaloneHtml(await exporting.inlineImages(body), look, title), `${base}.html`, "text/html");
         return;
       }
       if (format === "bib") {
@@ -803,7 +816,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       }
       const files: Record<string, string | Uint8Array> = { "main.tex": result.tex };
       if (result.bib) files[BIB_FILE] = result.bib;
-      for (const image of result.images) files[image.path] = exporting.dataUrlToBytes(await toLatexImage(image.dataUrl));
+      for (const image of result.images) files[image.path] = await exporting.dataUrlToBytes(await toLatexImage(image.dataUrl));
       exporting.downloadBlob(await exporting.zipFiles(files), `${base}-latex.zip`);
       if (result.warnings.length) setNotice(result.warnings.join(" "));
     } catch (error) {
@@ -1233,7 +1246,11 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
           }
           try {
             const image = await readImageFile(file);
-            setNodeAttrs(target, { src: image.dataUrl, alt: file.name.replace(/\.[a-z0-9]+$/i, "") });
+            const stored = await storeImage(image, file.name);
+            setNodeAttrs(target, { src: stored.src, alt: file.name.replace(/\.[a-z0-9]+$/i, "") });
+            if (!stored.uploaded) {
+              setNotice(`The image was kept in this browser because the image store is unavailable.${stored.error ? ` ${stored.error}` : ""}`);
+            }
           } catch (error) {
             setNotice(error instanceof Error ? error.message : "The image could not be added.");
           }

@@ -157,6 +157,24 @@ test("figures and tables export as floats with files, multicolumn and multirow",
   assert.deepEqual(rendered.diagnostics, []);
 });
 
+test("figures stored as asset URLs export and render without reverting to base64", () => {
+  const url = `/api/v1/assets/docs/${"b".repeat(32)}.png`;
+  const json = doc({
+    type: "figure",
+    attrs: { src: url, alt: "", width: 60, id: "fig-stored" },
+    content: [{ type: "figcaption", content: [text("Stored")] }],
+  });
+  const result = documentToLatex(json, DEFAULT_SETTINGS, "");
+
+  assert.deepEqual(result.images, [{ path: "figures/figure-1.png", dataUrl: url, mime: "image/png" }]);
+  assert.match(result.tex, /\\includegraphics\[width=0\.6\\linewidth\]\{figures\/figure-1\.png\}/);
+  assert.doesNotMatch(result.tex, /web image/);
+
+  const rendered = renderLatex(result.tex, { assets: { "figures/figure-1.png": url } });
+  assert.deepEqual(rendered.diagnostics, []);
+  assert.match(rendered.html, new RegExp(`src="${url}"`));
+});
+
 test("bibliography export embeds or separates the .bib and picks a style per theme", () => {
   const json = doc(p({ type: "citation", attrs: { keys: ["a2020"] } }));
   const embedded = documentToLatex(json, { ...DEFAULT_SETTINGS, citationStyle: "apa" }, BIB, { embedBibliography: true });

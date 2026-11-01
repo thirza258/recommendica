@@ -8,6 +8,7 @@
  */
 
 import type { JSONContent } from "@tiptap/core";
+import { isAssetUrl } from "./assetSource.ts";
 import { BIB_FILE } from "./documents.ts";
 import type { PaperDocument, PaperSettings, ProjectAsset, ProjectFile } from "./documents.ts";
 import { toLatexImage } from "./images.ts";
@@ -127,6 +128,12 @@ export async function switchToLatex(doc: PaperDocument): Promise<ModeSwitchResul
   const exported = documentToLatex(content, doc.settings, doc.bib);
   const images: ProjectAsset[] = [];
   for (const image of exported.images) {
+    // PNG and JPEG figures already in MinIO stay URLs: the LaTeX preview and
+    // the .zip export fetch them, and the document never regains the base64.
+    if (isAssetUrl(image.dataUrl) && (image.mime === "image/png" || image.mime === "image/jpeg")) {
+      images.push({ name: image.path, type: image.mime, dataUrl: image.dataUrl, size: 0 });
+      continue;
+    }
     const dataUrl = await toLatexImage(image.dataUrl);
     const type = /^data:(image\/[a-z+.-]+)/i.exec(dataUrl)?.[1] ?? image.mime;
     images.push({ name: image.path, type, dataUrl, size: Math.round((dataUrl.length * 3) / 4) });

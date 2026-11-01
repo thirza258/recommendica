@@ -13,6 +13,7 @@ import type { DocumentKind, PaperDocument, ProjectAsset } from "../documents.ts"
 import type { DocumentStore } from "../storage.ts";
 import { useAutosave } from "../useAutosave.ts";
 import { readImageFile } from "../images.ts";
+import { storeImage } from "../assetClient.ts";
 import AssistantPanel from "../assistant/AssistantPanel";
 import { lookFromLayout, paperClassName, paperStyle } from "../paperStyle.ts";
 import { parseBibtex } from "../latex/bibtex.ts";
@@ -212,6 +213,10 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
   const assetUrls = useMemo(() => {
     const urls: Record<string, string> = {};
     for (const asset of assets) {
+      if (!asset.dataUrl.startsWith("data:")) {
+        urls[asset.name] = asset.dataUrl;
+        continue;
+      }
       try {
         urls[asset.name] = URL.createObjectURL(dataUrlToBlob(asset.dataUrl));
       } catch {
@@ -221,7 +226,9 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
     return urls;
   }, [assets]);
 
-  useEffect(() => () => Object.values(assetUrls).forEach((url) => URL.revokeObjectURL(url)), [assetUrls]);
+  useEffect(() => () => Object.values(assetUrls).forEach((url) => {
+    if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+  }), [assetUrls]);
 
   const buildDoc = useCallback((): PaperDocument => {
     for (const name of fileNames) texts.current.set(name, getText(name));
@@ -394,15 +401,23 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
     if (!list?.length) return;
     const taken = new Set(assets.map((asset) => asset.name));
     const added: ProjectAsset[] = [];
+    let keptLocal = 0;
+    let reason = "";
     try {
       for (const file of Array.from(list)) {
         const image = await readImageFile(file);
         const name = uniqueName(file.name.replace(/[^A-Za-z0-9_.-]/g, "-"), taken);
         taken.add(name);
-        added.push({ name, type: image.type, dataUrl: image.dataUrl, size: image.size });
+        const stored = await storeImage(image, name);
+        if (!stored.uploaded) {
+          keptLocal += 1;
+          reason = stored.error ?? reason;
+        }
+        added.push({ name, type: image.type, dataUrl: stored.src, size: image.size });
       }
       setAssets((current) => [...current, ...added]);
-      setNotice(`${added.length === 1 ? `${added[0].name} was` : `${added.length} images were`} added. Use \\includegraphics{${added[0].name}} to place it.`);
+      const kept = keptLocal ? ` ${keptLocal === 1 ? "One image was" : `${keptLocal} images were`} kept in this browser because the image store is unavailable.${reason ? ` ${reason}` : ""}` : "";
+      setNotice(`${added.length === 1 ? `${added[0].name} was` : `${added.length} images were`} added. Use \\includegraphics{${added[0].name}} to place it.${kept}`);
       scheduleEdit();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "The image could not be added.");
@@ -428,7 +443,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
       } else if (format === "zip") {
         const files: Record<string, string | Uint8Array> = {};
         for (const name of fileNames) files[name] = getText(name);
-        for (const asset of assets) files[asset.name] = exporting.dataUrlToBytes(asset.dataUrl);
+        for (const asset of assets) files[asset.name] = await exporting.dataUrlToBytes(asset.dataUrl);
         exporting.downloadBlob(await exporting.zipFiles(files), `${base}.zip`);
       } else {
         // Exports carry the images themselves, not this tab's blob: URLs.
@@ -440,7 +455,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
         const look = lookFromLayout(rendered.layout);
         const body = `<div class="paper-body">${rendered.html}</div>`;
         if (format === "pdf") await exporting.printPaper(body, look, title);
-        else exporting.downloadText(exporting.standaloneHtml(body, look, title), `${base}.html`, "text/html");
+        else exporting.downloadText(exporting.standaloneHtml(await exporting.inlineImages(body), look, title), `${base}.html`, "text/html");
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Export failed.");

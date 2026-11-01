@@ -27,10 +27,15 @@ export function downloadText(text: string, filename: string, type = "text/plain"
   downloadBlob(new Blob([text], { type: `${type};charset=utf-8` }), filename);
 }
 
-export function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const comma = dataUrl.indexOf(",");
-  const meta = dataUrl.slice(0, comma);
-  const payload = dataUrl.slice(comma + 1);
+export async function dataUrlToBytes(source: string): Promise<Uint8Array> {
+  if (!source.startsWith("data:")) {
+    const response = await fetch(source);
+    if (!response.ok) throw new Error("An image could not be downloaded for export.");
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  const comma = source.indexOf(",");
+  const meta = source.slice(0, comma);
+  const payload = source.slice(comma + 1);
   if (meta.includes(";base64")) {
     const binary = atob(payload);
     const bytes = new Uint8Array(binary.length);
@@ -38,6 +43,39 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
     return bytes;
   }
   return new TextEncoder().encode(decodeURIComponent(payload));
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("The image could not be read."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * A downloaded HTML page has no app origin to resolve /api/v1/assets/ URLs
+ * against, so figures are pulled in as data URLs first. Failures keep the
+ * original source rather than breaking the export.
+ */
+export async function inlineImages(html: string): Promise<string> {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  await Promise.all(
+    Array.from(template.content.querySelectorAll("img")).map(async (image) => {
+      const source = image.getAttribute("src") ?? "";
+      if (!source || source.startsWith("data:")) return;
+      try {
+        const response = await fetch(source);
+        if (!response.ok) return;
+        image.setAttribute("src", await blobToDataUrl(await response.blob()));
+      } catch {
+        // Keep the URL; the page still works when opened from the app origin.
+      }
+    }),
+  );
+  return template.innerHTML;
 }
 
 export async function zipFiles(files: Record<string, string | Uint8Array>): Promise<Blob> {

@@ -63,17 +63,22 @@ export async function readImageFile(file: Blob): Promise<StoredImage> {
   }
 }
 
-/** pdfLaTeX reads PNG and JPEG only; other formats are redrawn as PNG for export. */
-export async function toLatexImage(dataUrl: string): Promise<string> {
-  if (/^data:image\/(png|jpe?g);/i.test(dataUrl)) return dataUrl;
-  const blob = await (await fetch(dataUrl)).blob();
+/**
+ * pdfLaTeX reads PNG and JPEG only; other formats are redrawn as PNG for
+ * export. A URL that already points at a PNG/JPEG is kept as a URL, so a
+ * MinIO-backed figure does not turn back into base64 in the LaTeX project.
+ */
+export async function toLatexImage(source: string): Promise<string> {
+  if (/^data:image\/(png|jpe?g);/i.test(source)) return source;
+  if (!source.startsWith("data:") && /\.(png|jpe?g)(?:[?#].*)?$/i.test(source)) return source;
+  const blob = await (await fetch(source)).blob();
   const image = await decode(blob);
   try {
     const canvas = document.createElement("canvas");
     canvas.width = image.width || 800;
     canvas.height = image.height || 600;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return dataUrl;
+    if (!ctx) return source;
     image.draw(ctx, canvas.width, canvas.height);
     return canvas.toDataURL("image/png");
   } finally {

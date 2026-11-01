@@ -552,8 +552,13 @@ the paper editor at `#write`. It provides an in-browser academic writing workspa
   Recommendica include instant "Copy BibTeX" and "Cite in Write" buttons.
 - **Export options**: Download publication-ready PDFs (via browser print engine with true
   page breaks), standalone HTML, raw `.tex`, or complete submission-ready `.zip` projects.
-- **Privacy & offline storage**: Papers are saved locally in the browser's IndexedDB store
-  without requiring an account or cloud upload.
+- **Figures**: Images pasted, dropped, or uploaded are stored in the deployment's
+  MinIO asset store and referenced by URL, keeping papers small. If the store is
+  unreachable the editor keeps the image inline so writing can continue.
+- **Privacy & offline storage**: Paper text is saved locally in the browser's
+  IndexedDB store without requiring an account. Figures are the exception: they
+  are uploaded to the shared MinIO instance so documents stay small and images
+  survive across browsers.
 
 ## SEO
 

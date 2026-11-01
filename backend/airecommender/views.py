@@ -6,23 +6,27 @@ import time
 
 from django.conf import settings
 from django.db import transaction as db_transaction
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.generics import ListAPIView
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from . import donations
+from . import assets, donations
 from .assistant import ASSISTANT_SYSTEM_PROMPT, build_prompt
 from .main import get_rag_index
 from .models import Donation, ResearchInfo
 from .pipeline.errors import PipelineError
 from .serializers import (
+    AssetSerializer,
+    AssetUploadSerializer,
     AssistantRequestSerializer,
     DonationCheckoutSerializer,
     RecommendationRequestSerializer,
@@ -147,6 +151,115 @@ class HealthCheck(APIView):
             {"status": 200, "message": "OK"},
             status=status.HTTP_200_OK,
         )
+
+
+def _asset_headers(response, content_type: str, size: int):
+    """Headers shared by image reads; objects are immutable UUID keys."""
+    response["Content-Type"] = content_type
+    response["Content-Length"] = str(size)
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["X-Content-Type-Options"] = "nosniff"
+    # Uploaded SVG is served from the app's own origin; the sandbox keeps a
+    # directly-opened file from running script against browser storage.
+    response["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    return response
+
+
+class AssetUpload(APIView):
+    """
+    POST /assets/ — store one Write-editor image in MinIO.
+
+    The editor sends a multipart ``file`` field and receives the URL to keep in
+    the document. The bucket belongs to this app, even though the MinIO server
+    is shared with decalove; the client never talks to MinIO directly.
+    """
+
+    parser_classes = [MultiPartParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "asset-upload"
+
+    @extend_schema(request=AssetUploadSerializer, responses={201: AssetSerializer})
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if upload is None:
+            return Response(
+                {"error": "Attach an image as the 'file' field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        limit = int(getattr(settings, "ASSET_MAX_UPLOAD_BYTES", 15_000_000))
+        data = upload.read(limit + 1)
+        if len(data) > limit:
+            return Response(
+                {"error": "Images must be smaller than 15 MB."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        detected = assets.detect_image(data)
+        if detected is None:
+            return Response(
+                {"error": "Choose a PNG, JPEG, GIF, WebP or SVG image."},
+                status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            )
+
+        content_type, extension = detected
+        try:
+            key = assets.put_image(data, content_type, extension)
+        except assets.AssetUnavailable as exc:
+            logger.warning("[ASSET] Upload failed: %s", exc)
+            return Response(
+                {"error": "The image store is unavailable. Try again in a moment."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "url": assets.asset_url(key),
+                "key": key,
+                "type": content_type,
+                "size": len(data),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AssetContent(APIView):
+    """
+    GET /assets/<key> — serve a stored image through the app's origin.
+
+    Proxying keeps MinIO internal and makes the URL same-origin, so the editor
+    can draw it into a canvas, print it, and include it in a LaTeX .zip.
+    """
+
+    authentication_classes = []
+
+    @extend_schema(responses={200: OpenApiTypes.BINARY})
+    def get(self, request, key):
+        try:
+            chunks, content_type, size = assets.get_image(key)
+        except assets.AssetNotFound:
+            return Response(
+                {"error": "Image not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except assets.AssetUnavailable as exc:
+            logger.warning("[ASSET] Read failed: %s", exc)
+            return Response(
+                {"error": "The image store is unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        response = StreamingHttpResponse(chunks, content_type=content_type)
+        return _asset_headers(response, content_type, size)
+
+    def head(self, request, key):
+        try:
+            content_type, size = assets.stat_image(key)
+        except assets.AssetNotFound:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except assets.AssetUnavailable:
+            return HttpResponse(status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return _asset_headers(HttpResponse(status=status.HTTP_200_OK), content_type, size)
 
 
 def _run_with_deadline(func, timeout: float):

@@ -9,6 +9,7 @@
  */
 
 import type { JSONContent } from "@tiptap/core";
+import { isEmbeddableImageSource, mimeForImageSource } from "../assetSource.ts";
 import type { PaperSettings } from "../documents.ts";
 import { conventions } from "../themes.ts";
 import { PREPRINT_STYLES } from "../preprintStyles.ts";
@@ -16,6 +17,7 @@ import type { PreprintStyle } from "../preprintStyles.ts";
 
 export interface LatexImage {
   path: string;
+  /** A data URL, or a /api/v1/assets/... URL that the exporter fetches. */
   dataUrl: string;
   mime: string;
 }
@@ -285,8 +287,8 @@ function figure(node: JSONContent, context: Context): string {
   const caption = inline(node.content?.[0]?.content, context);
   const id = attr(node, "id", "");
   let graphic: string;
-  if (src.startsWith("data:image/")) {
-    const mime = /^data:(image\/[a-z+.-]+)/i.exec(src)?.[1].toLowerCase() ?? "image/png";
+  if (isEmbeddableImageSource(src)) {
+    const mime = mimeForImageSource(src);
     const path = `figures/figure-${context.images.length + 1}.${extensionFor(mime)}`;
     context.images.push({ path, dataUrl: src, mime });
     graphic = `\\includegraphics[width=${width}\\linewidth]{${path}}`;
