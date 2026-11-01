@@ -129,6 +129,18 @@ export function Legal() {
                 IndexedDB and localStorage. You can clear this data at any time via your browser settings.
               </p>
             </section>
+
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
+                4. Privacy Contact
+              </h2>
+              <p style={{ margin: 0 }}>
+                For any data questions, privacy inquiries, or server administration assistance, please reach out to:{" "}
+                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent-color, #2563eb)", fontWeight: "600", textDecoration: "underline" }}>
+                  nevatalapp@gmail.com
+                </a>
+              </p>
+            </section>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px", lineHeight: "1.7", fontSize: "0.95rem" }}>
@@ -173,6 +185,18 @@ export function Legal() {
               <p style={{ margin: 0 }}>
                 Recommendica is provided &ldquo;AS IS&rdquo; without warranties of completeness, accuracy, or uninterrupted service.
                 Authors and contributors disclaim liability for errors in synthesized scientific text.
+              </p>
+            </section>
+
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
+                5. Terms Inquiries
+              </h2>
+              <p style={{ margin: 0 }}>
+                For terms inquiries or copyright questions, contact:{" "}
+                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent-color, #2563eb)", fontWeight: "600", textDecoration: "underline" }}>
+                  nevatalapp@gmail.com
+                </a>
               </p>
             </section>
           </div>
