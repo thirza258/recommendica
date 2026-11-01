@@ -213,6 +213,9 @@ export function Legal() {
             <p className="footer-tagline">
               Self-Hosted Grounded Scientific Literature Discovery · Privacy &amp; Terms
             </p>
+            <p className="footer-subtext" style={{ marginTop: "4px" }}>
+              This project is under nevatal.id for educational purposes.
+            </p>
           </div>
         </div>
       </footer>

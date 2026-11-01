@@ -1242,6 +1242,9 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               Federated with arXiv preprint retrieval and indexed scientific corpora ({paperCount.toLocaleString()} indexed papers).
               Open research access. · <a href="#privacy" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Terms of Service</a>
             </p>
+            <p className="footer-subtext" style={{ marginTop: "4px" }}>
+              This project is under nevatal.id for educational purposes.
+            </p>
           </div>
         </div>
       </footer>
