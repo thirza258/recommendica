@@ -389,6 +389,57 @@ grammar gives meaning to quotes, parentheses, colons and the `AND`/`OR` keywords
 so the query is tokenised down to alphanumeric content words — which is the
 escaping strategy, not just tidying.
 
+### Recycling live papers into ChromaDB
+
+Every paper the live search fetches is a real arXiv record the collection could
+not supply. Instead of being dropped after one answer, it is written back into
+`COLLECTION_NAME` on the connected (external) Chroma server. The next question
+on that topic is then answered from the collection, with no live round trip.
+
+```
+live search returns papers
+   → shape them like snapshot records (bare arXiv ID, "Title: …\n\nAbstract: …")
+   → on a background thread: skip IDs the collection already holds
+   → embed only the new ones with OLLAMA_EMBEDDING_MODEL
+   → upsert into COLLECTION_NAME
+```
+
+- **Off the request path.** The answer never waits for the write, and a failed
+  write never touches it; failures are logged under `[RECYCLE]`. If the writer
+  falls behind, batches are dropped rather than queued without bound. A later
+  search fetches and offers those papers again.
+- **Never overwrites.** Records already in the collection, snapshot records
+  included, are left alone and are not re-embedded.
+- **One vector space.** Nothing is written to the in-memory fallback
+  (`CHROMA_ALLOW_EPHEMERAL_FALLBACK`). Nothing is written either when the
+  collection's `embedding_model` metadata names a different model than
+  `OLLAMA_EMBEDDING_MODEL`.
+- **Provenance, not `source`.** Recycled records carry
+  `ingested_with: "recommendica-arxiv-recycle"` and `ingested_at`. Retrieved
+  later, they are ordinary collection documents: no live badge, and counted
+  as `collection` in `verification.sources`.
+
+Recycling happens wherever the fallback runs: in `deep` and `adaptive` searches
+(`adaptive` is the default). `fast` searches never consult arXiv, so they never
+grow the collection.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `ENABLE_ARXIV_RECYCLE` | `True` | Write fetched papers back into the collection. Off = live papers are used for the answer, then discarded. |
+
+To check the write path against your own Chroma server:
+
+```bash
+python manage.py recycle_arxiv "graph neural networks for molecules" --dry-run
+python manage.py recycle_arxiv "graph neural networks for molecules"
+# under docker compose:
+docker compose exec backend python manage.py recycle_arxiv "diffusion models"
+```
+
+The command runs the same checks synchronously. It lists which papers are new
+and prints the collection count before and after. It exits non-zero when
+Chroma, arXiv, Ollama or the write fails.
+
 ## Pipeline verification
 
 Two checks sit at the pipeline's boundaries, and they fail in opposite

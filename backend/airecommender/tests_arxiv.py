@@ -18,7 +18,9 @@ from airecommender.pipeline.sources.arxiv_api import (
     ArxivClient,
     ArxivUnavailable,
     build_search_query,
+    canonical_arxiv_id,
     extract_terms,
+    format_document,
     parse_atom_feed,
 )
 
@@ -53,6 +55,26 @@ FEED = """<?xml version="1.0" encoding="UTF-8"?>
     <summary>A follow-up study.</summary>
     <author><name>Grace Hopper</name></author>
     <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>
+"""
+
+#: A pre-2007 paper, as the live API serves it today: the archive is part of
+#: the ID, and the publication details sit in the arxiv: namespace.
+OLD_STYLE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/hep-th/9901001v3</id>
+    <updated>1999-05-10T04:45:54Z</updated>
+    <published>1999-01-01T01:01:10Z</published>
+    <title>String Junctions and Their Duals in Heterotic String Theory</title>
+    <summary>We give the correspondence between spectra and string junctions.</summary>
+    <author><name>Yosuke Imamura</name></author>
+    <arxiv:comment>13 pages + 4 eps figures</arxiv:comment>
+    <arxiv:journal_ref>Prog.Theor.Phys.101:1155-1164,1999</arxiv:journal_ref>
+    <arxiv:doi>10.1143/PTP.101.1155</arxiv:doi>
+    <arxiv:primary_category term="hep-th"/>
+    <category term="hep-th" scheme="http://arxiv.org/schemas/atom"/>
   </entry>
 </feed>
 """
@@ -190,6 +212,56 @@ class FeedParsingTests(SimpleTestCase):
 
     def test_empty_feed_yields_no_candidates(self):
         self.assertEqual(parse_atom_feed(EMPTY_FEED), [])
+
+    def test_old_style_ids_keep_their_archive(self):
+        # Splitting the abs URL on its last "/" used to yield "9901001v3".
+        meta = parse_atom_feed(OLD_STYLE_FEED)[0]["meta"]
+        self.assertEqual(meta["id"], "hep-th/9901001v3")
+        self.assertEqual(meta["arxiv_id"], "hep-th/9901001v3")
+
+    def test_publication_details_are_parsed_when_present(self):
+        meta = parse_atom_feed(OLD_STYLE_FEED)[0]["meta"]
+        self.assertEqual(meta["doi"], "10.1143/PTP.101.1155")
+        self.assertEqual(meta["journal-ref"], "Prog.Theor.Phys.101:1155-1164,1999")
+        self.assertEqual(meta["comments"], "13 pages + 4 eps figures")
+
+    def test_absent_publication_details_are_omitted(self):
+        meta = parse_atom_feed(FEED)[0]["meta"]
+        for key in ("doi", "journal-ref", "comments"):
+            self.assertNotIn(key, meta)
+
+
+class IdentifierTests(SimpleTestCase):
+    def test_version_is_dropped_to_match_the_collection(self):
+        self.assertEqual(canonical_arxiv_id("2301.12345v1"), "2301.12345")
+        self.assertEqual(canonical_arxiv_id("2301.12345"), "2301.12345")
+        self.assertEqual(canonical_arxiv_id("0704.0001"), "0704.0001")
+
+    def test_urls_and_prefixes_are_accepted(self):
+        for value in (
+            "http://arxiv.org/abs/2301.12345v2",
+            "https://arxiv.org/abs/2301.12345",
+            "https://arxiv.org/pdf/2301.12345v2.pdf",
+            "arXiv:2301.12345v2",
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(canonical_arxiv_id(value), "2301.12345")
+
+    def test_old_style_ids_keep_their_archive(self):
+        self.assertEqual(canonical_arxiv_id("hep-th/9901001v3"), "hep-th/9901001")
+        self.assertEqual(
+            canonical_arxiv_id("http://arxiv.org/abs/hep-th/9901001v3"), "hep-th/9901001"
+        )
+
+    def test_anything_else_is_not_guessed_at(self):
+        for value in (None, "", "line-42", "9901001v3", "2301.123", "not an id"):
+            with self.subTest(value=value):
+                self.assertEqual(canonical_arxiv_id(value), "")
+
+    def test_document_text_follows_the_ingestion_rule(self):
+        self.assertEqual(format_document(" T ", " A "), "Title: T\n\nAbstract: A")
+        self.assertEqual(format_document("T", ""), "Title: T")
+        self.assertEqual(format_document("", "A"), "A")
 
 
 # ── Request pacing ───────────────────────────────────────────────────────────

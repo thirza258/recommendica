@@ -173,6 +173,73 @@ def build_search_query(
     return joiner.join(f"all:{term}" for term in terms)
 
 
+# ── Identifiers and document text ────────────────────────────────────────────
+
+#: A bare (version-less) arXiv identifier: new style from April 2007
+#: ("0704.0001", "2301.12345"), or old style with its archive
+#: ("hep-th/9901001", "math.GT/0309136").
+_BARE_ARXIV_ID = re.compile(
+    r"^(?:\d{4}\.\d{4,5}|[a-z][a-z\-]*(?:\.[A-Za-z\-]+)?/\d{7})$"
+)
+
+
+def _versioned_id(abs_url: str) -> str:
+    """
+    The identifier in an abs URL, version included.
+
+    ``http://arxiv.org/abs/2301.12345v1``     → ``2301.12345v1``
+    ``http://arxiv.org/abs/hep-th/9901001v3`` → ``hep-th/9901001v3``
+
+    Splitting on the last ``/`` is only right for new-style IDs: an old-style
+    ID has a slash of its own, and dropping the archive before it names a
+    different paper, or none.
+    """
+    if not abs_url:
+        return ""
+    if "/abs/" in abs_url:
+        return abs_url.split("/abs/", 1)[1].strip("/")
+    return abs_url.rsplit("/", 1)[-1]
+
+
+def canonical_arxiv_id(value) -> str:
+    """
+    The bare arXiv ID the collection uses as its record ID, or ``""``.
+
+    The snapshot was ingested under version-less IDs (``"0704.0001"``), while
+    the live feed names a specific version (``"2301.12345v1"``), so the two
+    only line up once the version is dropped.  Accepts abs/pdf URLs and an
+    ``arXiv:`` prefix too.  Anything that is not recognisably an arXiv ID
+    yields ``""`` rather than a guess, because a wrong ID would either
+    duplicate a paper or collide with a different one.
+    """
+    text = str(value or "").strip()
+    match = re.search(r"arxiv\.org/(?:abs|pdf)/(.+)$", text, re.IGNORECASE)
+    if match:
+        text = match.group(1)
+    text = re.sub(r"^arxiv:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?:\.pdf)?/?$", "", text)
+    text = re.sub(r"v\d+$", "", text)
+    return text if _BARE_ARXIV_ID.match(text) else ""
+
+
+def format_document(title: str, abstract: str) -> str:
+    """
+    A paper's document text, exactly as the collection stores it.
+
+    This is the rule the original ingestion used
+    (CHROMA_INGESTION_HANDOVER.md §3.2).  It is shared by the live parser and
+    by :mod:`recycle`, so a fetched paper is rendered, embedded and written
+    back in one shape rather than two that drift apart.
+    """
+    title = (title or "").strip()
+    abstract = (abstract or "").strip()
+    if title and abstract:
+        return f"Title: {title}\n\nAbstract: {abstract}"
+    if title:
+        return f"Title: {title}"
+    return abstract
+
+
 # ── Atom parsing ──────────────────────────────────────────────────────────────
 
 
@@ -227,16 +294,11 @@ def _entry_to_candidate(entry: ElementTree.Element, rank: int) -> Optional[dict]
             pdf_url = (link.get("href") or "").strip()
             break
 
-    # "http://arxiv.org/abs/2301.12345v1" → "2301.12345v1"
-    arxiv_id = abs_url.rsplit("/", 1)[-1] if abs_url else ""
+    # Versioned, as the feed names it: "2301.12345v1", "hep-th/9901001v3".
+    arxiv_id = _versioned_id(abs_url)
 
     # Match new Chroma schema document structure
-    if title and summary:
-        doc_text = f"Title: {title.strip()}\n\nAbstract: {summary.strip()}"
-    elif title:
-        doc_text = f"Title: {title.strip()}"
-    else:
-        doc_text = summary.strip()
+    doc_text = format_document(title, summary)
 
     updated_str = _text(entry.find(f"{ATOM}updated"))
     published_str = _text(entry.find(f"{ATOM}published"))
@@ -255,6 +317,11 @@ def _entry_to_candidate(entry: ElementTree.Element, rank: int) -> Optional[dict]
         "published": published_str,
         "updated": updated_str,
         "update_date": updated_str[:10] if updated_str else "",
+        # Present only when the authors supplied them; named as the snapshot
+        # names them, so a recycled record reads like an ingested one.
+        "doi": _text(entry.find(f"{ARXIV}doi")),
+        "journal-ref": _text(entry.find(f"{ARXIV}journal_ref")),
+        "comments": _text(entry.find(f"{ARXIV}comment")),
     }
 
     parsed_authors = []

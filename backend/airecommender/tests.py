@@ -519,6 +519,33 @@ class EmbeddingTests(TestCase):
 
         self.assertEqual(len(ollama.calls), 1, "second call should hit the cache")
 
+    def test_documents_are_embedded_with_their_newlines(self):
+        """
+        A stored vector must come from the text the collection was indexed
+        with ("Title: …\\n\\nAbstract: …"). Only queries are flattened.
+        """
+        ollama = FakeOllama()
+        dense = build_dense_rag(ollama)
+        doc = "Title: T\n\nAbstract: A"
+
+        vectors = dense.embed_documents([doc, doc, "third"])
+
+        self.assertEqual(len(vectors), 3)
+        self.assertEqual(ollama.calls, [[doc, doc], ["third"]])  # batched, unaltered
+
+    def test_document_embeddings_bypass_the_query_cache(self):
+        dense = build_dense_rag(FakeOllama())
+
+        dense.embed_documents(["Title: T\n\nAbstract: A"])
+
+        self.assertEqual(dense._embedding_cache, {})
+
+    def test_document_embedding_failure_raises(self):
+        dense = build_dense_rag(FakeOllama(fail_times=99))
+
+        with self.assertRaises(EmbeddingUnavailable):
+            dense.embed_documents(["Title: T"])
+
     def test_prefers_ollama_embedding_model_setting(self):
         """
         EMBEDDING_MODEL is easy to point at a non-Ollama model id (the shipped
