@@ -6,8 +6,10 @@
    answer prose; sans (Inter) carries UI chrome, labels and figures.
 
    Every colour in the app resolves through a token defined here, so light and
-   dark themes differ only by the two blocks below — never by per-component
-   overrides.
+   dark themes differ only by the colour blocks below — never by per-component
+   overrides. The theme is chosen by `data-theme` on <html> ("light" or
+   "dark"), set before first paint by the inline script in index.html and kept
+   current by src/theme.ts.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -60,12 +62,32 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ── Elevation ──────────────────────────────────────────────────────── */
+  font-family: var(--font-sans);
+  font-size: 100%;
+  line-height: var(--leading-normal);
+  color: var(--ink);
+
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Colour: light (default) ──────────────────────────────────────────────
+   Also declared on .paper-sheet. The paper editor's page stands for a printed
+   sheet, so it stays white ink-on-paper in both themes; re-declaring the light
+   palette there keeps anything the site draws on the page (focus rings,
+   links, controls) legible against white. */
+
+:root,
+.paper-sheet {
+  color-scheme: light;
+
+  /* Elevation */
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
   --shadow-lg: 0 12px 32px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
 
-  /* ── Colour: pure light mode ────────────────────────────────────────── */
   --canvas: #ffffff;
   --surface: #ffffff;
   --surface-sunken: #f8fafc;
@@ -96,23 +118,187 @@
   --danger-fg: #991b1b;
   --danger-bg: #fef2f2;
   --danger-border: #fecaca;
+  --danger-solid: #b91c1c;        /* destructive button fill */
+  --danger-solid-hover: #991b1b;
+  --danger-contrast: #ffffff;     /* text on --danger-solid */
 
   --neutral-fg: #334155;
   --neutral-bg: #f1f5f9;
   --neutral-border: #e2e8f0;
 
   --focus-ring: #1d4ed8;
+}
 
-  color-scheme: light;
-  font-family: var(--font-sans);
-  font-size: 100%;
-  line-height: var(--leading-normal);
-  color: var(--ink);
+/* Light values for the application chrome around the content: overlays,
+   categorical tints, and the paper editor's workspace, toolbars and LaTeX
+   source editor. */
+:root {
+  --backdrop: rgba(15, 23, 42, 0.42);          /* behind modal dialogs */
+  --accent-tint: rgba(29, 78, 216, 0.03);      /* faint column highlight */
+  --swatch-ring: rgba(15, 23, 42, 0.2);        /* edge around colour swatches */
 
-  font-synthesis-weight: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --tone-teal-fg: #0f766e;
+  --tone-teal-bg: #f0fdfa;
+  --tone-orange-fg: #9a3412;
+  --tone-orange-bg: #fff7ed;
+  --tone-violet-fg: #6d28d9;
+  --tone-violet-bg: #f5f3ff;
+
+  /* Paper editor workspace */
+  --desk: #eef2f6;                 /* the canvas the page sits on */
+  --page-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --toolbar-bg: #e8edf3;
+  --toolbar-separator: #c7d0db;
+  --tool-hover: rgba(15, 23, 42, 0.07);
+  --tool-active-bg: #d3e3fd;
+  --tool-active-ink: #0b57d0;
+  --tool-disabled: #94a3b8;
+  --contextbar-bg: #f1f6fe;
+  --flash-bg: #fef9c3;             /* a source line just jumped to */
+
+  --sev-error: #b91c1c;
+  --sev-warning: #a16207;
+  --sev-info: #0369a1;
+
+  /* LaTeX source editor (CodeMirror, see src/write/source/editorTheme.ts) */
+  --code-bg: #ffffff;
+  --code-gutter-bg: #f8fafc;
+  --code-gutter-ink: #94a3b8;
+  --code-active-line: #f8fafc;
+  --code-active-gutter: #eef2f6;
+  --code-selection: #d7d4f0;
+  --code-selection-blur: #d9d9d9;
+  --code-selection-match: rgba(153, 255, 119, 0.5);
+  --code-search-match: rgba(255, 255, 0, 0.33);
+  --code-search-current: rgba(255, 106, 0, 0.33);
+  --code-bracket: rgba(50, 140, 130, 0.32);
+  --code-bracket-bad: rgba(187, 85, 85, 0.27);
+  --code-snippet-field: rgba(0, 0, 0, 0.13);
+  --code-special-char: #dc2626;
+
+  --syntax-command: #1d4ed8;
+  --syntax-keyword: #7c3aed;
+  --syntax-atom: #0f766e;
+  --syntax-string: #b45309;
+  --syntax-comment: #64748b;
+  --syntax-bracket: #475569;
+  --syntax-property: #0369a1;
+  --syntax-variable: #be185d;
+  --syntax-invalid: #b91c1c;
+}
+
+/* ── Colour: dark ─────────────────────────────────────────────────────────
+   Slate surfaces with a lightened accent. Text tokens meet WCAG AA (4.5:1)
+   on every surface token; --field-border and --focus-ring meet 3:1. Screen
+   only, so printing a page always uses the light palette. */
+
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 2px 6px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+
+    --canvas: #0b1120;
+    --surface: #111a2e;
+    --surface-sunken: #0d1526;
+    --surface-hover: #1c2740;
+
+    --ink: #e2e8f0;
+    --ink-muted: #cbd5e1;
+    --ink-subtle: #94a3b8;
+
+    --border: #243047;
+    --border-strong: #334155;
+    --field-border: #6b7c93;
+
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-contrast: #0b1120;
+    --accent-soft: #15243f;
+    --accent-border: #1e40af;
+
+    --success-fg: #6ee7b7;
+    --success-bg: #062a22;
+    --success-border: #065f46;
+
+    --warn-fg: #fcd34d;
+    --warn-bg: #2a2008;
+    --warn-border: #713f12;
+
+    --danger-fg: #fca5a5;
+    --danger-bg: #2d1316;
+    --danger-border: #7f1d1d;
+    --danger-solid: #dc2626;
+    --danger-solid-hover: #b91c1c;
+    --danger-contrast: #ffffff;
+
+    --neutral-fg: #cbd5e1;
+    --neutral-bg: #1e293b;
+    --neutral-border: #334155;
+
+    --focus-ring: #60a5fa;
+
+    --backdrop: rgba(2, 6, 23, 0.72);
+    --accent-tint: rgba(96, 165, 250, 0.06);
+    --swatch-ring: rgba(226, 232, 240, 0.4);
+
+    --tone-teal-fg: #5eead4;
+    --tone-teal-bg: #042f2e;
+    --tone-orange-fg: #fdba74;
+    --tone-orange-bg: #431407;
+    --tone-violet-fg: #c4b5fd;
+    --tone-violet-bg: #2e1065;
+
+    --desk: #070b14;
+    --page-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
+    --toolbar-bg: #1a2438;
+    --toolbar-separator: #334155;
+    --tool-hover: rgba(226, 232, 240, 0.08);
+    --tool-active-bg: #1c3a63;
+    --tool-active-ink: #a8c7fa;
+    --tool-disabled: #475569;
+    --contextbar-bg: #13233d;
+    --flash-bg: #3b3412;
+
+    --sev-error: #fca5a5;
+    --sev-warning: #fcd34d;
+    --sev-info: #7dd3fc;
+
+    --code-bg: #0d1526;
+    --code-gutter-bg: #0b1220;
+    --code-gutter-ink: #7889a0;
+    --code-active-line: #131d31;
+    --code-active-gutter: #172036;
+    --code-selection: #25406b;
+    --code-selection-blur: #1f2c42;
+    --code-selection-match: rgba(74, 222, 128, 0.18);
+    --code-search-match: rgba(250, 204, 21, 0.25);
+    --code-search-current: rgba(251, 146, 60, 0.42);
+    --code-bracket: rgba(45, 212, 191, 0.25);
+    --code-bracket-bad: rgba(248, 113, 113, 0.3);
+    --code-snippet-field: rgba(255, 255, 255, 0.13);
+    --code-special-char: #ff7788;
+
+    --syntax-command: #93c5fd;
+    --syntax-keyword: #c4b5fd;
+    --syntax-atom: #5eead4;
+    --syntax-string: #fcd34d;
+    --syntax-comment: #94a3b8;
+    --syntax-bracket: #a5b4c8;
+    --syntax-property: #7dd3fc;
+    --syntax-variable: #f9a8d4;
+    --syntax-invalid: #fca5a5;
+  }
+}
+
+/* A theme switch recolours everything at once; with transitions suppressed for
+   that frame, components do not fade to the new palette at different speeds. */
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition: none !important;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -127,7 +313,7 @@ html {
   min-width: 320px;
   min-height: 100%;
   -webkit-text-size-adjust: 100%;
-  background-color: #ffffff;
+  background-color: var(--canvas);
 }
 
 body {
@@ -135,7 +321,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   color: var(--ink);
-  background-color: #ffffff;
+  background-color: var(--canvas);
   background-image: none;
 }
 

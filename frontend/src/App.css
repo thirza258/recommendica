@@ -32,7 +32,7 @@
   flex-direction: column;
   min-height: 100dvh;
   padding: var(--space-5) var(--space-5) var(--space-12);
-  background-color: #ffffff;
+  background-color: var(--canvas);
 }
 
 .landing-bar,
@@ -877,7 +877,7 @@
 }
 
 .comparison-table .col-highlight {
-  background: rgba(29, 78, 216, 0.03);
+  background: var(--accent-tint);
   border-left: 1px solid var(--accent-border);
   border-right: 1px solid var(--accent-border);
 }
@@ -2255,7 +2255,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-5);
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--backdrop);
   animation: fade-in var(--dur-base) var(--ease-out);
 }
 

@@ -24,18 +24,18 @@ export function Legal() {
       />
 
       <main className="landing-main" style={{ maxWidth: "900px", margin: "40px auto", padding: "0 24px" }}>
-        <div style={{ marginBottom: "32px", borderBottom: "1px solid var(--border-color, #e2e8f0)", paddingBottom: "24px" }}>
+        <div style={{ marginBottom: "32px", borderBottom: "1px solid var(--border)", paddingBottom: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
             <div>
               <h1 style={{ fontSize: "2rem", fontWeight: "700", margin: "0 0 8px 0" }}>
                 {activeTab === "privacy" ? "Privacy Policy" : "Terms of Service"}
               </h1>
-              <p style={{ margin: 0, color: "var(--muted-color, #64748b)", fontSize: "0.875rem" }}>
+              <p style={{ margin: 0, color: "var(--ink-subtle)", fontSize: "0.875rem" }}>
                 Recommendica Research Discovery &amp; Paper Studio · Updated November 2026
               </p>
             </div>
 
-            <div style={{ display: "flex", gap: "8px", background: "var(--sunken-bg, #f1f5f9)", padding: "4px", borderRadius: "8px" }}>
+            <div style={{ display: "flex", gap: "8px", background: "var(--surface-hover)", padding: "4px", borderRadius: "8px" }}>
               <button
                 type="button"
                 onClick={() => setActiveTab("privacy")}
@@ -46,8 +46,8 @@ export function Legal() {
                   fontWeight: "600",
                   fontSize: "0.875rem",
                   cursor: "pointer",
-                  background: activeTab === "privacy" ? "var(--primary-color, #0f172a)" : "transparent",
-                  color: activeTab === "privacy" ? "#ffffff" : "var(--muted-color, #64748b)"
+                  background: activeTab === "privacy" ? "var(--ink)" : "transparent",
+                  color: activeTab === "privacy" ? "var(--canvas)" : "var(--ink-muted)"
                 }}
               >
                 Privacy Policy
@@ -62,8 +62,8 @@ export function Legal() {
                   fontWeight: "600",
                   fontSize: "0.875rem",
                   cursor: "pointer",
-                  background: activeTab === "terms" ? "var(--primary-color, #0f172a)" : "transparent",
-                  color: activeTab === "terms" ? "#ffffff" : "var(--muted-color, #64748b)"
+                  background: activeTab === "terms" ? "var(--ink)" : "transparent",
+                  color: activeTab === "terms" ? "var(--canvas)" : "var(--ink-muted)"
                 }}
               >
                 Terms of Service
@@ -74,7 +74,7 @@ export function Legal() {
 
         {activeTab === "privacy" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px", lineHeight: "1.7", fontSize: "0.95rem" }}>
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 1. 100% Self-Hosted &amp; Private Scholarly Environment
               </h2>
@@ -89,7 +89,7 @@ export function Legal() {
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 2. AI Synthesis &amp; OpenRouter Integration
               </h2>
@@ -105,22 +105,22 @@ export function Legal() {
                 <li>Only the query string, selected paper abstracts, and explicit author prompts are securely sent to OpenRouter.</li>
                 <li>Your broader server databases, unpublished manuscript files outside the active editor context, and environment secrets remain completely private.</li>
               </ul>
-              <div style={{ padding: "16px", borderRadius: "8px", background: "var(--sunken-bg, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)" }}>
+              <div style={{ padding: "16px", borderRadius: "8px", background: "var(--surface-sunken)", border: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 8px 0", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase" }}>
                   OpenRouter Terms and Privacy Documentation
                 </p>
                 <div style={{ display: "flex", gap: "20px", fontSize: "0.875rem" }}>
-                  <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>
+                  <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
                     OpenRouter Privacy Policy ↗
                   </a>
-                  <a href="https://openrouter.ai/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>
+                  <a href="https://openrouter.ai/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>
                     OpenRouter Terms of Service ↗
                   </a>
                 </div>
               </div>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 3. Browser Caching &amp; Document Security
               </h2>
@@ -130,13 +130,13 @@ export function Legal() {
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 4. Privacy Contact
               </h2>
               <p style={{ margin: 0 }}>
                 For any data questions, privacy inquiries, or server administration assistance, please reach out to:{" "}
-                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent-color, #2563eb)", fontWeight: "600", textDecoration: "underline" }}>
+                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent)", fontWeight: "600", textDecoration: "underline" }}>
                   nevatalapp@gmail.com
                 </a>
               </p>
@@ -144,7 +144,7 @@ export function Legal() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px", lineHeight: "1.7", fontSize: "0.95rem" }}>
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 1. Acceptance of Terms
               </h2>
@@ -154,7 +154,7 @@ export function Legal() {
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 2. Academic Integrity &amp; Citation Responsibility
               </h2>
@@ -168,17 +168,17 @@ export function Legal() {
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 3. Acceptable Use of AI Features
               </h2>
               <p style={{ margin: 0 }}>
                 Users agree not to submit prompts that violate the safety standards of upstream model providers
-                as specified in <a href="https://openrouter.ai/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>OpenRouter&apos;s Terms of Service</a>.
+                as specified in <a href="https://openrouter.ai/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>OpenRouter&apos;s Terms of Service</a>.
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 4. Warranty Disclaimer
               </h2>
@@ -188,13 +188,13 @@ export function Legal() {
               </p>
             </section>
 
-            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border-color, #e2e8f0)", background: "var(--card-bg, #ffffff)" }}>
+            <section style={{ padding: "24px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--surface)" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginTop: 0, marginBottom: "12px" }}>
                 5. Terms Inquiries
               </h2>
               <p style={{ margin: 0 }}>
                 For terms inquiries or copyright questions, contact:{" "}
-                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent-color, #2563eb)", fontWeight: "600", textDecoration: "underline" }}>
+                <a href="mailto:nevatalapp@gmail.com" style={{ color: "var(--accent)", fontWeight: "600", textDecoration: "underline" }}>
                   nevatalapp@gmail.com
                 </a>
               </p>

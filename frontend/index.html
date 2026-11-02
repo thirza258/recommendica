@@ -48,6 +48,30 @@
     <meta name="application-name" content="Recommendica" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#ffffff" />
+    <!-- Colour theme, applied before the first paint so a dark-theme reader
+         never sees a white flash. Mirrors src/theme.ts — the storage key, the
+         "system" fallback and the --canvas colours — so keep the two in sync. -->
+    <script>
+      (function () {
+        var stored = null;
+        try {
+          stored = window.localStorage.getItem("recommendica.theme");
+        } catch (error) {
+          // Storage blocked: follow the system setting.
+        }
+        var dark =
+          stored === "dark" ||
+          (stored !== "light" &&
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var theme = dark ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", theme);
+        var scheme = document.querySelector('meta[name="color-scheme"]');
+        if (scheme) scheme.setAttribute("content", theme);
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute("content", dark ? "#0b1120" : "#ffffff");
+      })();
+    </script>
 
     <!-- ── Icons & Web Manifest ────────────────────────────────────────── -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

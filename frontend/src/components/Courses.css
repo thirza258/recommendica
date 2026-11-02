@@ -214,16 +214,16 @@
   color: var(--accent);
 }
 .course-icon--1 {
-  background: #f0fdfa;
-  color: #0f766e;
+  background: var(--tone-teal-bg);
+  color: var(--tone-teal-fg);
 }
 .course-icon--2 {
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--tone-orange-bg);
+  color: var(--tone-orange-fg);
 }
 .course-icon--3 {
-  background: #f5f3ff;
-  color: #6d28d9;
+  background: var(--tone-violet-bg);
+  color: var(--tone-violet-fg);
 }
 .course-card h3 {
   margin: var(--space-5) 0 var(--space-2);

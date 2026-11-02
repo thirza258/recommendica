@@ -20,6 +20,7 @@ import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, snippet, startCompletion } from "@codemirror/autocomplete";
 import { bibtexLanguage, latexCompletions, latexHighlight, latexLanguage } from "./latexLanguage";
 import type { ProjectCompletions } from "./latexLanguage";
+import { editorTheme } from "./editorTheme";
 
 export interface CodeEditorHandle {
   /** Current text of a file, whether or not it has been opened. */
@@ -104,6 +105,9 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
         editable.of(EditorView.editable.of(!callbacks.current.readOnly)),
         language,
         latexHighlight,
+        // Colours come from CSS custom properties, so the light/dark theme
+        // switch needs no reconfiguration of these per-file states.
+        editorTheme,
         autocompletion({ override: name.toLowerCase().endsWith(".bib") ? [] : [latexCompletions(project)], icons: false }),
         keymap.of([
           {

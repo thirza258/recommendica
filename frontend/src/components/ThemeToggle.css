@@ -1,0 +1,119 @@
+/* ── Colour theme picker (components/ThemeToggle.tsx) ─────────────────────
+   An icon button and a small System / Light / Dark menu. The outlined
+   variant matches the site's pill buttons; the plain one the paper editor's
+   icon buttons. */
+
+.theme-toggle {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.theme-toggle-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-muted);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+
+.theme-toggle-button:hover,
+.theme-toggle-button[aria-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.theme-toggle--plain .theme-toggle-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--ink-subtle);
+}
+
+.theme-toggle--plain .theme-toggle-button:hover,
+.theme-toggle--plain .theme-toggle-button[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.theme-toggle-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 168px;
+  margin: 0;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  list-style: none;
+}
+
+.theme-toggle-menu--start {
+  right: auto;
+  left: 0;
+}
+
+.theme-toggle-item {
+  display: grid;
+  grid-template-columns: 16px 1fr 14px;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 7px var(--space-2);
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.theme-toggle-item > svg {
+  color: var(--ink-subtle);
+}
+
+.theme-toggle-item:hover,
+.theme-toggle-item:focus-visible {
+  background: var(--surface-hover);
+}
+
+/* Inside the menu the ring sits within the item, not over its neighbours. */
+.theme-toggle-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.theme-toggle-item[aria-checked="true"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.theme-toggle-item[aria-checked="true"] > svg {
+  color: currentColor;
+}
+
+/* The check is the non-colour cue for the current choice. */
+.theme-toggle-check {
+  visibility: hidden;
+}
+
+.theme-toggle-item[aria-checked="true"] .theme-toggle-check {
+  visibility: visible;
+}

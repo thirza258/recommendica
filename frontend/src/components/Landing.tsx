@@ -17,6 +17,7 @@ import {
   SparklesIcon,
   ZapIcon,
 } from "./Icons";
+import ThemeToggle from "./ThemeToggle";
 
 interface LandingProps {
   onStart: (initialPrompt?: string, autoSubmit?: boolean) => void;
@@ -269,6 +270,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               <span>Donate</span>
             </button>
           )}
+          <ThemeToggle />
           <button
             type="button"
             className="primary-button landing-header-cta"
@@ -1240,7 +1242,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
             </p>
             <p className="footer-subtext">
               Federated with arXiv preprint retrieval and indexed scientific corpora ({paperCount.toLocaleString()} indexed papers).
-              Open research access. · <a href="#privacy" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent-color, #2563eb)", textDecoration: "underline" }}>Terms of Service</a>
+              Open research access. · <a href="#privacy" style={{ color: "var(--accent)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent)", textDecoration: "underline" }}>Terms of Service</a>
             </p>
             <p className="footer-subtext" style={{ marginTop: "4px" }}>
               This project is under nevatal.id for educational purposes.

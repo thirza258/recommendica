@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BookMarkIcon } from "../components/Icons";
+import ThemeToggle from "../components/ThemeToggle";
 import { Icon } from "./icons";
 import { WRITE_HOME_HREF } from "./routes.ts";
 import { SAVE_LABEL } from "./useAutosave.ts";
@@ -82,7 +83,10 @@ export default function WorkspaceHeader({
         </div>
         {menubar}
       </div>
-      <div className="write-header-actions">{actions}</div>
+      <div className="write-header-actions">
+        <ThemeToggle variant="plain" />
+        {actions}
+      </div>
     </header>
   );
 }

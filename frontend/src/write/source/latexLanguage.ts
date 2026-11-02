@@ -36,18 +36,20 @@ const bibtexParser: StreamParser<{ inEntry: boolean }> = {
 
 export const bibtexLanguage = StreamLanguage.define(bibtexParser);
 
+// Colours are the --syntax-* tokens in index.css, so highlighting follows the
+// site's light/dark theme without reconfiguring the editor.
 export const latexHighlight = syntaxHighlighting(
   HighlightStyle.define([
-    { tag: [tags.tagName, tags.macroName], color: "#1d4ed8" },
-    { tag: tags.keyword, color: "#7c3aed", fontWeight: "600" },
-    { tag: [tags.atom, tags.bool], color: "#0f766e" },
-    { tag: [tags.string, tags.special(tags.string)], color: "#b45309" },
-    { tag: tags.number, color: "#0f766e" },
-    { tag: tags.comment, color: "#64748b", fontStyle: "italic" },
-    { tag: tags.bracket, color: "#475569" },
-    { tag: [tags.propertyName, tags.attributeName], color: "#0369a1" },
-    { tag: [tags.variableName, tags.typeName], color: "#be185d" },
-    { tag: tags.invalid, color: "#b91c1c" },
+    { tag: [tags.tagName, tags.macroName], color: "var(--syntax-command)" },
+    { tag: tags.keyword, color: "var(--syntax-keyword)", fontWeight: "600" },
+    { tag: [tags.atom, tags.bool], color: "var(--syntax-atom)" },
+    { tag: [tags.string, tags.special(tags.string)], color: "var(--syntax-string)" },
+    { tag: tags.number, color: "var(--syntax-atom)" },
+    { tag: tags.comment, color: "var(--syntax-comment)", fontStyle: "italic" },
+    { tag: tags.bracket, color: "var(--syntax-bracket)" },
+    { tag: [tags.propertyName, tags.attributeName], color: "var(--syntax-property)" },
+    { tag: [tags.variableName, tags.typeName], color: "var(--syntax-variable)" },
+    { tag: tags.invalid, color: "var(--syntax-invalid)" },
   ]),
 );
 

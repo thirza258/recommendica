@@ -24,6 +24,9 @@
   --paper-link: #1d4ed8;
   --paper-gap: 0.33in;
 
+  /* Light even when the app around it is dark: browser defaults inside the
+     page (selection, form controls, scrollbars) must match white paper. */
+  color-scheme: light;
   color: var(--paper-ink);
   font-family: var(--paper-font);
   font-size: var(--paper-size);

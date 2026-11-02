@@ -4,6 +4,11 @@
    Documents list, editor frame, menus, toolbars, panels and dialogs. Colours,
    spacing and motion come from the tokens in index.css; the paper itself is
    styled by paper.css.
+
+   The chrome follows the light/dark theme; the paper does not. Anything drawn
+   on the white page (the visual editor's selection and placeholder marks,
+   the preview's sync highlight, template thumbnails, the math preview) keeps
+   fixed light colours in both themes, like ink on a printed sheet.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .write-loading {
@@ -245,7 +250,9 @@
   opacity: 0.65;
 }
 
-/* Template thumbnails: a miniature page drawn in CSS. */
+/* Template thumbnails: a miniature page drawn in CSS, white in both themes
+   like the paper. The LaTeX thumbnail is a glimpse of the source editor
+   instead, so it follows the theme. */
 .write-thumb {
   position: relative;
   display: flex;
@@ -346,25 +353,25 @@
   display: grid;
   flex: 1;
   place-items: center;
-  color: var(--accent);
+  color: #1d4ed8;
 }
 
 .write-thumb--latex {
   align-items: flex-start;
   gap: 6px;
   padding: 14% 10%;
-  background: #f8fafc;
+  background: var(--surface-sunken);
 }
 
 .write-thumb-code {
-  color: #0f766e;
+  color: var(--syntax-atom);
   font-family: var(--font-mono);
   font-size: 9px;
   white-space: nowrap;
 }
 
 .write-thumb-code--dim {
-  color: #64748b;
+  color: var(--syntax-comment);
 }
 
 .write-thumb-badge {
@@ -373,8 +380,8 @@
   bottom: 8px;
   padding: 1px 6px;
   border-radius: var(--radius-pill);
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--border);
+  color: var(--ink-muted);
   font-family: var(--font-mono);
   font-size: 9px;
 }
@@ -542,8 +549,10 @@
 .write-dialog--sm { width: min(420px, calc(100vw - 32px)); }
 .write-dialog--lg { width: min(860px, calc(100vw - 32px)); }
 
+/* Older engines do not let ::backdrop inherit custom properties; they get the
+   light overlay, which still dims either theme. */
 .write-dialog::backdrop {
-  background: rgba(15, 23, 42, 0.38);
+  background: var(--backdrop, rgba(15, 23, 42, 0.42));
 }
 
 .write-dialog-panel {
@@ -659,11 +668,14 @@ textarea.write-code {
 }
 
 .write-danger {
-  background: #b91c1c;
+  border-color: var(--danger-solid);
+  background: var(--danger-solid);
+  color: var(--danger-contrast);
 }
 
 .write-danger:hover:not(:disabled) {
-  background: #991b1b;
+  border-color: var(--danger-solid-hover);
+  background: var(--danger-solid-hover);
 }
 
 .write-icon-button {
@@ -781,7 +793,7 @@ textarea.write-code {
 .write-menu-swatch {
   width: 14px;
   height: 14px;
-  border: 1px solid rgba(15, 23, 42, 0.2);
+  border: 1px solid var(--swatch-ring);
   border-radius: 50%;
 }
 
@@ -814,7 +826,7 @@ textarea.write-code {
   grid-template-rows: auto auto 1fr auto;
   height: 100dvh;
   overflow: hidden;
-  background: #eef2f6;
+  background: var(--desk);
 }
 
 /* Rows may not grow to the toolbar's full width; the toolbar scrolls instead. */
@@ -920,7 +932,7 @@ textarea.write-code {
   padding: 4px var(--space-2);
   overflow-x: auto;
   border-radius: 22px;
-  background: #e8edf3;
+  background: var(--toolbar-bg);
   scrollbar-width: thin;
 }
 
@@ -936,23 +948,23 @@ textarea.write-code {
   border: 0;
   border-radius: 6px;
   background: none;
-  color: #334155;
+  color: var(--ink-muted);
   font-size: var(--text-sm);
   white-space: nowrap;
 }
 
 .write-tool:hover:not(:disabled) {
-  background: rgba(15, 23, 42, 0.07);
+  background: var(--tool-hover);
   color: var(--ink);
 }
 
 .write-tool[aria-pressed="true"] {
-  background: #d3e3fd;
-  color: #0b57d0;
+  background: var(--tool-active-bg);
+  color: var(--tool-active-ink);
 }
 
 .write-tool:disabled {
-  color: #94a3b8;
+  color: var(--tool-disabled);
   cursor: default;
 }
 
@@ -966,7 +978,7 @@ textarea.write-code {
 }
 
 .write-tool-chevron {
-  color: #64748b;
+  color: var(--ink-subtle);
 }
 
 .write-tool-separator {
@@ -974,7 +986,7 @@ textarea.write-code {
   width: 1px;
   height: 20px;
   margin: 0 5px;
-  background: #c7d0db;
+  background: var(--toolbar-separator);
 }
 
 .write-contextbar {
@@ -984,15 +996,15 @@ textarea.write-code {
   gap: 4px;
   margin: -4px var(--space-3) var(--space-2);
   padding: 4px var(--space-3);
-  border: 1px solid #d3e3fd;
+  border: 1px solid var(--tool-active-bg);
   border-radius: var(--radius-md);
-  background: #f1f6fe;
+  background: var(--contextbar-bg);
   font-size: var(--text-xs);
 }
 
 .write-contextbar-label {
   margin-right: var(--space-2);
-  color: #0b57d0;
+  color: var(--tool-active-ink);
   font-weight: 600;
 }
 
@@ -1022,7 +1034,7 @@ textarea.write-code {
 }
 
 .write-page .paper-sheet {
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--page-shadow);
 }
 
 .write-panel {
@@ -1152,7 +1164,9 @@ textarea.write-code {
   margin-left: auto;
 }
 
-/* ── Visual editor ────────────────────────────────────────────────────── */
+/* ── Visual editor ────────────────────────────────────────────────────────
+   Everything under .write-page is drawn on the white sheet, so its colours
+   are fixed light values rather than theme tokens. */
 
 .write-page .ProseMirror {
   min-height: 60vh;
@@ -1468,6 +1482,8 @@ textarea.write-code {
 
 /* ── Math dialog ──────────────────────────────────────────────────────── */
 
+/* Shows the formula as it will sit on the page: dark ink on white in both
+   themes. */
 .write-math-preview {
   display: grid;
   place-items: center;
@@ -1557,14 +1573,14 @@ textarea.write-code {
   width: 18px;
   height: 18px;
   padding: 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-strong);
   border-radius: 2px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .write-grid-picker button.is-active {
-  border-color: #0b57d0;
-  background: #d3e3fd;
+  border-color: var(--tool-active-ink);
+  background: var(--tool-active-bg);
 }
 
 .write-grid-label {
@@ -1596,7 +1612,7 @@ textarea.write-code {
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid rgba(15, 23, 42, 0.15);
+  border: 1px solid var(--swatch-ring);
   border-radius: 50%;
 }
 
@@ -1700,9 +1716,10 @@ textarea.write-code {
   min-width: 0;
   min-height: 0;
   border-right: 1px solid var(--border);
-  background: #fff;
+  background: var(--code-bg);
 }
 
+/* Layout only: the editor's colours live in source/editorTheme.ts. */
 .write-source-editor {
   flex: 1;
   min-height: 0;
@@ -1722,23 +1739,8 @@ textarea.write-code {
   line-height: 1.6;
 }
 
-.write-source-editor .cm-gutters {
-  border-right: 1px solid var(--border);
-  background: var(--surface-sunken);
-  color: #94a3b8;
-}
-
-.write-source-editor .cm-activeLine {
-  background: #f8fafc;
-}
-
-.write-source-editor .cm-activeLineGutter {
-  background: #eef2f6;
-  color: var(--ink-muted);
-}
-
 .write-source-editor .cm-line-flash {
-  background: #fef9c3;
+  background: var(--flash-bg);
 }
 
 .write-preview {
@@ -1749,13 +1751,14 @@ textarea.write-code {
 
 .write-preview .paper-sheet {
   margin: 0 auto;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--page-shadow);
 }
 
 .write-preview [data-line] {
   scroll-margin-top: 24px;
 }
 
+/* On the rendered page, so a fixed highlighter yellow in both themes. */
 .write-preview .is-synced {
   background: #fef9c3;
   box-shadow: 0 0 0 4px #fef9c3;
@@ -1799,9 +1802,9 @@ textarea.write-code {
   font-family: var(--font-mono);
 }
 
-.write-sev-error { color: #b91c1c; }
-.write-sev-warning { color: #a16207; }
-.write-sev-info { color: #0369a1; }
+.write-sev-error { color: var(--sev-error); }
+.write-sev-warning { color: var(--sev-warning); }
+.write-sev-info { color: var(--sev-info); }
 
 .write-mobile-tabs {
   display: none;
@@ -1888,6 +1891,15 @@ textarea.write-code {
   }
 }
 
+/* On a phone the title row has no width to spare (the mode switch already runs
+   under the header actions), so the colour theme is left to the documents
+   list's top bar, one tap away through the logo. */
+@media (max-width: 520px) {
+  .write-header .theme-toggle {
+    display: none;
+  }
+}
+
 /* ── Visual editor extras ─────────────────────────────────────────────── */
 
 .write-raw-preview {
@@ -1930,12 +1942,15 @@ textarea.write-code {
   text-decoration: none;
 }
 
+/* The dot shows a page colour (black by default), so it keeps an edge that
+   stays visible on a dark toolbar. */
 .write-color-dot {
   display: block;
   width: 14px;
   height: 3px;
   margin-top: -3px;
   border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--swatch-ring);
 }
 
 .write-tool-stack {

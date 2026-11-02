@@ -1,4 +1,5 @@
 import { BookMarkIcon, HeartIcon } from "./Icons";
+import ThemeToggle from "./ThemeToggle";
 import { Status } from "../interface";
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -77,6 +78,7 @@ function TopBar({ status, onHome, onSearch, isLearning, isWriting, onDonate }: T
             <span>{STATUS_LABEL[status]}</span>
           </div>
         )}
+        <ThemeToggle />
       </div>
     </header>
   );
