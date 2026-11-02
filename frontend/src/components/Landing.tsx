@@ -133,6 +133,7 @@ const FAST_START_PROMPTS = [
 
 const NAV_LINKS = [
   { href: "#evidence-demo", label: "Live Preview" },
+  { href: "#free-access", label: "100% Free" },
   { href: "#disciplines", label: "Disciplines" },
   { href: "#methodology", label: "Architecture" },
   { href: "#courses-info", label: "Courses" },
@@ -142,6 +143,18 @@ const NAV_LINKS = [
 ];
 
 const FAQS = [
+  {
+    q: "How free is Recommendica, and is there any catch or hidden fee?",
+    a: "Recommendica is 100% free with no catch, no paid tiers, and no trial periods. There are no credit card forms, no daily query quotas, and no token metering. You do not even need to create an account or provide an email address. The entire research platform—including literature discovery, arXiv federation, 4 full interactive courses, and the in-browser LaTeX manuscript editor—is freely available at $0 to everyone.",
+  },
+  {
+    q: "Why is there a Donate button if the platform is completely free?",
+    a: "Recommendica is an open educational initiative built under nevatal.id. The voluntary donation button exists solely for researchers, universities, or supporters who want to help subsidize server hosting, vector store compute, and API federation infrastructure. Donating is strictly optional and never unlocks exclusive features, because 100% of the platform's capabilities are already unlocked for all users.",
+  },
+  {
+    q: "Do I need to sign up or provide an email to use the paper editor or research courses?",
+    a: "No account is ever required. You can immediately search literature, write papers in LaTeX or visual WYSIWYG mode, and complete interactive courses with quizzes. All your drafts, bibliography entries, and course progress are saved locally in your own browser via Web Storage, giving you instant access and complete privacy without any sign-in barrier.",
+  },
   {
     q: "How does Recommendica determine paper relevance?",
     a: "Unlike keyword matching or pure dense retrieval which return top-k matches regardless of topic alignment, Recommendica deploys an autonomous relevance grading agent. Each candidate paper is evaluated against your specific inquiry. Papers failing strict relevance thresholds are discarded before synthesis. If insufficient evidence survives, the agent automatically refines query parameters rather than fabricating answers.",
@@ -168,7 +181,7 @@ const FAQS = [
   },
   {
     q: "Is Recommendica free for academic research and students?",
-    a: "Yes. Recommendica is completely free, open access, and requires no account registration, subscriptions, or paywalls. It is engineered to support open scientific discovery.",
+    a: "Yes. Recommendica is completely free, open access, and requires no account registration, subscriptions, or paywalls. It is engineered to support open scientific discovery for students, teachers, independent researchers, and academic labs across the globe.",
   },
 ];
 
@@ -296,6 +309,13 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
       <main className="landing-main">
         {/* ── Hero Section (Flagship RAG Literature Synthesis) ──────────── */}
         <section className="landing-hero" aria-labelledby="hero-heading">
+          <div className="hero-free-badge" aria-label="100% Free and Open Platform">
+            <SparklesIcon size={14} className="hero-free-badge-icon" />
+            <span>100% Free &amp; Open Access</span>
+            <span className="hero-free-badge-divider">·</span>
+            <span>No Account or Card Required</span>
+          </div>
+
           <h1 className="landing-title" id="hero-heading" tabIndex={-1}>
             Synthesize scientific literature with verified source attribution.
           </h1>
@@ -381,8 +401,8 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
                 <GraduationCapIcon size={16} />
               </span>
               <div>
-                <strong>Open Access</strong>
-                <span>Zero paywalls, registration, or tracking</span>
+                <strong>100% Free Access</strong>
+                <span>Zero paywalls, registration, or hidden fees</span>
               </div>
             </div>
           </div>
@@ -404,9 +424,125 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
           <div>
             <p className="section-label">Write with Recommendica · In-Browser LaTeX Studio</p>
             <h2 id="landing-write-heading">Turn the papers you find into a paper of your own.</h2>
-            <p>A complete paper editor: write in visual WYSIWYG or LaTeX source with an instant KaTeX preview, built-in BibTeX citations, conference templates, and PDF export with zero setup.</p>
+            <p>A complete, 100% free paper editor: write in visual WYSIWYG or LaTeX source with an instant KaTeX preview, built-in BibTeX citations, conference templates, and PDF export with zero setup or fees.</p>
           </div>
           <a href="#editor-info" className="ghost-button landing-courses-link">Editor features <ArrowRightIcon size={16} /></a>
+        </section>
+
+        {/* ── 100% Free & Open Access Section ───────────────────────────── */}
+        <section
+          className="landing-block"
+          id="free-access"
+          aria-labelledby="free-access-title"
+        >
+          <div className="section-header">
+            <p className="section-label">Open Access Promise · 100% Free</p>
+            <h2 className="landing-section-title" id="free-access-title">
+              How free is Recommendica?
+            </h2>
+            <p className="section-subtitle">
+              Completely free forever. No subscriptions, no paywalls, no daily limits,
+              and no account required. Here is exactly what open access means on Recommendica.
+            </p>
+          </div>
+
+          <div className="free-features-grid">
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <CheckIcon size={18} />
+                </span>
+                <span className="free-feature-tag">$0 Cost</span>
+              </div>
+              <h3 className="free-feature-title">No Subscriptions or Paid Tiers</h3>
+              <p className="free-feature-desc">
+                There is no &ldquo;Pro&rdquo; plan, no credit card prompt, and no 14-day trial that expires. Every search, synthesis, and writing feature is completely free for everyone.
+              </p>
+            </div>
+
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <ZapIcon size={18} />
+                </span>
+                <span className="free-feature-tag">Instant Start</span>
+              </div>
+              <h3 className="free-feature-title">Zero Registration or Sign-Up</h3>
+              <p className="free-feature-desc">
+                No email collection, no password to create, and no waiting list. You can start searching literature, taking courses, or editing papers the moment you land on the page.
+              </p>
+            </div>
+
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <SearchIcon size={18} />
+                </span>
+                <span className="free-feature-tag">Unlimited</span>
+              </div>
+              <h3 className="free-feature-title">No Usage Quotas or Rate Limits</h3>
+              <p className="free-feature-desc">
+                Run as many academic queries as you need. There are no daily search caps, token metering, or restricted deep-analysis modes holding back your inquiry.
+              </p>
+            </div>
+
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <LayersIcon size={18} />
+                </span>
+                <span className="free-feature-tag">Full Stack</span>
+              </div>
+              <h3 className="free-feature-title">All Three Academic Tools Included</h3>
+              <p className="free-feature-desc">
+                Grounded multi-paper AI synthesis with verifiable citations, all 4 interactive research courses with self-check quizzes, and the full LaTeX paper studio with camera-ready PDF export.
+              </p>
+            </div>
+
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <ShieldCheckIcon size={18} />
+                </span>
+                <span className="free-feature-tag">Private</span>
+              </div>
+              <h3 className="free-feature-title">Zero Ads &amp; Local Privacy</h3>
+              <p className="free-feature-desc">
+                No banner advertisements, no sponsored results, and no selling your research queries. Manuscript drafts and course progress stay safely stored in your browser.
+              </p>
+            </div>
+
+            <div className="free-feature-card">
+              <div className="free-feature-header">
+                <span className="free-feature-icon">
+                  <GraduationCapIcon size={18} />
+                </span>
+                <span className="free-feature-tag">Public Good</span>
+              </div>
+              <h3 className="free-feature-title">Built for Students &amp; Researchers</h3>
+              <p className="free-feature-desc">
+                Developed under nevatal.id to tear down paywalls in academic discovery. Voluntary donations exist only to help offset server hosting, never to restrict features.
+              </p>
+            </div>
+          </div>
+
+          <div className="free-transparency-card">
+            <div className="free-transparency-header">
+              <BookMarkIcon size={22} className="free-transparency-icon" />
+              <h3 className="free-transparency-title">Our Open Access Commitment</h3>
+            </div>
+            <p className="free-transparency-text">
+              Rigorous scientific literature review and manuscript composition shouldn&apos;t be gated behind expensive institutional subscriptions or commercial AI paywalls. Recommendica pairs open scholarly indices and real-time arXiv federation with lightweight client-side LaTeX compilation to eliminate artificial barriers. Whether you are an undergraduate writing your first paper or an independent researcher investigating an interdisciplinary problem, everything here is yours to use freely.
+            </p>
+            <div className="free-transparency-pills">
+              <span className="free-pill"><CheckIcon size={14} /> $0 Cost Forever</span>
+              <span className="free-pill"><CheckIcon size={14} /> No Account Needed</span>
+              <span className="free-pill"><CheckIcon size={14} /> Unlimited Searches</span>
+              <span className="free-pill"><CheckIcon size={14} /> 4 Free Courses</span>
+              <span className="free-pill"><CheckIcon size={14} /> Free In-Browser LaTeX Studio</span>
+              <span className="free-pill"><CheckIcon size={14} /> Zero Commercial Ads</span>
+            </div>
+          </div>
         </section>
 
         {/* ── Interactive Evidence Inspector (Live Research Preview) ──── */}
@@ -1148,17 +1284,41 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
                   <td className="col-highlight">
                     <div className="comp-cell-val val-positive">
                       <CheckIcon size={16} />
-                      <span>100% Free &amp; Open (No account needed)</span>
+                      <span>100% Free forever (No card, no tiers, no paywalls)</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="comp-cell-val val-negative">
+                      <AlertTriangleIcon size={16} />
+                      <span>Paid subscriptions ($20+/mo) for latest models</span>
                     </div>
                   </td>
                   <td>
                     <div className="comp-cell-val val-neutral">
-                      <span>Paid subscriptions for advanced models</span>
+                      <span>Free index, but frequent $35+ publisher paywalls</span>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <strong>Account &amp; Friction</strong>
+                    <span className="td-hint">Sign-up requirements</span>
+                  </td>
+                  <td className="col-highlight">
+                    <div className="comp-cell-val val-positive">
+                      <CheckIcon size={16} />
+                      <span>Zero sign-up (No email, password, or login)</span>
                     </div>
                   </td>
                   <td>
                     <div className="comp-cell-val val-neutral">
-                      <span>Free index, but frequent publisher paywalls</span>
+                      <span>Mandatory account and phone or email verification</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="comp-cell-val val-neutral">
+                      <span>Account required for alerts and citation library</span>
                     </div>
                   </td>
                 </tr>
@@ -1192,10 +1352,14 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
 
         {/* ── Closing Call to Action ────────────────────────────────────── */}
         <section className="landing-closer">
-          <h2 className="landing-closer-title">Begin your literature search</h2>
+          <div className="landing-closer-badge">
+            <SparklesIcon size={14} />
+            <span>100% Free · No Sign-Up Needed</span>
+          </div>
+          <h2 className="landing-closer-title">Begin your literature search — 100% Free</h2>
           <p className="landing-closer-text">
             Enter an academic question or select an interdisciplinary topic to
-            generate grounded, cited research recommendations.
+            generate grounded, cited research recommendations. Everything is completely free with zero accounts, subscriptions, or paywalls.
           </p>
           <div className="landing-closer-actions">
             <button
@@ -1214,6 +1378,12 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               <FileTextIcon size={18} />
               <span>Open Paper Editor</span>
             </a>
+          </div>
+          <div className="landing-closer-perks">
+            <span><CheckIcon size={13} /> $0 Cost Forever</span>
+            <span><CheckIcon size={13} /> No Sign-Up Required</span>
+            <span><CheckIcon size={13} /> Unlimited Searches</span>
+            <span><CheckIcon size={13} /> In-Browser LaTeX Studio</span>
           </div>
         </section>
       </main>
@@ -1242,7 +1412,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
             </p>
             <p className="footer-subtext">
               Federated with arXiv preprint retrieval and indexed scientific corpora ({paperCount.toLocaleString()} indexed papers).
-              Open research access. · <a href="#privacy" style={{ color: "var(--accent)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent)", textDecoration: "underline" }}>Terms of Service</a>
+              100% free and open research access. · <a href="#privacy" style={{ color: "var(--accent)", textDecoration: "underline" }}>Privacy Policy</a> · <a href="#terms" style={{ color: "var(--accent)", textDecoration: "underline" }}>Terms of Service</a>
             </p>
             <p className="footer-subtext" style={{ marginTop: "4px" }}>
               This project is under nevatal.id for educational purposes.
