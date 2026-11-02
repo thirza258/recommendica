@@ -18,7 +18,9 @@ import type { PaperSettings } from "../documents.ts";
 import { DEFAULT_SETTINGS, normalizeSettings, plainText } from "../documents.ts";
 import { parseLatex, nodesToText } from "../latex/parser.ts";
 import type { Argument, CommandNode, EnvironmentNode, LatexNode } from "../latex/parser.ts";
-import { ACCENTS, CONTROL_SYMBOLS, NAMED_COLORS, TEXT_SYMBOLS, applyAccent, formatToday } from "../latex/symbols.ts";
+import { ACCENTS, CONTROL_SYMBOLS, TEXT_SYMBOLS, applyAccent, formatToday, resolveColor } from "../latex/symbols.ts";
+import { importPreamble, scanPreamble } from "../latexPreamble.ts";
+import type { ImportedPreamble, PreambleStatement } from "../latexPreamble.ts";
 
 export interface LatexImportOptions {
   /** Other project files, used for images and included text. */
@@ -34,12 +36,31 @@ export interface LatexImportResult {
   settings: Partial<PaperSettings>;
   bib: string;
   title: string;
+  /**
+   * The author's own preamble statements (macros, packages, colours, theorem
+   * definitions), which the exporter writes back; "" when there are none.
+   */
+  preamble: string;
   warnings: string[];
 }
 
 interface Mark {
   type: string;
   attrs?: Record<string, unknown>;
+}
+
+/**
+ * Authors that share affiliations. REVTeX lists `\author{A}\author{B}` and
+ * then their `\affiliation`; amsart gives each `\author` its `\address`;
+ * other classes put everyone in one `\author{… \and …}`.
+ */
+interface AuthorGroup {
+  names: JSONContent[][];
+  lines: JSONContent[][];
+  /** A finished block (`Name \\ Dept`, IEEE blocks) that takes no more names. */
+  content: JSONContent[] | null;
+  /** Has an affiliation, so the next \author starts a new group. */
+  affiliated: boolean;
 }
 
 type LabelKind = "heading" | "figure" | "tableFigure" | "mathBlock" | "unknown";
@@ -63,6 +84,21 @@ const SETTING_KEYS: (keyof PaperSettings)[] = [
   "citationStyle",
   "numberedHeadings",
 ];
+
+/** Layout a LaTeX document has when its preamble does not say otherwise. */
+const LATEX_DEFAULTS: Partial<PaperSettings> = {
+  paper: "letter",
+  columns: 1,
+  font: "cm",
+  fontSize: 10,
+  lineSpacing: 1,
+  paragraphStyle: "indent",
+  citationStyle: "ieee",
+  numberedHeadings: true,
+};
+
+/** Title-page declarations without a visual counterpart. */
+const FRONT_MATTER = new Set(["date", "subjclass", "dedicatory", "translator", "pacs", "preprint", "received", "revised", "accepted", "published", "communicated"]);
 
 const HEADING_LEVELS: Record<string, number> = {
   part: 1,
@@ -369,6 +405,14 @@ function trimInline(content: JSONContent[]): JSONContent[] {
     const last = trimmed[trimmed.length - 1];
     if (last.type === "text") last.text = (last.text ?? "").replace(/\s+$/, "");
   }
+  // \\ swallows the spaces around it, so "Line one\\ Line two" has none.
+  for (let index = 0; index < trimmed.length; index++) {
+    if (trimmed[index].type !== "hardBreak") continue;
+    const before = trimmed[index - 1];
+    if (before?.type === "text") before.text = (before.text ?? "").replace(/\s+$/, "");
+    const after = trimmed[index + 1];
+    if (after?.type === "text") after.text = (after.text ?? "").replace(/^\s+/, "");
+  }
   return trimmed.filter((node) => node.type !== "text" || (node.text ?? "").length > 0);
 }
 
@@ -391,13 +435,6 @@ function cleanMath(content: string): { latex: string; labels: string[]; numbered
   return { latex: latex.trim(), labels, numbered: !nonumber };
 }
 
-function colorValue(raw: string): string | null {
-  const name = raw.trim().replace(/^\{|\}$/g, "");
-  if (!name) return null;
-  if (/^#[0-9a-f]{3,8}$/i.test(name)) return name;
-  if (/^[a-z]+$/i.test(name)) return NAMED_COLORS[name.toLowerCase()] ?? null;
-  return null;
-}
 
 function imageWidth(raw: string): number {
   const fraction = /width\s*=\s*([\d.]+)\s*\\(?:linewidth|textwidth|columnwidth|hsize)/.exec(raw);
@@ -419,6 +456,67 @@ function basename(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+/** Splits nodes at the given commands (`\and`), dropping blank parts. */
+function splitAt(nodes: LatexNode[], names: Set<string>): LatexNode[][] {
+  const parts: LatexNode[][] = [[]];
+  for (const node of nodes) {
+    if (node.type === "command" && names.has(node.name)) parts.push([]);
+    else parts[parts.length - 1].push(node);
+  }
+  return parts.filter((part) => part.some((node) => !isWhitespaceNode(node)));
+}
+
+const AUTHOR_SEPARATORS = new Set(["and", "AND"]);
+const IEEE_AUTHOR_BLOCKS = new Set(["IEEEauthorblockN", "IEEEauthorblockA"]);
+
+function hasLineBreak(nodes: LatexNode[]): boolean {
+  return nodes.some((node) => node.type === "command" && (node.name === "\\" || node.name === "newline"));
+}
+
+const VERBATIM_START = /^\\begin\{(verbatim\*?|Verbatim\*?|lstlisting|minted|comment|filecontents\*?|alltt)\}/;
+
+/**
+ * `%` comments in LaTeX source: not `\%`, not inside verbatim text, \verb or
+ * URLs, and not the exporter's settings line.
+ */
+export function countComments(text: string): number {
+  let count = 0;
+  for (let index = 0; index < text.length; index++) {
+    const ch = text[index];
+    if (ch === "\\") {
+      const rest = text.slice(index, index + 40);
+      const verbatim = VERBATIM_START.exec(rest);
+      if (verbatim) {
+        const close = `\\end{${verbatim[1]}}`;
+        const end = text.indexOf(close, index + verbatim[0].length);
+        index = end === -1 ? text.length : end + close.length - 1;
+        continue;
+      }
+      const verb = /^\\(?:verb|lstinline)\*?([^A-Za-z\s*{])/.exec(rest);
+      if (verb) {
+        const end = text.indexOf(verb[1], index + verb[0].length);
+        index = end === -1 ? text.length : end;
+        continue;
+      }
+      const url = /^\\(?:url|href)\{/.exec(rest);
+      if (url) {
+        const end = text.indexOf("}", index + url[0].length);
+        index = end === -1 ? text.length : end;
+        continue;
+      }
+      index++;
+      continue;
+    }
+    if (ch === "%") {
+      const end = text.indexOf("\n", index);
+      const comment = text.slice(index, end === -1 ? text.length : end);
+      if (!/^%\s*recommendica-write-settings:/.test(comment)) count++;
+      index = end === -1 ? text.length : end;
+    }
+  }
+  return count;
+}
+
 class LatexImporter {
   private readonly source: string;
   private readonly files: Record<string, string>;
@@ -429,6 +527,16 @@ class LatexImporter {
   private readonly usedIds = new Set<string>();
   private readonly missingRefs = new Set<string>();
   private readonly unknownCommands = new Set<string>();
+  /** Colours from \definecolor and \colorlet, by name. */
+  private readonly colors: Record<string, string> = {};
+  /** soul's highlight colour (\sethlcolor), scoped like a TeX group. */
+  private highlightColor: string | null = null;
+  /** \thanks notes were left out. */
+  private droppedNotes = false;
+  /** Title-page declarations from the body (\subjclass, \date), kept with the preamble. */
+  private readonly frontMatter: string[] = [];
+  /** Source spans of raw blocks, so adjacent ones can be joined again. */
+  private readonly rawSpans = new WeakMap<JSONContent, { start: number; end: number }>();
 
   constructor(source: string, options: LatexImportOptions) {
     this.source = source.replace(/\r\n?/g, "\n");
@@ -442,12 +550,20 @@ class LatexImporter {
     const document = parsed.nodes.find((node): node is EnvironmentNode => node.type === "environment" && node.name === "document");
     const preamble = document ? parsed.nodes.slice(0, parsed.nodes.indexOf(document)) : [];
     const body = document ? document.children : parsed.nodes;
+    const scanned = scanPreamble(this.source);
+    const own = scanned.bodyStart === null ? null : importPreamble(scanned.statements);
+    for (const statement of scanned.statements) this.defineColorFrom(statement);
 
     const metadata = this.metadata(preamble, body);
     this.collectLabels(body);
     for (const node of preamble) this.collectLabels([node]);
 
     const blocks = this.blocks(body);
+    if (!blocks.some((node) => node.type === "paperKeywords")) {
+      // \noindent\textbf{Keywords:} … is how article-class papers write them.
+      const index = blocks.findIndex((node) => this.keywordsContent(node) !== null);
+      if (index !== -1) blocks[index] = { type: "paperKeywords", content: this.keywordsContent(blocks[index]) ?? [] };
+    }
     const hasKeywords = blocks.some((node) => node.type === "paperKeywords");
     if (metadata.keywords && !hasKeywords) {
       const abstract = blocks.findIndex((node) => node.type === "paperAbstract");
@@ -455,7 +571,9 @@ class LatexImporter {
     }
 
     if (metadata.title.length) blocks.unshift({ type: "paperTitle", content: metadata.title });
-    if (metadata.authors.length) blocks.splice(metadata.title.length ? 1 : 0, 0, { type: "paperAuthors", content: metadata.authors });
+    if (metadata.authors.length) {
+      blocks.splice(metadata.title.length ? 1 : 0, 0, ...metadata.authors.map((content) => ({ type: "paperAuthors", content })));
+    }
 
     const bib = this.bibText();
     if (bib && !blocks.some((node) => node.type === "bibliography") && this.hasCitations(blocks)) {
@@ -468,22 +586,37 @@ class LatexImporter {
     if (this.missingRefs.size) {
       this.warnings.push(`${this.missingRefs.size} cross-reference${this.missingRefs.size === 1 ? "" : "s"} point to labels that were not found; they are kept as links and export as ??.`);
     }
+    if (this.droppedNotes) this.warnings.push("Notes on the title or authors (\\thanks) are not shown in the visual editor and were left out.");
+    if (own?.biblatex) this.warnings.push("biblatex was replaced by BibTeX (\\bibliography), which the visual editor formats; biblatex options were left out.");
+    const comments = countComments(this.source);
+    if (comments) {
+      const them = comments === 1 ? "it" : "them";
+      this.warnings.push(`This paper has ${comments} LaTeX comment${comments === 1 ? "" : "s"}. The visual editor does not show comments, so editing here removes ${them} from the source.`);
+    }
 
     return {
       content: { type: "doc", content: blocks.length ? blocks : [{ type: "paragraph" }] },
-      settings: this.settings(preamble, body),
+      settings: this.settings(preamble, body, own),
       bib,
       title: plainText({ type: "doc", content: metadata.title }),
+      preamble: [own?.preamble ?? "", ...this.frontMatter].filter(Boolean).join("\n"),
       warnings: [...new Set(this.warnings)],
     };
   }
 
   // ── Metadata and settings ─────────────────────────────────────────────────
 
-  private metadata(preamble: LatexNode[], body: LatexNode[]): { title: JSONContent[]; authors: JSONContent[]; keywords: JSONContent[] | null } {
+  private metadata(preamble: LatexNode[], body: LatexNode[]): { title: JSONContent[]; authors: JSONContent[][]; keywords: JSONContent[] | null } {
     let title: JSONContent[] = [];
-    const authors: JSONContent[] = [];
+    const groups: AuthorGroup[] = [];
     let keywords: JSONContent[] | null = null;
+    const open = (): AuthorGroup => {
+      const last = groups[groups.length - 1];
+      if (last && !last.content) return last;
+      const group: AuthorGroup = { names: [], lines: [], content: null, affiliated: false };
+      groups.push(group);
+      return group;
+    };
     const visit = (nodes: LatexNode[]) => {
       for (const node of nodes) {
         if (node.type === "command") {
@@ -492,9 +625,22 @@ class LatexImporter {
               if (!title.length) title = this.inline(lastParsedArg(node));
               break;
             case "author":
-              if (authors.length) authors.push({ type: "hardBreak" });
-              authors.push(...this.inline(lastParsedArg(node)));
+              this.author(lastParsedArg(node), groups);
               break;
+            case "affiliation":
+            case "address":
+            case "curraddr":
+            case "institute":
+            case "institution":
+            case "email":
+            case "urladdr": {
+              const line = trimInline(this.inline(lastParsedArg(node)));
+              if (!line.length) break;
+              const group = open();
+              group.lines.push(line);
+              if (node.name !== "email" && node.name !== "urladdr") group.affiliated = true;
+              break;
+            }
             case "keywords":
               if (!keywords) keywords = this.inline(lastParsedArg(node));
               break;
@@ -512,7 +658,75 @@ class LatexImporter {
     };
     visit(preamble);
     visit(body);
-    return { title: trimInline(title), authors: trimInline(authors), keywords: keywords ? trimInline(keywords) : null };
+    const authors = groups
+      .map((group) => {
+        if (group.content) return group.content;
+        const content: JSONContent[] = [];
+        group.names.forEach((name, index) => {
+          if (index) content.push({ type: "text", text: ", " });
+          content.push(...name);
+        });
+        for (const line of group.lines) {
+          if (content.length) content.push({ type: "hardBreak" });
+          content.push(...line);
+        }
+        return trimInline(content);
+      })
+      .filter((content) => content.length);
+    return { title: trimInline(title), authors, keywords: keywords ? trimInline(keywords) : null };
+  }
+
+  /** One \author command: a name, or complete blocks split at \and. */
+  private author(children: LatexNode[], groups: AuthorGroup[]): void {
+    const ieee = children.some((node) => node.type === "command" && IEEE_AUTHOR_BLOCKS.has(node.name));
+    const parts = splitAt(children, AUTHOR_SEPARATORS);
+    if (ieee || parts.length > 1 || hasLineBreak(children)) {
+      for (const part of parts) {
+        const content = ieee ? this.ieeeAuthor(part) : trimInline(this.inline(part));
+        if (content.length) groups.push({ names: [], lines: [], content, affiliated: true });
+      }
+      return;
+    }
+    const name = trimInline(this.inline(children));
+    if (!name.length) return;
+    let group = groups[groups.length - 1];
+    if (!group || group.content || group.affiliated) {
+      group = { names: [], lines: [], content: null, affiliated: false };
+      groups.push(group);
+    }
+    group.names.push(name);
+  }
+
+  /** `\IEEEauthorblockN{Name}\IEEEauthorblockA{Dept\\ University}` → lines. */
+  private ieeeAuthor(nodes: LatexNode[]): JSONContent[] {
+    const out: JSONContent[] = [];
+    for (const node of nodes) {
+      if (node.type !== "command" || !IEEE_AUTHOR_BLOCKS.has(node.name)) continue;
+      const content = trimInline(this.inline(lastParsedArg(node)));
+      if (!content.length) continue;
+      if (out.length) out.push({ type: "hardBreak" });
+      out.push(...content);
+    }
+    return trimInline(out);
+  }
+
+  /** The keywords of a "Keywords: a, b" paragraph, or null for any other block. */
+  private keywordsContent(block: JSONContent): JSONContent[] | null {
+    if (block.type !== "paragraph" || !block.content?.length) return null;
+    const [first, ...rest] = block.content;
+    if (first.type !== "text" || !first.text) return null;
+    const marks = (first.marks ?? []) as Mark[];
+    const labelled = marks.some((mark) => mark.type === "bold" || mark.type === "italic");
+    const match = /^\s*(?:key\s*-?\s*words|index\s+terms)\s*([:.\u2014\u2013-])?\s*/i.exec(first.text);
+    if (!match || (!labelled && !match[1])) return null;
+    const content: JSONContent[] = [];
+    const remainder = first.text.slice(match[0].length);
+    if (remainder) content.push(textNode(remainder, marks));
+    content.push(...rest.map((node) => ({ ...node })));
+    const head = content[0];
+    if (head?.type === "text") head.text = (head.text ?? "").replace(/^[\s:.\u2014\u2013-]+/, "");
+    const keywords = trimInline(content);
+    return keywords.length ? keywords : null;
   }
 
   /**
@@ -520,12 +734,19 @@ class LatexImporter {
    * the user has visibly changed the preamble (margins, fonts, document class).
    * The theme needs special care: APA and article share the same class.
    */
-  private settings(preamble: LatexNode[], body: LatexNode[]): Partial<PaperSettings> {
+  private settings(preamble: LatexNode[], body: LatexNode[], own: ImportedPreamble | null): Partial<PaperSettings> {
     const detected = this.detectedSettings(preamble, body);
+    if (own?.margins) detected.margins = own.margins;
+    if (own?.sansSerif) detected.font = "sans";
+    if (own?.lineSpacing && detected.lineSpacing === undefined) detected.lineSpacing = own.lineSpacing;
     const marker = this.markerSettings();
-    if (!Object.keys(marker).length) return detected;
     if (marker.theme && (!detected.theme || detected.theme === "article")) detected.theme = marker.theme;
-    return { ...marker, ...detected };
+    // A complete document states its layout: whatever it leaves unset is
+    // LaTeX's default, not the visual editor's (1.15 spacing, 1in margins).
+    const defaults: Partial<PaperSettings> = own ? { ...LATEX_DEFAULTS } : {};
+    const classLayout = detected.theme === "ieee" || detected.theme === "revtex" || detected.theme === "amsart";
+    if (own && !classLayout) defaults.margins = "wide";
+    return { ...defaults, ...marker, ...detected };
   }
 
   /** Visual-only settings stored in a comment by toLatex.ts. */
@@ -575,15 +796,8 @@ class LatexImporter {
           if (names.includes("arxiv-preprint")) settings.theme = "arxiv";
           if (names.includes("ml-preprint")) settings.theme = "mlconf";
           if (names.includes("parskip")) settings.paragraphStyle = "spaced";
+          if (names.includes("fullpage")) settings.margins = "normal";
           const options = argRaw(node, 0);
-          if (names.includes("geometry")) {
-            const margin = /(?:^|,)\s*margin\s*=\s*([\d.]+)\s*(in|cm|mm|pt)/.exec(options);
-            if (margin) {
-              const value = Number(margin[1]);
-              const inches = margin[2] === "cm" ? value / 2.54 : margin[2] === "mm" ? value / 25.4 : margin[2] === "pt" ? value / 72.27 : value;
-              settings.margins = inches < 0.75 ? "narrow" : inches > 1.25 ? "wide" : "normal";
-            }
-          }
           if (names.includes("natbib") && !options.includes("numbers") && !settings.citationStyle) settings.citationStyle = "apa";
           break;
         }
@@ -725,6 +939,9 @@ class LatexImporter {
   private blocks(nodes: LatexNode[]): JSONContent[] {
     const out: JSONContent[] = [];
     let inlineRun: LatexNode[] = [];
+    // A blank line (or the start) since the last block: raw blocks with only a
+    // line break between them were one block in the visual editor.
+    let separated = true;
     const flush = () => {
       const content = trimInline(this.inline(inlineRun));
       inlineRun = [];
@@ -738,12 +955,24 @@ class LatexImporter {
       }
       if (node.type === "parbreak") {
         flush();
+        separated = true;
         continue;
       }
       const block = this.blockAt(nodes, index);
       if (block) {
         flush();
-        out.push(...block.nodes);
+        for (const produced of block.nodes) {
+          const last = out[out.length - 1];
+          const before = last ? this.rawSpans.get(last) : undefined;
+          const span = this.rawSpans.get(produced);
+          if (!separated && last && before && span && span.start >= before.end && !this.source.slice(before.end, span.start).trim()) {
+            last.attrs = { ...(last.attrs ?? {}), source: this.source.slice(before.start, span.end) };
+            this.rawSpans.set(last, { start: before.start, end: span.end });
+          } else {
+            out.push(produced);
+          }
+          separated = false;
+        }
         index = block.next - 1;
         continue;
       }
@@ -786,11 +1015,18 @@ class LatexImporter {
       return { nodes: [{ type: "heading", attrs: { level, numbered: !node.star, id }, content }], next };
     }
 
+    if (FRONT_MATTER.has(node.name)) {
+      // Declarations \maketitle typesets: valid in the preamble, where the
+      // exporter writes the author's statements back.
+      const text = this.source.slice(node.start, node.end).trim();
+      if (text && (node.name !== "date" || lastRawArg(node).trim() || lastParsedArg(node).length)) this.frontMatter.push(text);
+      return { nodes: [], next: index + 1 };
+    }
+
     switch (node.name) {
       case "maketitle":
       case "title":
       case "author":
-      case "date":
       case "thanks":
       case "affiliation":
       case "institute":
@@ -839,8 +1075,13 @@ class LatexImporter {
   private environmentBlock(node: EnvironmentNode, next: number): { nodes: JSONContent[]; next: number } | null {
     if (node.name === "document") return { nodes: this.blocks(node.children), next };
     if (node.name === "abstract") {
-      const content = this.blocks(node.children).filter((child) => child.type === "paragraph");
-      return { nodes: [{ type: "paperAbstract", content: content.length ? content : [{ type: "paragraph" }] }], next };
+      const children = this.blocks(node.children);
+      // Keywords are often the abstract's last line; they become their own block.
+      const keywords = children.findIndex((child) => this.keywordsContent(child) !== null);
+      const keywordsNode = keywords === -1 ? null : { type: "paperKeywords", content: this.keywordsContent(children[keywords]) ?? [] };
+      const content = children.filter((child, index) => child.type === "paragraph" && index !== keywords);
+      const abstract = { type: "paperAbstract", content: content.length ? content : [{ type: "paragraph" }] };
+      return { nodes: keywordsNode ? [abstract, keywordsNode] : [abstract], next };
     }
     if (node.name === "IEEEkeywords" || node.name === "keywords") {
       return { nodes: [{ type: "paperKeywords", content: trimInline(this.inline(node.children)) }], next };
@@ -904,7 +1145,9 @@ class LatexImporter {
   }
 
   private raw(node: LatexNode): JSONContent {
-    return { type: "rawLatex", attrs: { source: this.source.slice(node.start, node.end) } };
+    const raw = { type: "rawLatex", attrs: { source: this.source.slice(node.start, node.end) } };
+    this.rawSpans.set(raw, { start: node.start, end: node.end });
+    return raw;
   }
 
   // ── Lists, figures and tables ─────────────────────────────────────────────
@@ -932,14 +1175,15 @@ class LatexImporter {
       current = [];
       label = "";
     };
+    let started = false;
     for (const child of node.children) {
       if (child.type === "command" && child.name === "item") {
-        flush();
+        // Anything before the first \item is list setup, not an item.
+        if (started) flush();
+        else current = [];
+        started = true;
         label = argRaw(child, 0) || nodesToText(argChildren(child, 0)).trim();
-      } else {
-        // Whitespace before the first \item (or after the last one) is not an
-        // empty list item.
-        if (!items.length && !label && isWhitespaceNode(child)) continue;
+      } else if (started || !isWhitespaceNode(child)) {
         current.push(child);
       }
     }
@@ -1117,46 +1361,113 @@ class LatexImporter {
 
   private inline(nodes: LatexNode[], marks: Mark[] = []): JSONContent[] {
     const out: JSONContent[] = [];
+    // Declarations such as \bfseries or \color{red} apply to the rest of the group.
+    let current = marks;
     for (const node of nodes) {
       switch (node.type) {
         case "text":
-          pushText(out, applyLigatures(node.value), marks);
+          pushText(out, applyLigatures(node.value), current);
           break;
         case "space":
         case "parbreak":
         case "tab":
-          pushText(out, " ", marks);
+          pushText(out, " ", current);
           break;
         case "verb":
-          pushText(out, node.value, withMark(marks, { type: "code" }));
+          pushText(out, node.value, withMark(current, { type: "code" }));
           break;
-        case "group":
-          out.push(...this.inline(node.children, marks));
+        case "group": {
+          const highlight = this.highlightColor;
+          out.push(...this.inline(node.children, current));
+          this.highlightColor = highlight;
           break;
+        }
         case "math": {
           const math = cleanMath(node.content);
           if (math.latex) out.push({ type: "mathInline", attrs: { latex: math.latex } });
           break;
         }
         case "command": {
+          const declared = this.declaration(node, current);
+          if (declared) {
+            current = declared;
+            break;
+          }
           if (REFERENCE_COMMANDS.has(node.name)) {
             const target = lastRawArg(node).trim();
             const label = this.labels.get(target);
             if (label && label.kind !== "unknown") trimReferenceWord(out);
           }
-          out.push(...this.inlineCommand(node, marks));
+          out.push(...this.inlineCommand(node, current));
           break;
         }
-        case "environment":
+        case "environment": {
           // Inline formatting environments (\begin{small} … \end{small})
           // carry text but no block structure of their own.
-          out.push(...this.inline(node.children, marks));
+          const highlight = this.highlightColor;
+          out.push(...this.inline(node.children, current));
+          this.highlightColor = highlight;
           break;
+        }
         default:
           break;
       }
     }
     return out;
+  }
+
+  /** Marks after a font or colour declaration, or null for other commands. */
+  private declaration(node: CommandNode, marks: Mark[]): Mark[] | null {
+    switch (node.name) {
+      case "bfseries":
+      case "bf":
+        return withMark(marks, { type: "bold" });
+      case "mdseries":
+        return withoutMark(marks, "bold");
+      case "itshape":
+      case "it":
+      case "slshape":
+      case "sl":
+        return withMark(marks, { type: "italic" });
+      case "em":
+        return marks.some((mark) => mark.type === "italic") ? withoutMark(marks, "italic") : withMark(marks, { type: "italic" });
+      case "upshape":
+        return withoutMark(marks, "italic");
+      case "ttfamily":
+      case "tt":
+        return withMark(marks, { type: "code" });
+      case "rmfamily":
+      case "sffamily":
+        return withoutMark(marks, "code");
+      case "normalfont":
+      case "rm":
+        return withoutMark(withoutMark(withoutMark(marks, "bold"), "italic"), "code");
+      case "color": {
+        const color = this.color(argRaw(node, 0).trim() || null, argRaw(node, 1));
+        return color ? withMark(marks, { type: "textStyle", attrs: { color } }) : marks;
+      }
+      case "sethlcolor":
+        this.highlightColor = this.color(null, argRaw(node, 0));
+        return marks;
+      default:
+        return null;
+    }
+  }
+
+  private color(model: string | null, spec: string): string | null {
+    return resolveColor(model, spec.trim(), this.colors);
+  }
+
+  private defineColor(name: string, model: string | null, spec: string): void {
+    const color = this.color(model, spec);
+    if (name.trim() && color) this.colors[name.trim()] = color;
+  }
+
+  /** \definecolor and \colorlet in the preamble. */
+  private defineColorFrom(statement: PreambleStatement): void {
+    const values = statement.args.filter((arg) => !arg.optional).map((arg) => arg.value);
+    if (statement.name === "definecolor" && values.length >= 3) this.defineColor(values[0], values[1], values[2]);
+    else if (statement.name === "colorlet" && values.length >= 2) this.defineColor(values[0], null, values[1]);
   }
 
   private inlineCommand(node: CommandNode, marks: Mark[]): JSONContent[] {
@@ -1170,17 +1481,39 @@ class LatexImporter {
       uline: { type: "underline" },
       sout: { type: "strike" },
       st: { type: "strike" },
+      ul: { type: "underline" },
       textsuperscript: { type: "superscript" },
       textsubscript: { type: "subscript" },
       texttt: { type: "code" },
     };
     if (formatting[name]) return this.inline(lastParsedArg(node), withMark(marks, formatting[name]));
     if (name === "textup" || name === "textnormal") return this.inline(lastParsedArg(node), withoutMark(withoutMark(marks, "italic"), "bold"));
-    if (name === "textsc") return this.inline(lastParsedArg(node), marks);
-    if (name === "textcolor" || name === "colorbox" || name === "fcolorbox") {
-      const color = colorValue(name === "fcolorbox" ? argRaw(node, 2) : argRaw(node, 1));
-      const children = name === "fcolorbox" ? argChildren(node, 3) : argChildren(node, 2);
-      return this.inline(children, color ? withMark(marks, { type: "textStyle", attrs: { color } }) : marks);
+    if (name === "textsc" || name === "so" || name === "caps") return this.inline(lastParsedArg(node), marks);
+    if (name === "textcolor") {
+      const color = this.color(argRaw(node, 0).trim() || null, argRaw(node, 1));
+      return this.inline(argChildren(node, 2), color ? withMark(marks, { type: "textStyle", attrs: { color } }) : marks);
+    }
+    if (name === "colorbox" || name === "fcolorbox") {
+      // A coloured background is what the visual editor calls a highlight.
+      const color = this.color(argRaw(node, 0).trim() || null, argRaw(node, name === "fcolorbox" ? 2 : 1));
+      const children = argChildren(node, name === "fcolorbox" ? 3 : 2);
+      return this.inline(children, color ? withMark(marks, { type: "highlight", attrs: { color } }) : marks);
+    }
+    if (name === "hl") {
+      const color = this.highlightColor;
+      return this.inline(lastParsedArg(node), withMark(marks, color ? { type: "highlight", attrs: { color } } : { type: "highlight" }));
+    }
+    if (name === "definecolor") {
+      this.defineColor(argRaw(node, 0), argRaw(node, 1).trim() || null, argRaw(node, 2));
+      return [];
+    }
+    if (name === "colorlet") {
+      this.defineColor(argRaw(node, 0), null, argRaw(node, 1));
+      return [];
+    }
+    if (name === "thanks") {
+      this.droppedNotes = true;
+      return [];
     }
     if (name === "href") {
       const href = argRaw(node, 0).trim();

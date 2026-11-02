@@ -11,6 +11,16 @@ import { renderLatex, renderMath } from "../latex/render.ts";
 import { safeImageSource } from "./schema.ts";
 import { wrapMultiline } from "./toLatex.ts";
 
+/** What math and raw LaTeX need from a paper converted from LaTeX. */
+export interface PaperLatexContext {
+  /** The author's kept preamble (PaperDocument.latexPreamble). */
+  preamble: string;
+  /** Project files, for \input in that preamble. */
+  files: Record<string, string>;
+  /** Its macros in KaTeX's format (\R, \argmax, …). */
+  macros: Record<string, string>;
+}
+
 export interface PaperViewHooks {
   /** Opens the editor dialog for the atom node at `pos`. */
   edit: (pos: number) => void;
@@ -18,6 +28,8 @@ export interface PaperViewHooks {
   pickImage: (pos: number) => void;
   /** The document's BibTeX, for citations inside raw LaTeX blocks. */
   getBib: () => string;
+  /** Macros and definitions from the paper's LaTeX preamble. */
+  getLatex: () => PaperLatexContext;
 }
 
 interface LabelSpec {
@@ -35,15 +47,17 @@ function labelFrom(decorations: readonly Decoration[]): LabelSpec | null {
   return null;
 }
 
-function mathHtml(latex: string, display: boolean): { html: string; error: string | null } {
-  return renderMath(display ? wrapMultiline(latex) : latex, display);
+function mathHtml(latex: string, display: boolean, macros: Record<string, string>): { html: string; error: string | null } {
+  return renderMath(display ? wrapMultiline(latex) : latex, display, macros);
 }
 
 export class MathInlineView implements NodeView {
   dom: HTMLElement;
   private latex: string | null = null;
+  private readonly hooks: PaperViewHooks;
 
-  constructor(node: ProseMirrorNode) {
+  constructor(node: ProseMirrorNode, hooks: PaperViewHooks) {
+    this.hooks = hooks;
     this.dom = document.createElement("span");
     this.dom.className = "paper-math-inline";
     this.dom.dataset.type = "math-inline";
@@ -59,7 +73,7 @@ export class MathInlineView implements NodeView {
       this.dom.innerHTML = '<span class="paper-math-empty">math</span>';
       return;
     }
-    const { html, error } = mathHtml(latex, false);
+    const { html, error } = mathHtml(latex, false, this.hooks.getLatex().macros);
     this.dom.classList.toggle("ltx-math-error", Boolean(error));
     this.dom.title = error ?? latex;
     if (error) this.dom.textContent = latex;
@@ -81,8 +95,10 @@ export class MathBlockView implements NodeView {
   dom: HTMLElement;
   private readonly body: HTMLElement;
   private latex: string | null = null;
+  private readonly hooks: PaperViewHooks;
 
-  constructor(node: ProseMirrorNode) {
+  constructor(node: ProseMirrorNode, hooks: PaperViewHooks) {
+    this.hooks = hooks;
     this.dom = document.createElement("div");
     this.dom.className = "paper-equation";
     this.dom.dataset.type = "math-block";
@@ -101,7 +117,7 @@ export class MathBlockView implements NodeView {
       this.body.innerHTML = '<span class="paper-equation-empty">Empty equation — double-click to write it</span>';
       return;
     }
-    const { html, error } = mathHtml(latex, true);
+    const { html, error } = mathHtml(latex, true, this.hooks.getLatex().macros);
     this.dom.title = error ?? "";
     if (error) {
       this.body.className = "paper-equation-body ltx-math-error";
@@ -254,7 +270,8 @@ export class RawLatexView implements NodeView {
       this.dom.innerHTML = '<p class="paper-equation-empty">Empty LaTeX block — double-click to edit</p>';
       return;
     }
-    const result = renderLatex(source, { bibliography: this.hooks.getBib(), idPrefix: "raw-" });
+    const { preamble, files } = this.hooks.getLatex();
+    const result = renderLatex(source, { bibliography: this.hooks.getBib(), idPrefix: "raw-", preamble, files });
     const errors = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
     this.dom.title = errors ? `${errors} LaTeX ${errors === 1 ? "error" : "errors"}; double-click to edit` : "LaTeX block; double-click to edit";
     this.dom.innerHTML = result.html;

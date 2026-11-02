@@ -14,6 +14,7 @@ import type { PaperSettings } from "../documents.ts";
 import { conventions } from "../themes.ts";
 import { PREPRINT_STYLES } from "../preprintStyles.ts";
 import type { PreprintStyle } from "../preprintStyles.ts";
+import { AMSART_THEOREMS, MARGIN_LENGTHS, effectiveMargins, exportPreamble, loadsPackage, scanPreamble, withHyperref } from "../latexPreamble.ts";
 
 export interface LatexImage {
   path: string;
@@ -34,6 +35,11 @@ export interface LatexExport {
 export interface LatexExportOptions {
   /** Embed the .bib (and any .sty) in the .tex, for a single-file download. */
   embedBibliography?: boolean;
+  /**
+   * The author's own preamble kept from LaTeX mode (macros, packages,
+   * colours, theorems); see latexPreamble.ts.
+   */
+  preamble?: string;
 }
 
 const SPECIALS: Record<string, string> = {
@@ -89,6 +95,8 @@ interface Context {
   usesRowspan: boolean;
   /** Highlight colours (hex) used, each defined once in the preamble for soul. */
   highlights: Set<string>;
+  /** Sources of raw LaTeX blocks, to find the packages they use. */
+  raw: string[];
 }
 
 function attr<T>(node: JSONContent, name: string, fallback: T): T {
@@ -128,6 +136,7 @@ function collect(node: JSONContent, context: Context): void {
     // Labels inside preserved LaTeX still exist, so references to them can
     // point at the same label instead of becoming "??" after a round trip.
     const source = attr(node, "source", "");
+    context.raw.push(source);
     for (const match of source.matchAll(/\\label\{([^}]+)\}/g)) {
       const label = match[1].trim();
       if (label) context.kinds.set(label, { type: "raw", numbered: true, label });
@@ -481,30 +490,42 @@ function bibliographyStyle(settings: PaperSettings): string | null {
  * Math and text fonts, in a safe order: amsmath first, and no amssymb next to
  * newtxmath/newpxmath, which define the same symbols (\\Bbbk clashes).
  */
-function fontPackages(settings: PaperSettings): string[] {
+function fontPackages(settings: PaperSettings, load: (names: string[]) => string[]): string[] {
   switch (settings.font) {
     case "times":
-      return ["\\usepackage{amsmath}", "\\usepackage{newtxtext,newtxmath}"];
+      return [...load(["amsmath"]), ...load(["newtxtext", "newtxmath"])];
     case "palatino":
-      return ["\\usepackage{amsmath}", "\\usepackage{newpxtext,newpxmath}"];
+      return [...load(["amsmath"]), ...load(["newpxtext", "newpxmath"])];
     case "sans":
-      return ["\\usepackage{amsmath,amssymb}", "\\usepackage{lmodern}", "\\renewcommand{\\familydefault}{\\sfdefault}"];
+      return [...load(["amsmath", "amssymb"]), ...load(["lmodern"]), "\\renewcommand{\\familydefault}{\\sfdefault}"];
     default:
-      return ["\\usepackage{amsmath,amssymb}", "\\usepackage{lmodern}"];
+      return [...load(["amsmath", "amssymb"]), ...load(["lmodern"])];
   }
 }
 
-/** A visual authors block: the first line names, the following lines affiliations. */
-function splitAuthors(latex: string): { names: string[]; affiliations: string[] } {
-  const lines = latex.split(/\\\\\n?/).map((line) => line.trim()).filter(Boolean);
-  const [first = "", ...rest] = lines;
-  const names = first.split(/\s*,\s*|\s+and\s+|\s*;\s*/).map((name) => name.trim()).filter(Boolean);
-  return { names, affiliations: rest };
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** A visual authors block as LaTeX lines: names first, then affiliations and e-mails. */
+function authorLines(node: JSONContent, context: Context): { tex: string; email: boolean }[] {
+  const lines: JSONContent[][] = [[]];
+  for (const child of node.content ?? []) {
+    if (child.type === "hardBreak") lines.push([]);
+    else lines[lines.length - 1].push(child);
+  }
+  return lines
+    .map((line) => ({ tex: inline(line, context).trim(), email: EMAIL.test(line.map((child) => child.text ?? "").join("").trim()) }))
+    .filter((line) => line.tex);
+}
+
+/** `\\IEEEauthorblockN{Name}\\IEEEauthorblockA{Dept\\\\ University}`. */
+function ieeeAuthorBlock(node: JSONContent, context: Context): string {
+  const [first, ...rest] = authorLines(node, context);
+  if (!first) return "";
+  const affiliation = rest.length ? `\\IEEEauthorblockA{${rest.map((line) => line.tex).join("\\\\\n")}}` : "";
+  return `\\IEEEauthorblockN{${first.tex}}${affiliation}`;
 }
 
 const PREPRINT_PACKAGE: Partial<Record<PaperSettings["theme"], PreprintStyle>> = { arxiv: "arxiv-preprint", mlconf: "ml-preprint" };
-
-const MARGINS: Record<PaperSettings["margins"], string> = { narrow: "0.5in", normal: "1in", wide: "1.5in" };
 
 export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: string, options: LatexExportOptions = {}): LatexExport {
   const context: Context = {
@@ -516,6 +537,7 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     packages: new Set(),
     usesRowspan: false,
     highlights: new Set(),
+    raw: [],
   };
   collect(doc, context);
 
@@ -553,15 +575,20 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     // A completely blank paper needs no front matter (and no fallback title).
     if (title || authors.length || front.length) {
       const titleBlock: string[] = [`\\title{${title || "Untitled paper"}}`];
-      for (const block of authors) {
-        const { names, affiliations } = splitAuthors(block);
+      // REVTeX: authors, then the affiliation they share. amsart: each
+      // author with an address. Lines that look like e-mails become \\email.
+      const lineCommand = (line: { tex: string; email: boolean }) => (line.email ? `\\email{${line.tex}}` : `\\${revtex ? "affiliation" : "address"}{${line.tex}}`);
+      for (const node of authorNodes) {
+        const [first, ...rest] = authorLines(node, context);
+        if (!first) continue;
+        const names = first.tex.split(/\s*,\s*|\s+and\s+|\s*;\s*/).map((name) => name.trim()).filter(Boolean);
         for (const name of names) {
           titleBlock.push(`\\author{${name}}`);
-          if (amsart) for (const affiliation of affiliations) titleBlock.push(`\\address{${affiliation}}`);
+          if (amsart) titleBlock.push(...rest.map(lineCommand));
         }
-        if (revtex) for (const affiliation of affiliations) titleBlock.push(`\\affiliation{${affiliation}}`);
+        if (revtex) titleBlock.push(...rest.map(lineCommand));
       }
-      body.unshift(...titleBlock, ...front, "\\maketitle");
+      body.unshift(titleBlock.join("\n"), ...front, "\\maketitle");
     }
   } else if (!titleWritten && title) {
     body.unshift("\\maketitle");
@@ -584,38 +611,57 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     documentClass = `\\documentclass[${[`${theme === "apa" ? 12 : settings.fontSize}pt`, paperOption, ...(settings.columns === 2 ? ["twocolumn"] : [])].join(",")}]{article}`;
   }
 
+  // The author's preamble from LaTeX mode. Packages the exporter also loads
+  // are written once, in the exporter's place, with the author's options.
+  const user = exportPreamble(options.preamble ?? "");
+  const usage = [...context.raw, ...user.statements.map((statement) => statement.text)].join("\n");
+  // newtxmath/newpxmath already define amssymb's symbols (\\Bbbk clashes).
+  if (!ieee && !revtex && (settings.font === "times" || settings.font === "palatino")) user.absorbed.delete("amssymb");
+  const packageLines = (names: string[], packageOptions = ""): string[] => {
+    const lines: string[] = [];
+    let run: string[] = [];
+    const flush = () => {
+      if (run.length) lines.push(`\\usepackage${packageOptions ? `[${packageOptions}]` : ""}{${run.join(",")}}`);
+      run = [];
+    };
+    for (const name of names) {
+      const own = user.absorbed.get(name);
+      if (own === undefined) {
+        run.push(name);
+        continue;
+      }
+      flush();
+      lines.push(own);
+      user.absorbed.delete(name);
+    }
+    flush();
+    return lines;
+  };
+  const wants = (name: string) => user.absorbed.has(name);
+
   const preamble = [
     // Lets the importer restore visual-only settings (such as the APA theme,
     // which shares the article class) after the source has been edited.
     `% recommendica-write-settings: ${JSON.stringify(settings)}`,
     documentClass,
-    "\\usepackage[utf8]{inputenc}",
-    "\\usepackage[T1]{fontenc}",
+    ...packageLines(["inputenc"], "utf8"),
+    ...packageLines(["fontenc"], "T1"),
   ];
   // IEEEtran and REVTeX choose their own fonts (and REVTeX loads the AMS packages).
-  if (ieee) preamble.push("\\usepackage{amsmath,amssymb}");
-  else if (!revtex) preamble.push(...fontPackages(settings));
-  if (amsart) {
-    preamble.push(
-      "\\newtheorem{theorem}{Theorem}[section]",
-      "\\newtheorem{lemma}[theorem]{Lemma}",
-      "\\newtheorem{proposition}[theorem]{Proposition}",
-      "\\newtheorem{corollary}[theorem]{Corollary}",
-      "\\theoremstyle{definition}",
-      "\\newtheorem{definition}[theorem]{Definition}",
-      "\\newtheorem{example}[theorem]{Example}",
-      "\\theoremstyle{remark}",
-      "\\newtheorem{remark}[theorem]{Remark}",
-    );
-  }
-  preamble.push("\\usepackage{graphicx}", "\\usepackage{booktabs}");
-  if (context.usesRowspan) preamble.push("\\usepackage{multirow}");
-  if (context.packages.has("ulem")) preamble.push("\\usepackage[normalem]{ulem}");
-  if (context.packages.has("xcolor")) preamble.push("\\usepackage{xcolor}");
-  if (context.packages.has("soul")) preamble.push("\\usepackage{soul}");
-  for (const color of context.highlights) preamble.push(`\\definecolor{paperhl${color}}{HTML}{${color}}`);
+  if (ieee) preamble.push(...packageLines(["amsmath", "amssymb"]));
+  else if (!revtex) preamble.push(...fontPackages(settings, (names) => packageLines(names)));
+  // The author's own theorem definitions replace the default set.
+  if (amsart && !user.statements.some((statement) => /^newtheorem\*?$/.test(statement.name))) preamble.push(...AMSART_THEOREMS);
+  preamble.push(...packageLines(["graphicx"]), ...packageLines(["booktabs"]));
+  // Raw LaTeX blocks and the author's preamble may need packages too.
+  if (context.usesRowspan || wants("multirow") || /\\multirow\b/.test(usage)) preamble.push(...packageLines(["multirow"]));
+  if (context.packages.has("ulem") || wants("ulem") || /\\(?:sout|uline|uwave|xout)\b/.test(usage)) preamble.push(...packageLines(["ulem"], "normalem"));
+  const usesColour = /\\(?:textcolor|color|colorbox|fcolorbox|definecolor|colorlet|rowcolor|cellcolor|pagecolor)\b/.test(usage) && !loadsPackage(user.statements, "xcolor", "color");
+  if (context.packages.has("xcolor") || wants("xcolor") || usesColour) preamble.push(...packageLines(["xcolor"]));
+  if (context.packages.has("soul") || wants("soul") || /\\(?:hl|sethlcolor|st|ul|so|caps)\b/.test(usage)) preamble.push(...packageLines(["soul"]));
   const classLayout = ieee || revtex || amsart;
-  if (!classLayout) preamble.push(`\\usepackage[margin=${MARGINS[settings.margins]}]{geometry}`);
+  const ownGeometry = classLayout ? undefined : user.absorbed.get("geometry");
+  if (!classLayout) preamble.push(...packageLines(["geometry"], `margin=${MARGIN_LENGTHS[settings.margins]}`));
   const spacing = theme === "apa" ? 2 : settings.lineSpacing;
   if (spacing !== 1 && !ieee && !revtex) {
     preamble.push("\\usepackage{setspace}");
@@ -626,12 +672,27 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
   if (settings.citationStyle === "apa" && !revtex) preamble.push("\\usepackage[round]{natbib}");
   else if (ieee) preamble.push("\\usepackage{cite}");
   if (preprint) preamble.push(`\\usepackage{${preprint}}`);
-  preamble.push("\\usepackage{hyperref}");
+  // The author's statements, in their order, after every package they may
+  // build on; hyperref goes before the first statement that needs it.
+  preamble.push(...user.absorbed.values());
+  preamble.push(...withHyperref(user.statements, "\\usepackage{hyperref}"));
+  if (!classLayout) {
+    // Geometry the author set in LaTeX stays until the margins are changed here.
+    const initial = ownGeometry === undefined ? settings.margins : effectiveMargins(scanPreamble(ownGeometry).statements, null);
+    if (effectiveMargins(user.statements, initial) !== settings.margins) preamble.push(`\\geometry{margin=${MARGIN_LENGTHS[settings.margins]}}`);
+  }
+  for (const color of context.highlights) preamble.push(`\\definecolor{paperhl${color}}{HTML}{${color}}`);
   if (!frontMatterFirst && (title || authors.length)) {
     preamble.push("");
     preamble.push(`\\title{${title || "Untitled paper"}}`);
-    if (authors.length) preamble.push(`\\author{${authors.join(" \\and\n  ")}}`);
-    if (!ieee) preamble.push("\\date{}");
+    if (authors.length) {
+      preamble.push(
+        ieee
+          ? `\\author{${authorNodes.map((node) => ieeeAuthorBlock(node, context)).filter(Boolean).join("\n\\and\n")}}`
+          : `\\author{${authors.join(" \\and\n  ")}}`,
+      );
+    }
+    if (!ieee && !user.statements.some((statement) => statement.name === "date")) preamble.push("\\date{}");
   }
 
   const bibText = bib.trim();

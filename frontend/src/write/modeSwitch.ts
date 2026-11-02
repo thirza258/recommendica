@@ -9,11 +9,12 @@
 
 import type { JSONContent } from "@tiptap/core";
 import { isAssetUrl } from "./assetSource.ts";
-import { BIB_FILE } from "./documents.ts";
+import { BIB_FILE, DEFAULT_SETTINGS } from "./documents.ts";
 import type { PaperDocument, PaperSettings, ProjectAsset, ProjectFile } from "./documents.ts";
 import { toLatexImage } from "./images.ts";
 import { importLatex } from "./visual/fromLatex.ts";
 import { documentToLatex } from "./visual/toLatex.ts";
+import type { LatexExport } from "./visual/toLatex.ts";
 
 export interface ModeSwitchResult {
   document: PaperDocument;
@@ -45,12 +46,37 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+/** Signatures stored before export signatures: a hash of the editor JSON. */
+function legacyContentSignature(content: JSONContent, settings: PaperSettings, bib: string): string {
+  return `c:${hash(canonical({ content, settings, bib: bib.trim() }))}`;
+}
+
+function exportSignature(exported: LatexExport): string {
+  return `x:${hash(
+    canonical({
+      tex: exported.tex,
+      bib: exported.bib.trim(),
+      images: exported.images.map((image) => [image.path, image.dataUrl]),
+      files: exported.files.map((file) => [file.name, file.content]),
+    }),
+  )}`;
+}
+
 /**
- * A short signature of the visual representation: its content, page settings
- * and references all affect the LaTeX a conversion produces.
+ * A short signature of the visual representation as LaTeX sees it. Two
+ * contents that export to the same LaTeX and images are the same paper,
+ * whatever the editor did to the JSON (filled-in default attributes, an empty
+ * last paragraph), so opening a converted paper never counts as an edit.
  */
-export function contentSignature(content: JSONContent | null | undefined, settings?: PaperSettings, bib = ""): string {
-  return content ? `c:${hash(canonical({ content, settings: settings ?? null, bib: bib.trim() }))}` : "";
+export function contentSignature(content: JSONContent | null | undefined, settings?: PaperSettings, bib = "", preamble = ""): string {
+  return content ? exportSignature(documentToLatex(content, settings ?? DEFAULT_SETTINGS, bib, { preamble })) : "";
+}
+
+/** Whether `stored` (from `sync`) still describes this visual content. */
+function sameContent(stored: string | undefined, content: JSONContent, settings: PaperSettings, bib: string, preamble: string | undefined, exported?: LatexExport): boolean {
+  if (!stored) return false;
+  if (stored.startsWith("c:")) return stored === legacyContentSignature(content, settings, bib);
+  return stored === exportSignature(exported ?? documentToLatex(content, settings, bib, { preamble }));
 }
 
 /**
@@ -119,13 +145,13 @@ function genericTitle(title: string): boolean {
  */
 export async function switchToLatex(doc: PaperDocument): Promise<ModeSwitchResult> {
   const content = doc.content ?? emptyVisualContent();
-  const contentHash = contentSignature(content, doc.settings, doc.bib);
+  const exported = documentToLatex(content, doc.settings, doc.bib, { preamble: doc.latexPreamble });
+  const contentHash = exportSignature(exported);
 
-  if (doc.sync?.content === contentHash && doc.sync.source === sourceSignature(doc.source, doc.files, doc.assets)) {
+  if (sameContent(doc.sync?.content, content, doc.settings, doc.bib, doc.latexPreamble, exported) && doc.sync?.source === sourceSignature(doc.source, doc.files, doc.assets)) {
     return { document: { ...doc, kind: "latex", updatedAt: Date.now() }, notice: "" };
   }
 
-  const exported = documentToLatex(content, doc.settings, doc.bib);
   const images: ProjectAsset[] = [];
   for (const image of exported.images) {
     // PNG and JPEG figures already in MinIO stay URLs: the LaTeX preview and
@@ -176,7 +202,7 @@ export async function switchToVisual(doc: PaperDocument): Promise<ModeSwitchResu
   const sourceHash = sourceSignature(doc.source, doc.files, doc.assets);
   const bib = projectBib(doc.source, doc.files, doc.bib);
 
-  if (doc.content && doc.sync?.source === sourceHash && doc.sync.content === contentSignature(doc.content, doc.settings, bib)) {
+  if (doc.content && doc.sync?.source === sourceHash && sameContent(doc.sync.content, doc.content, doc.settings, bib, doc.latexPreamble)) {
     return { document: { ...doc, kind: "visual", bib, updatedAt: Date.now() }, notice: "" };
   }
 
@@ -188,16 +214,19 @@ export async function switchToVisual(doc: PaperDocument): Promise<ModeSwitchResu
   const content = imported.content;
   const settings: PaperSettings = { ...doc.settings, ...imported.settings };
   const title = genericTitle(doc.title) && imported.title.trim() ? imported.title.trim() : doc.title;
+  const { latexPreamble: _previous, ...rest } = doc;
+  void _previous;
 
   return {
     document: {
-      ...doc,
+      ...rest,
       kind: "visual",
       title,
       settings,
       content,
       bib: imported.bib,
-      sync: { content: contentSignature(content, settings, imported.bib), source: sourceHash },
+      ...(imported.preamble ? { latexPreamble: imported.preamble } : {}),
+      sync: { content: contentSignature(content, settings, imported.bib, imported.preamble), source: sourceHash },
       updatedAt: Date.now(),
     },
     notice: imported.warnings.join(" "),

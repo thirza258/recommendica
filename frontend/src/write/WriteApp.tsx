@@ -1,18 +1,21 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from "react";
 import DocumentsHome from "./DocumentsHome";
 import { documentIdFromRoute, WRITE_HOME_HREF } from "./routes.ts";
 import { openDocumentStore } from "./storage.ts";
 import type { DocumentStore } from "./storage.ts";
 import type { DocumentKind, PaperDocument } from "./documents.ts";
 import { switchToLatex, switchToVisual } from "./modeSwitch.ts";
+import type { ModeAnchor } from "./modeAnchor.ts";
 import "katex/dist/katex.min.css";
 import "./paper.css";
 import "./write.css";
 
 // Each editor brings its own heavy dependencies (TipTap or CodeMirror), so
 // the documents list loads without either.
-const VisualWorkspace = lazy(() => import("./visual/VisualWorkspace"));
-const LatexWorkspace = lazy(() => import("./source/LatexWorkspace"));
+const loadVisual = () => import("./visual/VisualWorkspace");
+const loadLatex = () => import("./source/LatexWorkspace");
+const VisualWorkspace = lazy(loadVisual);
+const LatexWorkspace = lazy(loadLatex);
 
 interface WriteAppProps {
   route: string;
@@ -31,6 +34,7 @@ export function WriteLoading({ message = "Opening your paper…" }: { message?: 
 function DocumentLoader({ id, store }: { id: string; store: DocumentStore }) {
   const [doc, setDoc] = useState<PaperDocument | null | undefined>(undefined);
   const [notice, setNotice] = useState("");
+  const [anchor, setAnchor] = useState<ModeAnchor | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -43,12 +47,32 @@ function DocumentLoader({ id, store }: { id: string; store: DocumentStore }) {
     };
   }, [id, store]);
 
+  // While the paper is open, fetch the other editor's code in the background,
+  // so switching does not wait for a download.
+  const kind = doc?.kind;
+  useEffect(() => {
+    if (!kind) return;
+    const load = kind === "latex" ? loadVisual : loadLatex;
+    const run = () => void load().catch(() => undefined);
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(run, 1500);
+    return () => window.clearTimeout(timer);
+  }, [kind]);
+
   const switchMode = useCallback(
-    async (current: PaperDocument, kind: DocumentKind) => {
-      const result = kind === "latex" ? await switchToLatex(current) : await switchToVisual(current);
+    async (current: PaperDocument, next: DocumentKind, at: ModeAnchor | null = null) => {
+      const result = next === "latex" ? await switchToLatex(current) : await switchToVisual(current);
       await store.put(result.document);
-      setNotice(result.notice);
-      setDoc(result.document);
+      // A transition keeps the current editor on screen until the other one is
+      // ready, instead of flashing a loading screen in between.
+      startTransition(() => {
+        setNotice(result.notice);
+        setAnchor(at);
+        setDoc(result.document);
+      });
     },
     [store],
   );
@@ -68,9 +92,9 @@ function DocumentLoader({ id, store }: { id: string; store: DocumentStore }) {
   return (
     <Suspense fallback={<WriteLoading message="Loading the editor…" />}>
       {doc.kind === "latex" ? (
-        <LatexWorkspace initial={doc} store={store} onSwitchMode={switchMode} initialNotice={notice} />
+        <LatexWorkspace initial={doc} store={store} onSwitchMode={switchMode} initialNotice={notice} initialAnchor={anchor} />
       ) : (
-        <VisualWorkspace initial={doc} store={store} onSwitchMode={switchMode} initialNotice={notice} />
+        <VisualWorkspace initial={doc} store={store} onSwitchMode={switchMode} initialNotice={notice} initialAnchor={anchor} />
       )}
     </Suspense>
   );

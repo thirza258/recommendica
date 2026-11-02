@@ -28,6 +28,10 @@ export interface CodeEditorHandle {
   setText: (name: string, text: string) => boolean;
   insertSnippet: (template: string) => void;
   goToLine: (line: number, name?: string) => void;
+  /** Scrolls a line to the top of the view without taking focus. */
+  scrollToLine: (line: number, name?: string) => void;
+  /** The line a third of the way down the view (1-based): where the reader is. */
+  readingLine: () => number;
   openSearch: () => void;
   toggleComment: () => void;
   complete: () => void;
@@ -215,6 +219,24 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
           effects: EditorView.scrollIntoView(target.from, { y: "center" }),
         });
         view.focus();
+      },
+      scrollToLine: (line: number, name?: string) => {
+        const view = viewRef.current;
+        if (!view || (name && name !== activeFile.current)) return;
+        const target = view.state.doc.line(Math.min(Math.max(line, 1), view.state.doc.lines));
+        view.dispatch({
+          selection: EditorSelection.cursor(target.from),
+          effects: EditorView.scrollIntoView(target.from, { y: "start", yMargin: 24 }),
+        });
+      },
+      readingLine: () => {
+        const view = viewRef.current;
+        if (!view) return 1;
+        if (view.scrollDOM.scrollTop < 8) return 1;
+        const rect = view.scrollDOM.getBoundingClientRect();
+        const top = Math.max(rect.top, 0);
+        const pos = view.posAtCoords({ x: rect.left + rect.width / 2, y: top + (Math.min(rect.bottom, window.innerHeight) - top) / 3 }, false);
+        return view.state.doc.lineAt(pos).number;
       },
       openSearch: () => {
         if (viewRef.current) openSearchPanel(viewRef.current);

@@ -22,6 +22,11 @@ import { getAnalysis, updatePaperContext } from "./paperPlugin.ts";
 import { getFindState, replaceAll, replaceCurrent, setFind, stepFind } from "./findReplace.ts";
 import { documentToLatex } from "./toLatex.ts";
 import { importLatex } from "./fromLatex.ts";
+import { parseLatex } from "../latex/parser.ts";
+import type { PaperLatexContext } from "./nodeViews.ts";
+import { THEMES } from "../themes.ts";
+import { anchorAt, findAnchor, headingKey } from "../modeAnchor.ts";
+import type { ModeAnchor } from "../modeAnchor.ts";
 import { bibEntries } from "./analysis.ts";
 import AssistantPanel from "../assistant/AssistantPanel";
 import ReferencesPanel from "./ReferencesPanel";
@@ -30,8 +35,10 @@ import { CitationDialog, CrossRefDialog, MathDialog, PageSetupDialog, RawLatexDi
 interface VisualWorkspaceProps {
   initial: PaperDocument;
   store: DocumentStore;
-  onSwitchMode: (current: PaperDocument, kind: DocumentKind) => Promise<void>;
+  onSwitchMode: (current: PaperDocument, kind: DocumentKind, anchor?: ModeAnchor | null) => Promise<void>;
   initialNotice?: string;
+  /** The section the reader was at in the LaTeX editor. */
+  initialAnchor?: ModeAnchor | null;
 }
 
 type DialogState =
@@ -591,7 +598,7 @@ function StatusBar({ editor, settings, onPageSetup, onWordCount }: { editor: Edi
         {words.toLocaleString()} {words === 1 ? "word" : "words"}
       </button>
       <button type="button" onClick={onPageSetup}>
-        {settings.theme === "ieee" ? "IEEE" : settings.theme === "apa" ? "APA 7" : "Article"} · {look.paper === "letter" ? "US Letter" : "A4"} · {look.columns === 2 ? "two columns" : "one column"} · {settings.fontSize} pt
+        {THEMES[settings.theme].label} · {look.paper === "letter" ? "US Letter" : "A4"} · {look.columns === 2 ? "two columns" : "one column"} · {settings.fontSize} pt
       </button>
       <span>{settings.citationStyle === "apa" ? "Author–year citations" : "Numbered citations"}</span>
       <span className="write-statusbar-spacer" />
@@ -602,10 +609,23 @@ function StatusBar({ editor, settings, onPageSetup, onWordCount }: { editor: Edi
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-export default function VisualWorkspace({ initial, store, onSwitchMode, initialNotice = "" }: VisualWorkspaceProps) {
+/** Headings in document order, keyed for matching across a mode switch. */
+function documentHeadings(editor: Editor): { key: string; pos: number }[] {
+  const headings: { key: string; pos: number }[] = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === "heading") headings.push({ key: headingKey(node.textContent), pos });
+    return !node.isTextblock;
+  });
+  return headings;
+}
+
+export default function VisualWorkspace({ initial, store, onSwitchMode, initialNotice = "", initialAnchor = null }: VisualWorkspaceProps) {
   const [title, setTitle] = useState(initial.title);
   const [settings, setSettings] = useState<PaperSettings>(initial.settings ?? DEFAULT_SETTINGS);
   const [bib, setBib] = useState(initial.bib);
+  // The author's own LaTeX preamble, kept from LaTeX mode; it is written back
+  // on export and its macros render in equations here.
+  const [latexPreamble, setLatexPreamble] = useState(initial.latexPreamble ?? "");
   const [showOutline, setShowOutline] = useState(() => typeof window === "undefined" || window.innerWidth > 1180);
   const [showReferences, setShowReferences] = useState(false);
   const [showFind, setShowFind] = useState(false);
@@ -623,11 +643,20 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   const imageTarget = useRef<number | null | "new">("new");
   const bibRef = useRef(bib);
   const switchingRef = useRef(false);
-  const handlers = useRef<Omit<EditorHooks, "getBib">>({ edit: () => undefined, pickImage: () => undefined, command: () => undefined, imageFiles: () => undefined });
+  const handlers = useRef<Omit<EditorHooks, "getBib" | "getLatex">>({ edit: () => undefined, pickImage: () => undefined, command: () => undefined, imageFiles: () => undefined });
 
   useEffect(() => {
     bibRef.current = bib;
   }, [bib]);
+
+  const latexContext = useMemo<PaperLatexContext>(() => {
+    const files = Object.fromEntries(initial.files.map((file) => [file.name, file.content]));
+    return { preamble: latexPreamble, files, macros: latexPreamble.trim() ? parseLatex(latexPreamble, { files }).mathMacros : {} };
+  }, [latexPreamble, initial.files]);
+  const latexRef = useRef(latexContext);
+  useEffect(() => {
+    latexRef.current = latexContext;
+  }, [latexContext]);
 
   // Stable hooks for the editor's extensions; they forward to the latest handlers.
   const hooks = useMemo<EditorHooks>(
@@ -637,6 +666,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       command: (name) => handlers.current.command(name),
       imageFiles: (files, pos) => handlers.current.imageFiles(files, pos),
       getBib: () => bibRef.current,
+      getLatex: () => latexRef.current,
     }),
     [],
   );
@@ -667,8 +697,9 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       settings,
       bib,
       content: editor ? editor.getJSON() : initial.content,
+      latexPreamble: latexPreamble || undefined,
     }),
-    [initial, title, settings, bib, editor],
+    [initial, title, settings, bib, editor, latexPreamble],
   );
   const { saveState, schedule, flush, discard } = useAutosave(store, buildDoc);
 
@@ -716,6 +747,19 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
     return () => observer.disconnect();
   }, [editor]);
 
+  // Open at the section the reader was looking at in the LaTeX editor.
+  useEffect(() => {
+    if (!editor || !initialAnchor) return;
+    const timer = window.setTimeout(() => {
+      if (editor.isDestroyed) return;
+      const headings = documentHeadings(editor);
+      const index = findAnchor(headings, initialAnchor);
+      const dom = index === -1 ? null : editor.view.nodeDOM(headings[index].pos);
+      if (dom instanceof HTMLElement) dom.scrollIntoView({ block: "start" });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [editor, initialAnchor]);
+
   const look = lookFromSettings(settings);
   const fitZoom = Math.min(1.25, Math.max(0.35, (canvasWidth - 8) / SHEET_WIDTH_PX[look.paper]));
   const zoom = zoomMode === "fit" ? fitZoom : zoomMode;
@@ -739,6 +783,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
     const assets: Record<string, string> = Object.fromEntries(initial.assets.map((asset) => [asset.name, asset.dataUrl]));
     const imported = importLatex(latex, { files, assets, bib: bibRef.current });
     editor.commands.setContent(imported.content);
+    setLatexPreamble(imported.preamble);
     updateSettings({ ...settings, ...imported.settings });
     updateBib(imported.bib);
     void flush();
@@ -808,7 +853,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         exporting.downloadText(bib, `${base}.bib`, "application/x-bibtex");
         return;
       }
-      const result = documentToLatex(editor.getJSON(), settings, bib, { embedBibliography: format === "tex" });
+      const result = documentToLatex(editor.getJSON(), settings, bib, { embedBibliography: format === "tex", preamble: latexPreamble });
       if (format === "tex") {
         exporting.downloadText(result.tex, `${base}.tex`, "application/x-tex");
         if (result.images.length) setNotice("The .tex file refers to figures in a figures/ folder. Download the LaTeX project (.zip) to get the images too.");
@@ -816,12 +861,31 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       }
       const files: Record<string, string | Uint8Array> = { "main.tex": result.tex };
       if (result.bib) files[BIB_FILE] = result.bib;
+      // Style files, and the project's own files a kept preamble may \input.
+      for (const file of result.files) files[file.name] = file.content;
+      for (const file of initial.files) if (!(file.name in files)) files[file.name] = file.content;
       for (const image of result.images) files[image.path] = await exporting.dataUrlToBytes(await toLatexImage(image.dataUrl));
       exporting.downloadBlob(await exporting.zipFiles(files), `${base}-latex.zip`);
       if (result.warnings.length) setNotice(result.warnings.join(" "));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Export failed.");
     }
+  };
+
+  /** The section heading at the top of the page view, to open the LaTeX editor there. */
+  const readingAnchor = (): ModeAnchor | null => {
+    const canvas = canvasRef.current;
+    if (!editor || !canvas || canvas.scrollTop < 40) return null;
+    // The heading in the upper third of the view, or the last one above it.
+    const rect = canvas.getBoundingClientRect();
+    const top = rect.top + rect.height / 3;
+    const headings = documentHeadings(editor);
+    let current = -1;
+    headings.forEach((heading, index) => {
+      const dom = editor.view.nodeDOM(heading.pos);
+      if (dom instanceof HTMLElement && dom.getBoundingClientRect().top <= top) current = index;
+    });
+    return anchorAt(headings, current);
   };
 
   const switchMode = async (kind: DocumentKind) => {
@@ -835,7 +899,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       // The converted document is about to replace this one; its unmount flush
       // must not write the old representation back over it.
       discard();
-      await onSwitchMode(buildDoc(), kind);
+      await onSwitchMode(buildDoc(), kind, readingAnchor());
     } catch (error) {
       switchingRef.current = false;
       setSwitching(false);
@@ -1034,7 +1098,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
             {
               label: "LaTeX source",
               icon: "braces",
-              onSelect: () => setDialog({ kind: "latexSource", tex: documentToLatex(editor.getJSON(), settings, bib).tex }),
+              onSelect: () => setDialog({ kind: "latexSource", tex: documentToLatex(editor.getJSON(), settings, bib, { preamble: latexPreamble }).tex }),
             },
           ],
         },
@@ -1221,7 +1285,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         {showAssistant && (
           <AssistantPanel
             paperTitle={title}
-            documentText={() => documentToLatex(editor.getJSON(), settings, bib).tex}
+            documentText={() => documentToLatex(editor.getJSON(), settings, bib, { preamble: latexPreamble }).tex}
             onApplyEdit={applyAssistantEdit}
             onClose={() => setShowAssistant(false)}
           />
@@ -1260,6 +1324,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       {dialog?.kind === "math" && (
         <MathDialog
           display={dialog.display}
+          macros={latexContext.macros}
           initialLatex={dialog.latex}
           initialNumbered={dialog.numbered}
           isNew={dialog.pos === null || !String(editor.state.doc.nodeAt(dialog.pos)?.attrs.latex ?? "").trim()}
@@ -1373,6 +1438,8 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         <RawLatexDialog
           initial={dialog.source}
           bib={bib}
+          preamble={latexContext.preamble}
+          files={latexContext.files}
           isNew={dialog.pos === null}
           onClose={() => setDialog(null)}
           onDelete={dialog.pos === null ? undefined : () => deleteNodeAt(dialog.pos as number)}

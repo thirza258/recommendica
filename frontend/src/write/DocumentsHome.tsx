@@ -4,8 +4,8 @@ import { Icon } from "./icons";
 import { Dialog, MenuButton } from "./ui";
 import { BIB_FILE, MAIN_FILE, newDocumentId, relativeTime } from "./documents.ts";
 import type { DocumentSummary, PaperDocument, ProjectAsset, ProjectFile } from "./documents.ts";
-import { createFromTemplate, TEMPLATES } from "./templates.ts";
-import type { TemplateInfo } from "./templates.ts";
+import { createFromTemplate, DESIGN_GROUPS, DESIGNS, TEMPLATES } from "./templates.ts";
+import type { TemplateDesign, TemplateInfo } from "./templates.ts";
 import { documentHref } from "./routes.ts";
 import type { DocumentStore } from "./storage.ts";
 import { readImageFile } from "./images.ts";
@@ -193,9 +193,20 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
     await refresh();
   };
 
-  const visibleTemplates = useMemo(() => {
-    if (templateFilter === "all") return TEMPLATES;
-    return TEMPLATES.filter((template) => template.kind === templateFilter);
+  // Each design is one card: its visual version (or the LaTeX one when that
+  // is the only one, or when the LaTeX filter is on), plus a link to the other.
+  const designGroups = useMemo(() => {
+    const info = (id: string | undefined) => TEMPLATES.find((template) => template.id === id) ?? null;
+    return DESIGN_GROUPS.map((group) => ({
+      ...group,
+      designs: DESIGNS.filter((design) => design.group === group.id)
+        .map((design: TemplateDesign) => {
+          const primary = info(templateFilter === "latex" ? design.latex : (design.visual ?? (templateFilter === "visual" ? undefined : design.latex)));
+          const secondaryId = templateFilter === "all" ? (primary?.kind === "visual" ? design.latex : undefined) : undefined;
+          return primary ? { design, primary, secondary: info(secondaryId) } : null;
+        })
+        .filter((entry) => entry !== null),
+    })).filter((group) => group.designs.length);
   }, [templateFilter]);
 
   const visible = useMemo(() => {
@@ -275,18 +286,39 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
               </button>
             </div>
           </div>
-          <ul className="write-templates">
-            {visibleTemplates.map((template) => (
-              <li key={template.id}>
-                <button type="button" className="write-template" onClick={() => void create(template.id)} disabled={busy}>
-                  <TemplateThumb template={template} />
-                  <span className="write-template-name">{template.name}</span>
-                  <span className="write-template-desc">{template.description}</span>
-                  <span className={`write-kind write-kind--${template.kind}`}>{template.kind === "latex" ? "LaTeX" : "Visual"}</span>
-                </button>
-              </li>
+          <div className="write-design-groups">
+            {designGroups.map((group) => (
+              <section key={group.id} className="write-design-group" aria-labelledby={`write-designs-${group.id}`}>
+                <h3 id={`write-designs-${group.id}`} className="write-design-group-title">
+                  {group.title}
+                </h3>
+                {group.note && <p className="write-design-note">{group.note}</p>}
+                <ul className="write-templates">
+                  {group.designs.map(({ design, primary, secondary }) => (
+                    <li key={design.id} className="write-design">
+                      <button type="button" className="write-template" onClick={() => void create(primary.id)} disabled={busy}>
+                        <TemplateThumb template={primary} />
+                        <span className="write-template-name">{design.name}</span>
+                        <span className="write-template-desc">{design.description}</span>
+                        <span className={`write-kind write-kind--${primary.kind}`}>{primary.kind === "latex" ? "LaTeX" : "Visual"}</span>
+                      </button>
+                      {secondary && (
+                        <button
+                          type="button"
+                          className="write-design-alt"
+                          onClick={() => void create(secondary.id)}
+                          disabled={busy}
+                          aria-label={`Start ${design.name} in LaTeX`}
+                        >
+                          or start in LaTeX
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </section>
 
         <section className="write-recent" aria-labelledby="write-recent-heading">

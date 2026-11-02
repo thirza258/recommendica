@@ -108,6 +108,20 @@ export const THEMES: Record<VisualTheme, ThemeConventions> = {
   },
 };
 
+/**
+ * Page settings each design implies, applied when it is chosen in Page setup
+ * (the same values its template starts with). Article keeps the current ones.
+ */
+export const THEME_PRESETS: Record<VisualTheme, { columns?: 1 | 2; font?: "cm" | "times"; fontSize?: 10 | 11 | 12; lineSpacing?: number; citationStyle?: "ieee" | "apa"; numberedHeadings?: boolean }> = {
+  article: {},
+  ieee: { columns: 2, font: "times", fontSize: 10, lineSpacing: 1, citationStyle: "ieee" },
+  apa: { columns: 1, font: "times", fontSize: 12, lineSpacing: 2, citationStyle: "apa", numberedHeadings: false },
+  arxiv: { columns: 1, font: "times", fontSize: 11, lineSpacing: 1, citationStyle: "apa" },
+  mlconf: { columns: 2, font: "times", fontSize: 10, lineSpacing: 1, citationStyle: "apa" },
+  revtex: { columns: 2, font: "cm", fontSize: 10, lineSpacing: 1, citationStyle: "ieee" },
+  amsart: { columns: 1, font: "cm", fontSize: 11, lineSpacing: 1, citationStyle: "ieee" },
+};
+
 export function conventions(theme: VisualTheme): ThemeConventions {
   return THEMES[theme] ?? THEMES.article;
 }

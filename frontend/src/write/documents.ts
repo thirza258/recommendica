@@ -75,6 +75,12 @@ export interface PaperDocument {
   assets: ProjectAsset[];
   /** Both editors: the representations produced by the last mode switch. */
   sync?: DocumentSync;
+  /**
+   * Visual documents converted from LaTeX: the author's own preamble
+   * statements (macros, packages, colours, theorems), which the exporter
+   * writes back. See latexPreamble.ts.
+   */
+  latexPreamble?: string;
 }
 
 export interface DocumentSummary {
@@ -174,6 +180,7 @@ export function normalizeDocument(value: unknown): PaperDocument | null {
     files,
     assets: assets.map((asset) => ({ ...asset, type: typeof asset.type === "string" ? asset.type : "image/png", size: typeof asset.size === "number" ? asset.size : asset.dataUrl.length })),
     ...(sync ? { sync } : {}),
+    ...(typeof value.latexPreamble === "string" && value.latexPreamble ? { latexPreamble: value.latexPreamble } : {}),
   };
 }
 

@@ -9,6 +9,8 @@ import type { RefTarget } from "./analysis.ts";
 import { FONT_LABELS, LINE_SPACINGS } from "../documents.ts";
 import type { PaperSettings } from "../documents.ts";
 import { shortcut } from "../keys.ts";
+import { THEME_PRESETS, VISUAL_THEMES } from "../themes.ts";
+import type { VisualTheme } from "../themes.ts";
 
 const PALETTE: { label: string; items: [string, string][] }[] = [
   {
@@ -75,6 +77,8 @@ function renderGreek(name: string): string {
 
 interface MathDialogProps {
   display: boolean;
+  /** Macros from the paper's LaTeX preamble, for the preview. */
+  macros?: Record<string, string>;
   initialLatex: string;
   initialNumbered?: boolean;
   isNew: boolean;
@@ -83,12 +87,12 @@ interface MathDialogProps {
   onClose: () => void;
 }
 
-export function MathDialog({ display, initialLatex, initialNumbered = true, isNew, onSubmit, onDelete, onClose }: MathDialogProps) {
+export function MathDialog({ display, macros, initialLatex, initialNumbered = true, isNew, onSubmit, onDelete, onClose }: MathDialogProps) {
   const [latex, setLatex] = useState(initialLatex);
   const [numbered, setNumbered] = useState(initialNumbered);
   const [group, setGroup] = useState(0);
   const area = useRef<HTMLTextAreaElement>(null);
-  const preview = useMemo(() => (latex.trim() ? renderMath(display ? wrapMultiline(latex) : latex, display) : null), [latex, display]);
+  const preview = useMemo(() => (latex.trim() ? renderMath(display ? wrapMultiline(latex) : latex, display, macros) : null), [latex, display, macros]);
 
   const insertAtCaret = (snippet: string) => {
     const element = area.current;
@@ -403,15 +407,18 @@ export function TextDialog({ title, label, initial, placeholder, submitLabel, mu
 interface RawLatexDialogProps {
   initial: string;
   bib: string;
+  /** The paper's kept LaTeX preamble and project files. */
+  preamble?: string;
+  files?: Record<string, string>;
   isNew: boolean;
   onSubmit: (source: string) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
 
-export function RawLatexDialog({ initial, bib, isNew, onSubmit, onDelete, onClose }: RawLatexDialogProps) {
+export function RawLatexDialog({ initial, bib, preamble, files, isNew, onSubmit, onDelete, onClose }: RawLatexDialogProps) {
   const [source, setSource] = useState(initial);
-  const result = useMemo(() => (source.trim() ? renderLatex(source, { bibliography: bib, idPrefix: "dlg-" }) : null), [source, bib]);
+  const result = useMemo(() => (source.trim() ? renderLatex(source, { bibliography: bib, idPrefix: "dlg-", preamble, files }) : null), [source, bib, preamble, files]);
   return (
     <Dialog
       title={isNew ? "Insert LaTeX block" : "Edit LaTeX block"}
@@ -464,6 +471,16 @@ interface PageSetupDialogProps {
   onClose: () => void;
 }
 
+const THEME_OPTION_LABELS: Record<VisualTheme, string> = {
+  article: "Article (LaTeX default)",
+  ieee: "IEEE conference",
+  apa: "APA 7",
+  arxiv: "arXiv preprint",
+  mlconf: "ML conference preprint",
+  revtex: "Physics (APS/REVTeX-style)",
+  amsart: "Mathematics (AMS article)",
+};
+
 export function PageSetupDialog({ settings, onSubmit, onClose }: PageSetupDialogProps) {
   const [draft, setDraft] = useState(settings);
   const set = <K extends keyof PaperSettings>(key: K, value: PaperSettings[K]) => setDraft((current) => ({ ...current, [key]: value }));
@@ -489,17 +506,14 @@ export function PageSetupDialog({ settings, onSubmit, onClose }: PageSetupDialog
             value={draft.theme}
             onChange={(event) => {
               const theme = event.target.value as PaperSettings["theme"];
-              setDraft((current) => ({
-                ...current,
-                theme,
-                ...(theme === "ieee" ? { columns: 2 as const, font: "times" as const, fontSize: 10 as const, lineSpacing: 1, citationStyle: "ieee" as const } : {}),
-                ...(theme === "apa" ? { columns: 1 as const, font: "times" as const, fontSize: 12 as const, lineSpacing: 2, citationStyle: "apa" as const, numberedHeadings: false } : {}),
-              }));
+              setDraft((current) => ({ ...current, theme, ...THEME_PRESETS[theme] }));
             }}
           >
-            <option value="article">Article (LaTeX default)</option>
-            <option value="ieee">IEEE conference</option>
-            <option value="apa">APA 7</option>
+            {VISUAL_THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {THEME_OPTION_LABELS[theme]}
+              </option>
+            ))}
           </select>
         </label>
         <label className="write-field">

@@ -35,8 +35,8 @@ export function editorExtensions(context: AnalysisContext, hooks: EditorHooks): 
   // The schema nodes again, this time with their interactive views.
   const withViews: AnyExtension[] = [
     ...baseExtensions().filter((extension) => !VIEWED.has(extension.name)),
-    MathInline.extend({ addNodeView: () => ({ node }) => new MathInlineView(node) }),
-    MathBlock.extend({ addNodeView: () => ({ node }) => new MathBlockView(node) }),
+    MathInline.extend({ addNodeView: () => ({ node }) => new MathInlineView(node, hooks) }),
+    MathBlock.extend({ addNodeView: () => ({ node }) => new MathBlockView(node, hooks) }),
     Citation.extend({ addNodeView: () => ({ node, decorations }) => new LabelView(node, decorations, "span", "paper-cite") }),
     CrossRef.extend({ addNodeView: () => ({ node, decorations }) => new LabelView(node, decorations, "span", "paper-xref") }),
     Footnote.extend({ addNodeView: () => ({ node, decorations }) => new LabelView(node, decorations, "sup", "paper-footnote-ref") }),

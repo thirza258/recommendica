@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { MouseEvent as ReactMouseEvent } from "react";
 import CodeEditor from "./CodeEditor";
 import type { CodeEditorHandle } from "./CodeEditor";
+import { anchorAt, findAnchor, latexHeadings } from "../modeAnchor.ts";
+import type { ModeAnchor } from "../modeAnchor.ts";
 import { RenderService } from "./renderService.ts";
 import { patchChildren } from "./patchDom.ts";
 import WorkspaceHeader from "../WorkspaceHeader";
@@ -23,8 +25,10 @@ import { shortcut } from "../keys.ts";
 interface LatexWorkspaceProps {
   initial: PaperDocument;
   store: DocumentStore;
-  onSwitchMode: (current: PaperDocument, kind: DocumentKind) => Promise<void>;
+  onSwitchMode: (current: PaperDocument, kind: DocumentKind, anchor?: ModeAnchor | null) => Promise<void>;
   initialNotice?: string;
+  /** The section the reader was at in the visual editor. */
+  initialAnchor?: ModeAnchor | null;
 }
 
 const SNIPPETS = {
@@ -80,7 +84,8 @@ function nearestBlock(root: HTMLElement, line: number): HTMLElement | null {
 interface PreviewProps {
   result: RenderResult | null;
   zoom: number | "fit";
-  syncLine: number | null;
+  /** A source line to show in the preview; a new object for every request. */
+  syncLine: { line: number } | null;
   onJump: (line: number) => void;
 }
 
@@ -107,7 +112,7 @@ function LatexPreview({ result, zoom, syncLine, onJump }: PreviewProps) {
     const body = bodyRef.current;
     const scroller = scrollRef.current;
     if (!body || !scroller || syncLine === null) return;
-    const block = nearestBlock(body, syncLine);
+    const block = nearestBlock(body, syncLine.line);
     if (!block) return;
     const view = scroller.getBoundingClientRect();
     const rect = block.getBoundingClientRect();
@@ -160,7 +165,7 @@ function diagnosticWhere(diagnostic: RenderDiagnostic): string {
   return `line ${diagnostic.line}`;
 }
 
-export default function LatexWorkspace({ initial, store, onSwitchMode, initialNotice = "" }: LatexWorkspaceProps) {
+export default function LatexWorkspace({ initial, store, onSwitchMode, initialNotice = "", initialAnchor = null }: LatexWorkspaceProps) {
   const [title, setTitle] = useState(initial.title);
   const [fileNames, setFileNames] = useState<string[]>(() => [MAIN_FILE, ...initial.files.map((file) => file.name).filter((name) => name !== MAIN_FILE)]);
   const [active, setActive] = useState(MAIN_FILE);
@@ -174,7 +179,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
   const [showAssistant, setShowAssistant] = useState(false);
   const [mobileView, setMobileView] = useState<"source" | "preview">("source");
   const [zoom, setZoom] = useState<number | "fit">("fit");
-  const [syncLine, setSyncLine] = useState<number | null>(null);
+  const [syncLine, setSyncLine] = useState<{ line: number } | null>(null);
   const [dialog, setDialog] = useState<"new-file" | "help" | { remove: string } | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState("");
@@ -336,7 +341,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
   const onCursorLine = useCallback((line: number) => {
     if (activeRef.current !== MAIN_FILE) return;
     if (syncTimer.current !== null) window.clearTimeout(syncTimer.current);
-    syncTimer.current = window.setTimeout(() => setSyncLine(line), 450);
+    syncTimer.current = window.setTimeout(() => setSyncLine({ line }), 450);
   }, []);
 
   const completions = useMemo(
@@ -462,6 +467,41 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
     }
   };
 
+  /** The section heading at the top of the source, to open the visual editor there. */
+  const readingAnchor = (): ModeAnchor | null => {
+    const handle = editorRef.current;
+    if (!handle || activeRef.current !== MAIN_FILE) return null;
+    const reading = handle.readingLine();
+    if (reading <= 1) return null;
+    const headings = latexHeadings(handle.getText(MAIN_FILE));
+    let current = -1;
+    headings.forEach((heading, index) => {
+      if (heading.line <= reading) current = index;
+    });
+    return anchorAt(headings, current);
+  };
+
+  // Open at the section the reader was looking at in the visual editor; the
+  // preview follows once its first render is in.
+  const anchorLine = useRef<number | null>(null);
+  useEffect(() => {
+    if (!initialAnchor) return;
+    const headings = latexHeadings(texts.current.get(MAIN_FILE) ?? "");
+    const index = findAnchor(headings, initialAnchor);
+    if (index === -1) return;
+    const line = headings[index].line;
+    anchorLine.current = line;
+    const timer = window.setTimeout(() => editorRef.current?.scrollToLine(line, MAIN_FILE), 30);
+    return () => window.clearTimeout(timer);
+  }, [initialAnchor]);
+  useEffect(() => {
+    if (!result || anchorLine.current === null) return;
+    // A new object even for the same line: an earlier request may have come
+    // before the preview had anything to scroll to.
+    setSyncLine({ line: anchorLine.current });
+    anchorLine.current = null;
+  }, [result]);
+
   const switchMode = async (kind: DocumentKind) => {
     if (switchingRef.current || kind === "latex") return;
     switchingRef.current = true;
@@ -472,7 +512,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
       // The converted document is about to replace this one; its unmount flush
       // must not write the old representation back over it.
       discard();
-      await onSwitchMode(buildDoc(), kind);
+      await onSwitchMode(buildDoc(), kind, readingAnchor());
     } catch (error) {
       switchingRef.current = false;
       setSwitching(false);

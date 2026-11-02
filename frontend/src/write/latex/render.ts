@@ -35,10 +35,10 @@ import {
   FONT_DECLARATIONS,
   FONT_SIZES,
   LIPSUM,
-  NAMED_COLORS,
   TEXT_SYMBOLS,
   applyAccent,
   formatToday,
+  resolveColor,
   toAlpha,
   toRoman,
 } from "./symbols.ts";
@@ -71,6 +71,12 @@ export interface RenderOptions {
   citationStyle?: CitationStyle;
   /** BibTeX that `\cite` can always use, in addition to `\bibliography` files. */
   bibliography?: string;
+  /**
+   * Preamble of the paper a fragment belongs to (a visual paper's kept LaTeX
+   * preamble): its macros, colours and theorem definitions apply, nothing in
+   * it is typeset.
+   */
+  preamble?: string;
   today?: Date;
 }
 
@@ -108,6 +114,8 @@ interface Style {
   family: "roman" | "sans" | "mono";
   size: number | null;
   color: string | null;
+  /** Background of soul's \hl, set by \sethlcolor. */
+  highlight: string | null;
   align: "left" | "center" | "right" | null;
 }
 
@@ -117,6 +125,7 @@ const BASE_STYLE: Style = {
   family: "roman",
   size: null,
   color: null,
+  highlight: null,
   align: null,
 };
 
@@ -255,6 +264,13 @@ const SILENT_COMMANDS = new Set([
   "acmSubmissionID",
   "ccsdesc",
   "received",
+  "revised",
+  "accepted",
+  "published",
+  "communicated",
+  "translator",
+  "pacs",
+  "preprint",
   "settopmatter",
   "printccsdesc",
   "markboth",
@@ -399,10 +415,6 @@ export function cssLength(raw: string, relativeTo: "width" | "height" = "width")
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
-}
-
-function hex(value: number): string {
-  return Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0");
 }
 
 function safeUrl(raw: string): string | null {
@@ -783,9 +795,10 @@ class LatexRenderer {
   }
 
   render(): RenderResult {
-    const parsed = parseLatex(this.source, { files: this.options.files });
+    const base = this.options.preamble?.trim() ? parseLatex(this.options.preamble, { files: this.options.files }) : null;
+    const parsed = parseLatex(this.source, { files: this.options.files, macros: base?.macros });
     this.macros = parsed.macros;
-    this.katexMacros = { ...parsed.mathMacros };
+    this.katexMacros = { ...(base?.mathMacros ?? {}), ...parsed.mathMacros };
     this.macrosKey = JSON.stringify(Object.entries(this.katexMacros).sort());
     for (const diagnostic of parsed.diagnostics) {
       this.diagnostics.push({ severity: diagnostic.severity, message: diagnostic.message, pos: diagnostic.start });
@@ -793,6 +806,16 @@ class LatexRenderer {
 
     const root: Sink = this.makeSink(false);
     this.sinks = [root];
+
+    if (base) {
+      // A fragment has no sections, so "numbered within section" would read 0.1.
+      const definitions = base.nodes
+        .filter((node) => node.type === "command" && PREAMBLE_DEFINITIONS.has(node.name))
+        .map((node) => (node.type === "command" && node.name === "newtheorem" ? { ...node, args: node.args.map((arg, index) => (index === 3 ? null : arg)) } : node));
+      this.inPreamble = true;
+      this.renderInline(definitions);
+      this.inPreamble = false;
+    }
 
     const docIndex = parsed.nodes.findIndex((node) => node.type === "environment" && node.name === "document");
     let body = parsed.nodes;
@@ -1170,6 +1193,8 @@ class LatexRenderer {
       case "institution":
       case "email":
       case "address":
+      case "curraddr":
+      case "urladdr":
       case "orcid":
       case "country":
       case "city":
@@ -1221,6 +1246,11 @@ class LatexRenderer {
       }
       case "definecolor": {
         const color = this.parseColor(this.argRaw(node, 1).trim(), this.argRaw(node, 2).trim());
+        if (color) this.colors[this.argRaw(node, 0).trim()] = color;
+        return;
+      }
+      case "colorlet": {
+        const color = this.parseColor(null, this.argRaw(node, 1).trim());
         if (color) this.colors[this.argRaw(node, 0).trim()] = color;
         return;
       }
@@ -1479,6 +1509,11 @@ class LatexRenderer {
         if (color) this.style = { ...this.style, color };
         return;
       }
+      case "sethlcolor": {
+        const highlight = this.parseColor(null, this.argRaw(node, 0).trim());
+        if (highlight) this.style = { ...this.style, highlight };
+        return;
+      }
       case "colorbox":
       case "fcolorbox": {
         const background = this.parseColor(this.argRaw(node, 0).trim() || null, this.argRaw(node, name === "fcolorbox" ? 2 : 1).trim());
@@ -1581,7 +1616,7 @@ class LatexRenderer {
     const wrappers: Record<string, [string, string]> = {
       underline: ["<u>", "</u>"],
       strike: ["<s>", "</s>"],
-      highlight: ['<mark class="ltx-hl">', "</mark>"],
+      highlight: [`<mark class="ltx-hl"${this.style.highlight ? ` style="background:${this.style.highlight}"` : ""}>`, "</mark>"],
       sup: ["<sup>", "</sup>"],
       sub: ["<sub>", "</sub>"],
     };
@@ -2972,43 +3007,17 @@ class LatexRenderer {
   // ── Colours ─────────────────────────────────────────────────────────────
 
   private parseColor(model: string | null, spec: string): string | null {
-    if (model) {
-      const numbers = spec.split(",").map((part) => Number.parseFloat(part));
-      switch (model) {
-        case "HTML":
-          return /^[0-9a-fA-F]{6}$/.test(spec) ? `#${spec.toLowerCase()}` : null;
-        case "rgb":
-          return numbers.length === 3 && numbers.every((n) => n >= 0 && n <= 1) ? `#${numbers.map((n) => hex(n * 255)).join("")}` : null;
-        case "RGB":
-          return numbers.length === 3 && numbers.every((n) => n >= 0 && n <= 255) ? `#${numbers.map((n) => hex(n)).join("")}` : null;
-        case "gray":
-          return numbers.length === 1 && numbers[0] >= 0 && numbers[0] <= 1 ? `#${hex(numbers[0] * 255).repeat(3)}` : null;
-        case "cmyk": {
-          if (numbers.length !== 4) return null;
-          const [c, m, y, k] = numbers;
-          return `#${[c, m, y].map((n) => hex(255 * (1 - n) * (1 - k))).join("")}`;
-        }
-        default:
-          return null;
-      }
-    }
-    // xcolor expressions: red, red!40, red!40!blue.
-    const parts = spec.split("!").map((part) => part.trim());
-    const named = (name: string) => this.colors[name] ?? NAMED_COLORS[name] ?? null;
-    let color = named(parts[0]);
-    if (!color) {
-      this.reportOnce(`color:${parts[0]}`, "warning", `Unknown colour "${parts[0]}".`);
-      return null;
-    }
-    for (let i = 1; i < parts.length; i += 2) {
-      const percent = Number.parseFloat(parts[i]);
-      const other = parts[i + 1] ? named(parts[i + 1]) : "#ffffff";
-      if (!Number.isFinite(percent) || !other) break;
-      color = mixColors(color, other, Math.min(Math.max(percent, 0), 100) / 100);
+    const color = resolveColor(model, spec, this.colors);
+    if (!color && !model) {
+      const name = spec.split("!")[0].trim();
+      this.reportOnce(`color:${name}`, "warning", `Unknown colour "${name}".`);
     }
     return color;
   }
 }
+
+/** What a fragment takes from its paper's preamble (see RenderOptions.preamble). */
+const PREAMBLE_DEFINITIONS = new Set(["newtheorem", "theoremstyle", "definecolor", "colorlet"]);
 
 /** Heading and list of a formatted bibliography; shared with the visual editor. */
 export function referenceListHtml(bibliography: Bibliography | null, heading: string, idPrefix: string): string {
@@ -3027,10 +3036,6 @@ export function renderMath(tex: string, display: boolean, macros: Record<string,
   return renderKatex(tex, display, macros, Object.keys(macros).length ? JSON.stringify(Object.entries(macros).sort()) : "");
 }
 
-function mixColors(a: string, b: string, weight: number): string {
-  const channel = (color: string, index: number) => Number.parseInt(color.slice(1 + index * 2, 3 + index * 2), 16);
-  return `#${[0, 1, 2].map((index) => hex(channel(a, index) * weight + channel(b, index) * (1 - weight))).join("")}`;
-}
 
 function normalizeAlgorithmic(name: string): string {
   const map: Record<string, string> = {

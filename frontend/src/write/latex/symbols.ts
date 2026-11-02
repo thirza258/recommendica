@@ -234,6 +234,58 @@ export const NAMED_COLORS: Record<string, string> = {
   royalblue: "#4169e1",
 };
 
+function hexByte(value: number): string {
+  return Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0");
+}
+
+/** `weight` of colour `a` and the rest of `b`, both #rrggbb (xcolor's `a!pct!b`). */
+export function mixColors(a: string, b: string, weight: number): string {
+  const channel = (color: string, index: number) => Number.parseInt(color.slice(1 + index * 2, 3 + index * 2), 16);
+  return `#${[0, 1, 2].map((index) => hexByte(channel(a, index) * weight + channel(b, index) * (1 - weight))).join("")}`;
+}
+
+/**
+ * An xcolor colour as #rrggbb: a model and value (`[HTML]{1D4ED8}`,
+ * `[rgb]{0,.3,.8}`, `[RGB]`, `[gray]`, `[cmyk]`), a name (`red`, `Maroon`, or
+ * one from `\definecolor`), or a mix (`red!40`, `blue!30!black`). Null when
+ * the colour cannot be resolved.
+ */
+export function resolveColor(model: string | null, spec: string, defined: Record<string, string> = {}): string | null {
+  const value = spec.trim();
+  if (model) {
+    const numbers = value.split(",").map((part) => Number.parseFloat(part));
+    switch (model.trim()) {
+      case "HTML":
+        return /^[0-9a-fA-F]{6}$/.test(value) ? `#${value.toLowerCase()}` : null;
+      case "rgb":
+        return numbers.length === 3 && numbers.every((n) => n >= 0 && n <= 1) ? `#${numbers.map((n) => hexByte(n * 255)).join("")}` : null;
+      case "RGB":
+        return numbers.length === 3 && numbers.every((n) => n >= 0 && n <= 255) ? `#${numbers.map((n) => hexByte(n)).join("")}` : null;
+      case "gray":
+        return numbers.length === 1 && numbers[0] >= 0 && numbers[0] <= 1 ? `#${hexByte(numbers[0] * 255).repeat(3)}` : null;
+      case "cmyk": {
+        if (numbers.length !== 4 || numbers.some((n) => !(n >= 0 && n <= 1))) return null;
+        const [c, m, y, k] = numbers;
+        return `#${[c, m, y].map((n) => hexByte(255 * (1 - n) * (1 - k))).join("")}`;
+      }
+      default:
+        return null;
+    }
+  }
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  const named = (name: string): string | null => defined[name] ?? NAMED_COLORS[name] ?? NAMED_COLORS[name.toLowerCase()] ?? null;
+  const parts = value.split("!").map((part) => part.trim());
+  let color = named(parts[0]);
+  if (!color) return null;
+  for (let index = 1; index < parts.length; index += 2) {
+    const percent = Number.parseFloat(parts[index]);
+    const other = parts[index + 1] ? named(parts[index + 1]) : "#ffffff";
+    if (!Number.isFinite(percent) || !other) break;
+    color = mixColors(color, other, Math.min(Math.max(percent, 0), 100) / 100);
+  }
+  return color;
+}
+
 const MONTHS = [
   "January",
   "February",
