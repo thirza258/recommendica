@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Dialog } from "../ui";
 import { renderLatex, renderMath } from "../latex/render.ts";
 import { wrapMultiline } from "./toLatex.ts";
+import { MULTILINE_MATH, environmentMath } from "./latexShapes.ts";
 import { bibToText, parseNames } from "../latex/bibtex.ts";
 import type { BibEntry } from "../latex/bibtex.ts";
 import type { RefTarget } from "./analysis.ts";
@@ -81,18 +82,27 @@ interface MathDialogProps {
   macros?: Record<string, string>;
   initialLatex: string;
   initialNumbered?: boolean;
+  /** A multi-line environment kept from LaTeX (align, gather, …) and its argument. */
+  env?: string;
+  envArg?: string;
   isNew: boolean;
   onSubmit: (latex: string, numbered: boolean) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
 
-export function MathDialog({ display, macros, initialLatex, initialNumbered = true, isNew, onSubmit, onDelete, onClose }: MathDialogProps) {
+export function MathDialog({ display, macros, initialLatex, initialNumbered = true, env = "", envArg = "", isNew, onSubmit, onDelete, onClose }: MathDialogProps) {
   const [latex, setLatex] = useState(initialLatex);
   const [numbered, setNumbered] = useState(initialNumbered);
   const [group, setGroup] = useState(0);
   const area = useRef<HTMLTextAreaElement>(null);
-  const preview = useMemo(() => (latex.trim() ? renderMath(display ? wrapMultiline(latex) : latex, display, macros) : null), [latex, display, macros]);
+  // An environment's rows keep their \label and \nonumber, which only LaTeX reads.
+  const multiline = display && MULTILINE_MATH.has(env.replace(/\*$/, ""));
+  const preview = useMemo(() => {
+    if (!latex.trim()) return null;
+    if (multiline) return renderMath(environmentMath(env, envArg, latex), true, macros);
+    return renderMath(display ? wrapMultiline(latex) : latex, display, macros);
+  }, [latex, display, macros, multiline, env, envArg]);
 
   const insertAtCaret = (snippet: string) => {
     const element = area.current;
@@ -179,11 +189,15 @@ export function MathDialog({ display, macros, initialLatex, initialNumbered = tr
       </div>
       {display && (
         <label className="write-check">
-          <input type="checkbox" checked={numbered} onChange={(event) => setNumbered(event.target.checked)} /> Number this equation
+          <input type="checkbox" checked={numbered} onChange={(event) => setNumbered(event.target.checked)} /> {multiline ? "Number these equations" : "Number this equation"}
         </label>
       )}
       <p className="write-hint">
-        {display ? `Use & and \\\\ for multi-line alignment. ${shortcut("Mod+Enter")} to ${isNew ? "insert" : "update"}.` : "Press Enter to insert; Shift+Enter for a new line."}
+        {multiline
+          ? `The rows of a LaTeX ${env.replace(/\*$/, "")} environment: \\\\ starts a row, \\label{…} names it and \\nonumber leaves it unnumbered. ${shortcut("Mod+Enter")} to update.`
+          : display
+            ? `Use & and \\\\ for multi-line alignment. ${shortcut("Mod+Enter")} to ${isNew ? "insert" : "update"}.`
+            : "Press Enter to insert; Shift+Enter for a new line."}
       </p>
     </Dialog>
   );

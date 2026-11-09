@@ -22,6 +22,16 @@ export interface ModeSwitchResult {
   notice: string;
 }
 
+export interface VisualSwitchOptions {
+  /**
+   * Whether a top-level block is valid for the visual editor's schema. The
+   * editor drops a document it cannot load and shows an empty page, so a
+   * block that fails is kept as a LaTeX block instead. Optional, because the
+   * schema lives with the editor and this module must not load it.
+   */
+  validBlock?: (block: JSONContent) => boolean;
+}
+
 function hash(value: string): string {
   // FNV-1a. Signatures only need to detect local edits, and storing another
   // full copy of the document (especially its images) would be wasteful.
@@ -77,6 +87,62 @@ function sameContent(stored: string | undefined, content: JSONContent, settings:
   if (!stored) return false;
   if (stored.startsWith("c:")) return stored === legacyContentSignature(content, settings, bib);
   return stored === exportSignature(exported ?? documentToLatex(content, settings, bib, { preamble }));
+}
+
+/**
+ * Whether the visual content says what the unchanged LaTeX source says:
+ * importing the source again gives the same settings and exports to the same
+ * LaTeX, references and images. The stored signature answers this when the
+ * exporter that made it is the one running now; this answers it after the
+ * converter has changed, so an unedited paper never has its source rewritten.
+ */
+function matchesSource(doc: PaperDocument, content: JSONContent, bib: string, exported?: LatexExport): boolean {
+  if (!doc.source || !doc.sync?.source || doc.sync.source !== sourceSignature(doc.source, doc.files, doc.assets)) return false;
+  try {
+    // Only what the source itself says: no fallback to the visual paper's references.
+    const fresh = importLatex(doc.source, { files: fileMap(doc.files), assets: assetMap(doc.assets), bib: "" });
+    const settings: PaperSettings = { ...doc.settings, ...fresh.settings };
+    if (canonical(settings) !== canonical(doc.settings)) return false;
+    const current = exported ?? documentToLatex(content, doc.settings, bib, { preamble: doc.latexPreamble });
+    return exportSignature(documentToLatex(fresh.content, settings, fresh.bib, { preamble: fresh.preamble })) === exportSignature(current);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Content the visual editor can load: each top-level block that `validBlock`
+ * refuses becomes a LaTeX block with that block's LaTeX, so nothing is lost
+ * and the editor never falls back to an empty document.
+ */
+export function loadableContent(
+  content: JSONContent,
+  validBlock: (block: JSONContent) => boolean,
+  settings: PaperSettings,
+  bib: string,
+  preamble?: string,
+): { content: JSONContent; changed: boolean } {
+  const blocks = content.content ?? [];
+  let changed = content.type !== "doc";
+  const kept: JSONContent[] = [];
+  for (const block of blocks) {
+    if (validBlock(block)) {
+      kept.push(block);
+      continue;
+    }
+    changed = true;
+    const source = blockLatex(block, settings, bib, preamble);
+    if (source) kept.push({ type: "rawLatex", attrs: { source } });
+  }
+  if (!changed) return { content, changed: false };
+  return { content: { type: "doc", content: kept.length ? kept : [{ type: "paragraph" }] }, changed: true };
+}
+
+/** The LaTeX of one block, for keeping a block the editor cannot load. */
+function blockLatex(block: JSONContent, settings: PaperSettings, bib: string, preamble: string | undefined): string {
+  const tex = documentToLatex({ type: "doc", content: [block] }, settings, bib, { preamble }).tex;
+  const body = /\\begin\{document\}([\s\S]*)\\end\{document\}/.exec(tex)?.[1] ?? "";
+  return body.replace(/\\bibliographystyle\{[^}]*\}\s*\\bibliography\{references\}\s*$/, "").trim();
 }
 
 /**
@@ -148,7 +214,8 @@ export async function switchToLatex(doc: PaperDocument): Promise<ModeSwitchResul
   const exported = documentToLatex(content, doc.settings, doc.bib, { preamble: doc.latexPreamble });
   const contentHash = exportSignature(exported);
 
-  if (sameContent(doc.sync?.content, content, doc.settings, doc.bib, doc.latexPreamble, exported) && doc.sync?.source === sourceSignature(doc.source, doc.files, doc.assets)) {
+  const unchanged = doc.sync?.source === sourceSignature(doc.source, doc.files, doc.assets) && (sameContent(doc.sync?.content, content, doc.settings, doc.bib, doc.latexPreamble, exported) || matchesSource(doc, content, doc.bib, exported));
+  if (unchanged) {
     return { document: { ...doc, kind: "latex", updatedAt: Date.now() }, notice: "" };
   }
 
@@ -198,11 +265,11 @@ export async function switchToLatex(doc: PaperDocument): Promise<ModeSwitchResul
  * Convert a LaTeX paper to the visual editor in place. Existing visual content
  * is reused when the source has not changed since the last switch.
  */
-export async function switchToVisual(doc: PaperDocument): Promise<ModeSwitchResult> {
+export async function switchToVisual(doc: PaperDocument, options: VisualSwitchOptions = {}): Promise<ModeSwitchResult> {
   const sourceHash = sourceSignature(doc.source, doc.files, doc.assets);
   const bib = projectBib(doc.source, doc.files, doc.bib);
 
-  if (doc.content && doc.sync?.source === sourceHash && sameContent(doc.sync.content, doc.content, doc.settings, bib, doc.latexPreamble)) {
+  if (doc.content && doc.sync?.source === sourceHash && (sameContent(doc.sync.content, doc.content, doc.settings, bib, doc.latexPreamble) || matchesSource(doc, doc.content, bib))) {
     return { document: { ...doc, kind: "visual", bib, updatedAt: Date.now() }, notice: "" };
   }
 
@@ -211,8 +278,18 @@ export async function switchToVisual(doc: PaperDocument): Promise<ModeSwitchResu
     assets: assetMap(doc.assets),
     bib: doc.bib,
   });
-  const content = imported.content;
   const settings: PaperSettings = { ...doc.settings, ...imported.settings };
+  const warnings = [...imported.warnings];
+  let content = imported.content;
+  if (options.validBlock) {
+    // Never hand the editor a block it would refuse: it would show an empty
+    // paper, and switching back would write that over the source.
+    const loadable = loadableContent(content, options.validBlock, settings, imported.bib, imported.preamble);
+    if (loadable.changed) {
+      warnings.push("Some LaTeX could not be shown as visual content and is kept as LaTeX blocks.");
+      content = loadable.content;
+    }
+  }
   const title = genericTitle(doc.title) && imported.title.trim() ? imported.title.trim() : doc.title;
   const { latexPreamble: _previous, ...rest } = doc;
   void _previous;
@@ -229,6 +306,6 @@ export async function switchToVisual(doc: PaperDocument): Promise<ModeSwitchResu
       sync: { content: contentSignature(content, settings, imported.bib, imported.preamble), source: sourceHash },
       updatedAt: Date.now(),
     },
-    notice: imported.warnings.join(" "),
+    notice: warnings.join(" "),
   };
 }

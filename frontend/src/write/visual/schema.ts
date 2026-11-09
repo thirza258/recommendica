@@ -21,6 +21,37 @@ const idAttribute = {
   renderHTML: (attributes: Record<string, unknown>) => (attributes.id ? { "data-id": String(attributes.id) } : {}),
 };
 
+/**
+ * The LaTeX label a node was imported with, written back exactly while the
+ * node keeps the id it got for it. Never copied: a pasted copy is a new node.
+ */
+const labelAttribute = {
+  default: "",
+  parseHTML: () => "",
+  renderHTML: () => ({}),
+};
+
+/** A string attribute carried through copy and paste as `data-<name>`. */
+function dataAttribute(name: string) {
+  return {
+    default: "",
+    parseHTML: (element: HTMLElement) => element.getAttribute(`data-${name}`) ?? "",
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value = attributes[name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())];
+      return value ? { [`data-${name}`]: String(value) } : {};
+    },
+  };
+}
+
+/** A true/false attribute carried as `data-<name>="true"`. */
+function flagAttribute(name: string) {
+  return {
+    default: false,
+    parseHTML: (element: HTMLElement) => element.getAttribute(`data-${name}`) === "true",
+    renderHTML: (attributes: Record<string, unknown>) => (attributes[name] ? { [`data-${name}`]: "true" } : {}),
+  };
+}
+
 /** Images may come from an upload (data: or the asset API) or a pasted https URL. */
 export function safeImageSource(value: unknown): string {
   const source = typeof value === "string" ? value.trim() : "";
@@ -43,6 +74,45 @@ export const PaperHeadingAttributes = Extension.create({
             }),
           },
           id: idAttribute,
+          label: labelAttribute,
+        },
+      },
+    ];
+  },
+});
+
+/**
+ * What a table or list had in LaTeX beyond what the visual editor shows: a
+ * tabular's column spec and rules, a description list, enumitem options.
+ * The exporter writes them back while they still fit the table or list.
+ */
+export const LatexAttributes = Extension.create({
+  name: "latexAttributes",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["table"],
+        attributes: {
+          latexSpec: dataAttribute("latex-spec"),
+          latexRules: {
+            default: null,
+            parseHTML: (element: HTMLElement) => {
+              try {
+                const value: unknown = JSON.parse(element.getAttribute("data-latex-rules") ?? "null");
+                return Array.isArray(value) && value.every((rule) => typeof rule === "string") ? value : null;
+              } catch {
+                return null;
+              }
+            },
+            renderHTML: (attributes: Record<string, unknown>) => (Array.isArray(attributes.latexRules) ? { "data-latex-rules": JSON.stringify(attributes.latexRules) } : {}),
+          },
+        },
+      },
+      {
+        types: ["bulletList", "orderedList"],
+        attributes: {
+          latexEnv: dataAttribute("latex-env"),
+          latexOptions: dataAttribute("latex-options"),
         },
       },
     ];
@@ -161,6 +231,11 @@ export const MathBlock = Node.create({
         renderHTML: (attributes: Record<string, unknown>) => ({ "data-numbered": attributes.numbered === false ? "false" : "true" }),
       },
       id: idAttribute,
+      label: labelAttribute,
+      // A multi-line environment (align, gather, …) kept from LaTeX; `latex`
+      // is then its body, rows and labels included.
+      env: dataAttribute("env"),
+      envArg: dataAttribute("env-arg"),
     };
   },
   parseHTML() {
@@ -208,6 +283,11 @@ export const Citation = Node.create({
           "data-keys": Array.isArray(attributes.keys) ? attributes.keys.join(",") : "",
         }),
       },
+      // natbib's command (citet, citeauthor, …) and the notes of a citation
+      // written in LaTeX; empty for the paper's own citation style.
+      command: dataAttribute("command"),
+      pre: dataAttribute("pre"),
+      post: dataAttribute("post"),
     };
   },
   parseHTML() {
@@ -234,6 +314,9 @@ export const CrossRef = Node.create({
         parseHTML: (element: HTMLElement) => element.getAttribute("data-target") ?? "",
         renderHTML: (attributes: Record<string, unknown>) => ({ "data-target": String(attributes.target ?? "") }),
       },
+      // The command a reference was written with in LaTeX (\eqref, \cref,
+      // \nameref, …); empty for the visual editor's "Section 2" form.
+      command: dataAttribute("command"),
     };
   },
   parseHTML() {
@@ -257,6 +340,9 @@ export const Footnote = Node.create({
         parseHTML: (element: HTMLElement) => element.getAttribute("data-text") ?? "",
         renderHTML: (attributes: Record<string, unknown>) => ({ "data-text": String(attributes.text ?? "") }),
       },
+      // The footnote's LaTeX when it holds more than plain text (math,
+      // citations, formatting); `text` is then what the editor shows.
+      latex: dataAttribute("latex"),
     };
   },
   parseHTML() {
@@ -306,6 +392,11 @@ export const Figure = Node.create({
         renderHTML: (attributes: Record<string, unknown>) => ({ "data-width": String(attributes.width ?? 80) }),
       },
       id: idAttribute,
+      label: labelAttribute,
+      // The file a LaTeX source includes when the project has no such image yet.
+      path: dataAttribute("path"),
+      // figure* (across both columns).
+      wide: flagAttribute("wide"),
     };
   },
   parseHTML() {
@@ -328,7 +419,7 @@ export const TableFigure = Node.create({
   content: "figcaption table",
   isolating: true,
   addAttributes() {
-    return { id: idAttribute };
+    return { id: idAttribute, label: labelAttribute, wide: flagAttribute("wide") };
   },
   parseHTML() {
     return [{ tag: "figure.paper-table-figure" }];
@@ -359,6 +450,36 @@ export const RawLatex = Node.create({
   },
   renderHTML({ node, HTMLAttributes }) {
     return ["div", mergeAttributes(HTMLAttributes, { "data-type": "raw-latex", class: "paper-raw-latex" }), ["pre", {}, node.attrs.source]];
+  },
+});
+
+/**
+ * LaTeX inside a paragraph that the visual model has no node for (a user
+ * macro, \SI{5}{\meter}, a \label), kept verbatim and previewed.
+ */
+export const RawInline = Node.create({
+  name: "rawInline",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      source: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-source") ?? element.textContent ?? "",
+        renderHTML: (attributes: Record<string, unknown>) => ({ "data-source": String(attributes.source ?? "") }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-type="raw-inline"]' }];
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes, { "data-type": "raw-inline", class: "paper-raw-inline" }), String(node.attrs.source ?? "")];
+  },
+  renderText({ node }) {
+    return String(node.attrs.source ?? "");
   },
 });
 
@@ -404,6 +525,8 @@ export const PAPER_NODES = [
   Figure,
   TableFigure,
   RawLatex,
+  RawInline,
   PageBreak,
   Bibliography,
+  LatexAttributes,
 ];

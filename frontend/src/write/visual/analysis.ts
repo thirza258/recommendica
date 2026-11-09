@@ -17,6 +17,7 @@ import { referenceListHtml } from "../latex/render.ts";
 import { toRoman } from "../latex/symbols.ts";
 import { conventions, headingNumber } from "../themes.ts";
 import type { VisualTheme } from "../themes.ts";
+import { MULTILINE_MATH, mathRows } from "./latexShapes.ts";
 
 export interface AnalysisContext {
   theme: VisualTheme;
@@ -96,6 +97,41 @@ function hash(value: string): string {
 
 const WORD = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 
+/** LaTeX notes as the reader sees them: `p.~5` → "p. 5". */
+function noteText(note: string): string {
+  return note.replace(/~/g, " ").replace(/\\[,;: ]/g, " ").replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** "[1]" with the notes of `\cite[see][p.~5]{…}`: "[see 1, p. 5]". */
+function withNotes(label: string, pre: string, post: string): string {
+  const before = noteText(pre);
+  const after = noteText(post);
+  if (!before && !after) return label;
+  const open = /^[[(]/.test(label) ? label[0] : "";
+  const close = /[\])]$/.test(label) ? label[label.length - 1] : "";
+  const inner = label.slice(open.length, label.length - close.length);
+  return `${open}${before ? `${before} ` : ""}${inner}${after ? `, ${after}` : ""}${close}`;
+}
+
+/** What a reference shows, following the LaTeX command it keeps (\ref prints the bare number). */
+function referenceLabel(target: RefTarget, command: string): string {
+  switch (command.replace(/\*$/, "")) {
+    case "ref":
+    case "vref":
+      return target.number || "??";
+    case "eqref":
+      return target.number ? `(${target.number})` : "??";
+    case "pageref":
+      return "#";
+    case "nameref":
+      return target.text || target.label;
+    case "Cref":
+      return target.label.charAt(0).toUpperCase() + target.label.slice(1);
+    default:
+      return target.label;
+  }
+}
+
 export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocAnalysis {
   const { theme } = context;
   const style = conventions(theme);
@@ -112,8 +148,8 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
   const citedKeys: string[] = [];
   const footnotes: DocAnalysis["footnotes"] = [];
   const labels: NodeLabel[] = [];
-  const citations: { pos: number; size: number; keys: string[] }[] = [];
-  const crossRefs: { pos: number; size: number; target: string }[] = [];
+  const citations: { pos: number; size: number; keys: string[]; command: string; pre: string; post: string }[] = [];
+  const crossRefs: { pos: number; size: number; target: string; command: string }[] = [];
   // Labels inside preserved LaTeX cannot be numbered here, but they do exist
   // (and export correctly), so references to them are not broken links.
   const rawLabels = new Set<string>();
@@ -175,6 +211,28 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
       }
       case "mathBlock": {
         const id = String(node.attrs.id ?? "");
+        const env = String(node.attrs.env ?? "").replace(/\*$/, "");
+        if (MULTILINE_MATH.has(env)) {
+          // align, gather, …: a number for each numbered row, and each row's
+          // labels refer to that row's number.
+          const latex = String(node.attrs.latex ?? "");
+          const numbers: string[] = [];
+          for (const row of mathRows(env, latex, node.attrs.numbered === false)) {
+            const number = row.numbered ? String(++equations) : "";
+            if (number) numbers.push(number);
+            for (const label of row.labels) {
+              targets.push({ id: label, kind: "equation", pos, number, label: number ? `${style.equationRef} (${number})` : "an unnumbered equation", text: latex });
+            }
+          }
+          if (numbers.length) {
+            const range = numbers.length === 1 ? numbers[0] : `${numbers[0]}–${numbers[numbers.length - 1]}`;
+            labels.push({ pos, size: node.nodeSize, attrs: { "data-number": range }, spec: { paperLabel: range } });
+          }
+          if (id && !targets.some((target) => target.id === id)) {
+            targets.push({ id, kind: "equation", pos, number: numbers[0] ?? "", label: numbers[0] ? `${style.equationRef} (${numbers[0]})` : "an unnumbered equation", text: latex });
+          }
+          return false;
+        }
         let number = "";
         if (node.attrs.numbered !== false) {
           number = String(++equations);
@@ -195,11 +253,11 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
       case "citation": {
         const keys = (Array.isArray(node.attrs.keys) ? node.attrs.keys : []).map(String);
         for (const key of keys) if (!citedKeys.includes(key)) citedKeys.push(key);
-        citations.push({ pos, size: node.nodeSize, keys });
+        citations.push({ pos, size: node.nodeSize, keys, command: String(node.attrs.command ?? ""), pre: String(node.attrs.pre ?? ""), post: String(node.attrs.post ?? "") });
         return false;
       }
       case "crossRef":
-        crossRefs.push({ pos, size: node.nodeSize, target: String(node.attrs.target ?? "") });
+        crossRefs.push({ pos, size: node.nodeSize, target: String(node.attrs.target ?? ""), command: String(node.attrs.command ?? "") });
         return false;
       case "footnote": {
         footnoteCount += 1;
@@ -211,7 +269,8 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
       case "bibliography":
         bibliographyNode = { pos, size: node.nodeSize };
         return false;
-      case "rawLatex": {
+      case "rawLatex":
+      case "rawInline": {
         const source = String(node.attrs.source ?? "");
         for (const match of source.matchAll(/\\label\{([^}]*)\}/g)) {
           const label = match[1].trim();
@@ -232,10 +291,11 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
 
   for (const citation of citations) {
     const missing = citation.keys.length === 0 || citation.keys.some((key) => missingKeys.includes(key));
+    const textual = /^(?:citet|Citet|citealt|Citealt)\*?$/.test(citation.command);
     const label = citation.keys.length === 0
       ? "[?]"
       : bibliography
-        ? formatCitation(citation.keys, bibliography, "paren")
+        ? withNotes(formatCitation(citation.keys, bibliography, textual ? "text" : "paren"), citation.pre, citation.post)
         : citation.keys.map(() => "[?]").join(", ");
     labels.push({
       pos: citation.pos,
@@ -251,7 +311,7 @@ export function analyzeDoc(doc: ProseMirrorNode, context: AnalysisContext): DocA
     const raw = !target && rawLabels.has(ref.target);
     // The number is computed by LaTeX, so the visual editor can only show the
     // label itself; `raw` keeps it from looking like a deleted target.
-    const label = target ? target.label : raw ? ref.target : "[missing reference]";
+    const label = target ? referenceLabel(target, ref.command) : raw ? ref.target : "[missing reference]";
     labels.push({
       pos: ref.pos,
       size: ref.size,

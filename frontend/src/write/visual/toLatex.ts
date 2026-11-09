@@ -15,6 +15,8 @@ import { conventions } from "../themes.ts";
 import { PREPRINT_STYLES } from "../preprintStyles.ts";
 import type { PreprintStyle } from "../preprintStyles.ts";
 import { AMSART_THEOREMS, MARGIN_LENGTHS, effectiveMargins, exportPreamble, loadsPackage, scanPreamble, withHyperref } from "../latexPreamble.ts";
+import { marksKey, sortMarks } from "./marks.ts";
+import { MULTILINE_MATH, columnAligns } from "./latexShapes.ts";
 
 export interface LatexImage {
   path: string;
@@ -54,31 +56,42 @@ const SPECIALS: Record<string, string> = {
   "~": "\\textasciitilde{}",
   "^": "\\textasciicircum{}",
   "\u00a0": "~",
+  "\u00ad": "\\-",
+  // Characters pdfLaTeX's UTF-8 input does not know, from symbol commands.
+  "\u2713": "\\checkmark{}",
+  "\u2217": "\\textasteriskcentered{}",
 };
 
 export function escapeLatex(text: string): string {
-  return text.replace(/[\\{}$&#%_~^\u00a0]/g, (ch) => SPECIALS[ch]);
+  return text.replace(/[\\{}$&#%_~^\u00a0\u00ad\u2713\u2217]/g, (ch) => SPECIALS[ch]);
 }
 
 function escapeUrl(url: string): string {
   return url.replace(/[%#\\{}]/g, (ch) => (ch === "\\" ? "" : `\\${ch}`));
 }
 
-/** Math that spans lines needs an alignment environment to compile (and to render in KaTeX). */
+/**
+ * Math that spans lines needs an alignment environment to compile (and to
+ * render in KaTeX). Line breaks and `&` inside braces or inside an
+ * environment of their own (cases, matrix) do not count.
+ */
 export function wrapMultiline(latex: string): string {
   const trimmed = latex.trim();
   if (/^\\begin\{/.test(trimmed)) return trimmed;
   let depth = 0;
+  let nested = 0;
   for (let i = 0; i < trimmed.length; i++) {
     const ch = trimmed[i];
     if (ch === "\\") {
-      if (trimmed[i + 1] === "\\" && depth === 0) return `\\begin{aligned}${trimmed}\\end{aligned}`;
+      if (trimmed.startsWith("\\begin{", i)) nested++;
+      else if (trimmed.startsWith("\\end{", i)) nested = Math.max(0, nested - 1);
+      else if (trimmed[i + 1] === "\\" && depth === 0 && nested === 0) return `\\begin{aligned}${trimmed}\\end{aligned}`;
       i++;
       continue;
     }
     if (ch === "{") depth++;
     else if (ch === "}") depth--;
-    else if (ch === "&" && depth === 0) return `\\begin{aligned}${trimmed}\\end{aligned}`;
+    else if (ch === "&" && depth === 0 && nested === 0) return `\\begin{aligned}${trimmed}\\end{aligned}`;
   }
   return trimmed;
 }
@@ -97,7 +110,17 @@ interface Context {
   highlights: Set<string>;
   /** Sources of raw LaTeX blocks, to find the packages they use. */
   raw: string[];
+  /** Inside a table cell, where \\ would end the row. */
+  inCell: boolean;
+  /** Line breaks written in the current cell. */
+  cellBreaks: number;
 }
+
+/** natbib's citation commands; \cite itself works without natbib. */
+const NATBIB_COMMANDS = /^(?:citep|citet|citealp|citealt|Citep|Citet|Citealp|Citealt|citeauthor|Citeauthor|citeyear|citeyearpar|citenum)\*?$/;
+
+/** Reference commands a cross-reference may keep from its LaTeX source. */
+const REFERENCE_COMMANDS = /^(?:ref|eqref|autoref|cref|Cref|nameref|vref|pageref)\*?$/;
 
 function attr<T>(node: JSONContent, name: string, fallback: T): T {
   const value = node.attrs?.[name];
@@ -116,6 +139,30 @@ function labelFor(type: string, id: string): string {
 }
 
 /**
+ * A node's LaTeX label: the label it was imported with (`label`, as long as
+ * the node still has the id it was given for it), or one made from its id.
+ */
+function nodeLabel(node: JSONContent): string {
+  const id = attr(node, "id", "");
+  const label = attr(node, "label", "");
+  return label && label === id ? label : labelFor(node.type ?? "", id);
+}
+
+/** Whether a node's label is written: when something refers to it, or it came from LaTeX. */
+function writesLabel(node: JSONContent, context: Context): boolean {
+  const id = attr(node, "id", "");
+  return Boolean(id) && (context.referenced.has(id) || isImportedLabel(id) || attr(node, "label", "") === id);
+}
+
+/** Labels that kept LaTeX defines, so references to them stay references. */
+function rawLabels(source: string, context: Context, type = "raw"): void {
+  for (const match of source.matchAll(/\\label\s*\{([^}]+)\}/g)) {
+    const label = match[1].trim();
+    if (label && !context.kinds.has(label)) context.kinds.set(label, { type, numbered: true, label });
+  }
+}
+
+/**
  * IDs with a colon come from imported LaTeX (`sec:intro`). The visual editor
  * generates hyphenated IDs (`sec-a1b2c3`), so a colon is unambiguous.
  */
@@ -130,17 +177,22 @@ function collect(node: JSONContent, context: Context): void {
   }
   if (node.type && ["heading", "figure", "tableFigure", "mathBlock"].includes(node.type)) {
     const id = attr(node, "id", "");
-    if (id) context.kinds.set(id, { type: node.type, numbered: attr<boolean>(node, "numbered", true) !== false });
+    if (id) context.kinds.set(id, { type: node.type, numbered: attr<boolean>(node, "numbered", true) !== false, label: nodeLabel(node) });
   }
-  if (node.type === "rawLatex") {
+  if (node.type === "mathBlock" && attr(node, "env", "")) {
+    // A multi-line equation keeps its labels in its rows.
+    rawLabels(attr(node, "latex", ""), context, "mathBlock");
+  }
+  if (node.type === "rawLatex" || node.type === "rawInline") {
     // Labels inside preserved LaTeX still exist, so references to them can
     // point at the same label instead of becoming "??" after a round trip.
     const source = attr(node, "source", "");
     context.raw.push(source);
-    for (const match of source.matchAll(/\\label\{([^}]+)\}/g)) {
-      const label = match[1].trim();
-      if (label) context.kinds.set(label, { type: "raw", numbered: true, label });
-    }
+    rawLabels(source, context);
+  }
+  if (node.type === "footnote" && attr(node, "latex", "")) {
+    context.raw.push(attr(node, "latex", ""));
+    rawLabels(attr(node, "latex", ""), context);
   }
   node.content?.forEach((child) => collect(child, context));
 }
@@ -156,10 +208,15 @@ function hexColor(value: unknown): string | null {
   return null;
 }
 
-function wrapMarks(text: string, marks: JSONContent["marks"], context: Context): string {
+/** URLs that \\url prints as written, wherever it is used. */
+const PLAIN_URL = /^https?:\/\/[^\s%#\\{}^~&$_]+$/;
+
+function wrapMarks(text: string, marks: JSONContent["marks"], context: Context, plain = ""): string {
   let out = text;
+  // The schema's mark order, so the same text always gives the same LaTeX;
   // soul's \hl cannot take commands inside its argument, so it wraps the text first.
-  const ordered = [...(marks ?? [])].sort((a, b) => Number(b.type === "highlight") - Number(a.type === "highlight"));
+  const sorted = sortMarks(marks ?? []);
+  const ordered = [...sorted.filter((mark) => mark.type === "highlight"), ...sorted.filter((mark) => mark.type !== "highlight")];
   for (const mark of ordered) {
     switch (mark.type) {
       case "bold":
@@ -186,7 +243,8 @@ function wrapMarks(text: string, marks: JSONContent["marks"], context: Context):
         break;
       case "link": {
         const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
-        if (/^(https?:|mailto:)/i.test(href)) {
+        if (plain === href && out === escapeLatex(plain) && PLAIN_URL.test(href)) out = `\\url{${href}}`;
+        else if (/^(https?:|mailto:)/i.test(href)) {
           out = `\\href{${escapeUrl(href)}}{${out}}`;
         }
         break;
@@ -214,29 +272,67 @@ function wrapMarks(text: string, marks: JSONContent["marks"], context: Context):
   return out;
 }
 
+/** Text nodes with the same marks, joined: the editor stores them that way too. */
+function joinText(nodes: JSONContent[] | undefined): JSONContent[] {
+  const out: JSONContent[] = [];
+  for (const node of nodes ?? []) {
+    const last = out[out.length - 1];
+    if (node.type === "text" && last?.type === "text" && marksKey(last.marks) === marksKey(node.marks)) {
+      out[out.length - 1] = { ...last, text: `${last.text ?? ""}${node.text ?? ""}` };
+    } else out.push(node);
+  }
+  return out;
+}
+
+/** `\\cite[p.~5]{key}`, `\\citet[see][]{key}`: the citation as its attributes describe it. */
+function citation(node: JSONContent, context: Context): string {
+  const keys = (attr<string[]>(node, "keys", []) ?? []).filter(Boolean);
+  if (!keys.length) return "";
+  let command = attr(node, "command", "");
+  if (!/^[A-Za-z]+\*?$/.test(command)) command = "";
+  // IEEEtran's cite package and natbib do not mix: there the plain form is used.
+  if (command && NATBIB_COMMANDS.test(command)) {
+    if (context.settings.theme === "ieee") command = "";
+    else context.packages.add("natbib");
+  }
+  if (!command) command = context.settings.citationStyle === "apa" ? "citep" : "cite";
+  const pre = attr(node, "pre", "");
+  const post = attr(node, "post", "");
+  if (pre && command === "cite" && context.settings.theme !== "ieee") context.packages.add("natbib");
+  const notes = pre && context.settings.theme !== "ieee" ? `[${pre}][${post}]` : post || pre ? `[${post || pre}]` : "";
+  return `\\${command}${notes}{${keys.join(",")}}`;
+}
+
 function inline(nodes: JSONContent[] | undefined, context: Context): string {
   let out = "";
-  for (const node of nodes ?? []) {
+  for (const node of joinText(nodes)) {
+    // A control word written by kept LaTeX must not run into a following letter.
+    if (/\\[A-Za-z@]+$/.test(out) && node.type === "text" && /^[A-Za-z@]/.test(node.text ?? "")) out += " ";
     switch (node.type) {
       case "text":
-        out += wrapMarks(escapeLatex(node.text ?? ""), node.marks, context);
+        out += wrapMarks(escapeLatex(node.text ?? ""), node.marks, context, node.text ?? "");
         break;
       case "hardBreak":
-        out += "\\\\\n";
+        // In a cell, \\ would end the table row; \makecell takes it.
+        if (context.inCell) context.cellBreaks++;
+        out += context.inCell ? "\\\\" : "\\\\\n";
         break;
       case "mathInline":
         out += `$${attr(node, "latex", "").trim()}$`;
         break;
-      case "citation": {
-        const keys = (attr<string[]>(node, "keys", []) ?? []).filter(Boolean);
-        if (keys.length) out += context.settings.citationStyle === "apa" ? `\\citep{${keys.join(",")}}` : `\\cite{${keys.join(",")}}`;
+      case "citation":
+        out += citation(node, context);
+        break;
+      case "crossRef":
+        out += crossRef(attr(node, "target", ""), context, attr(node, "command", ""));
+        break;
+      case "footnote": {
+        const latex = attr(node, "latex", "");
+        out += `\\footnote{${latex || escapeLatex(attr(node, "text", ""))}}`;
         break;
       }
-      case "crossRef":
-        out += crossRef(attr(node, "target", ""), context);
-        break;
-      case "footnote":
-        out += `\\footnote{${escapeLatex(attr(node, "text", ""))}}`;
+      case "rawInline":
+        out += attr(node, "source", "");
         break;
       default:
         if (node.content) out += inline(node.content, context);
@@ -246,13 +342,17 @@ function inline(nodes: JSONContent[] | undefined, context: Context): string {
   return out;
 }
 
-function crossRef(target: string, context: Context): string {
+function crossRef(target: string, context: Context, written = ""): string {
   const kind = context.kinds.get(target);
+  const command = REFERENCE_COMMANDS.test(written) ? written : "";
   if (!kind) {
-    context.warnings.push("A cross-reference points to something that no longer exists; it is exported as ??.");
-    return "??";
+    // LaTeX prints ?? for a label it does not know; the reference itself is kept.
+    context.warnings.push("A cross-reference points to something that no longer exists; LaTeX shows it as ??.");
+    return target ? `\\${command || "ref"}{${target}}` : "??";
   }
   const label = kind.label ?? labelFor(kind.type, target);
+  // A reference written with its own command in LaTeX keeps that command.
+  if (command) return `\\${command}{${label}}`;
   if (kind.type === "raw") return `\\ref{${label}}`;
   const style = conventions(context.settings.theme);
   switch (kind.type) {
@@ -294,43 +394,98 @@ function figure(node: JSONContent, context: Context): string {
   const src = attr(node, "src", "");
   const width = Math.min(Math.max(Number(attr(node, "width", 80)) || 80, 10), 100) / 100;
   const caption = inline(node.content?.[0]?.content, context);
-  const id = attr(node, "id", "");
+  const path = attr(node, "path", "");
   let graphic: string;
   if (isEmbeddableImageSource(src)) {
     const mime = mimeForImageSource(src);
-    const path = `figures/figure-${context.images.length + 1}.${extensionFor(mime)}`;
-    context.images.push({ path, dataUrl: src, mime });
+    const file = `figures/figure-${context.images.length + 1}.${extensionFor(mime)}`;
+    context.images.push({ path: file, dataUrl: src, mime });
+    graphic = `\\includegraphics[width=${width}\\linewidth]{${file}}`;
+  } else if (!src && path && !/[{}\\%#]/.test(path)) {
+    // An image the LaTeX source includes but the project does not have yet.
     graphic = `\\includegraphics[width=${width}\\linewidth]{${path}}`;
   } else {
     if (src) {
       context.warnings.push(`A figure uses a web image (${src}); download it into figures/ to compile.`);
     }
-    graphic = `\\fbox{\\parbox[c][4cm][c]{${width}\\linewidth}{\\centering Figure placeholder}}`;
+    // The placeholder links to a web image, which keeps it for the visual editor.
+    const text = src && /^https:\/\//i.test(src) ? `\\href{${escapeUrl(src)}}{Figure placeholder}` : "Figure placeholder";
+    graphic = `\\fbox{\\parbox[c][4cm][c]{${width}\\linewidth}{\\centering ${text}}}`;
   }
-  const lines = ["\\begin{figure}[htbp]", "  \\centering", `  ${graphic}`, `  \\caption{${caption}}`];
-  if (id && (context.referenced.has(id) || isImportedLabel(id))) lines.push(`  \\label{${labelFor("figure", id)}}`);
-  lines.push("\\end{figure}");
+  const env = attr<boolean>(node, "wide", false) ? "figure*" : "figure";
+  const lines = [`\\begin{${env}}[htbp]`, "  \\centering", `  ${graphic}`, `  \\caption{${caption}}`];
+  if (writesLabel(node, context)) lines.push(`  \\label{${nodeLabel(node)}}`);
+  lines.push(`\\end{${env}}`);
   return lines.join("\n");
 }
 
-function cellText(cell: JSONContent, context: Context): string {
-  return (cell.content ?? [])
-    .map((paragraph) => inline(paragraph.content, context))
-    .filter(Boolean)
-    .join(" ");
+function cellText(cell: JSONContent, context: Context, align: string): string {
+  context.inCell = true;
+  context.cellBreaks = 0;
+  const text = (cell.content ?? []).map((paragraph) => inline(paragraph.content, context)).filter(Boolean).join(" ");
+  context.inCell = false;
+  // Line breaks inside a cell need \makecell (\\ alone would end the row).
+  if (!context.cellBreaks) return text;
+  context.packages.add("makecell");
+  return `\\makecell[${align}]{${text}}`;
+}
+
+/**
+ * The horizontal rules a table had in LaTeX, one entry per row boundary,
+ * fitted to its current number of rows: the top, header and bottom rules
+ * stay, and rows added in the visual editor get the rule between body rows.
+ */
+function fitRules(written: unknown, rows: number): string[] | null {
+  if (!Array.isArray(written) || written.length < 2 || !written.every((rule) => typeof rule === "string")) return null;
+  const rules = written as string[];
+  if (rules.length === rows + 1) return rules;
+  const inner = rules.slice(1, -1);
+  const header = inner[0] ?? "";
+  const counts = new Map<string, number>();
+  for (const rule of inner.slice(1)) counts.set(rule, (counts.get(rule) ?? 0) + 1);
+  const body = inner.length > 1 ? [...counts.entries()].sort((left, right) => right[1] - left[1])[0][0] : /^\\hline$/.test(header) ? header : "";
+  const fitted = [rules[0]];
+  for (let row = 1; row < rows; row++) fitted.push(row === 1 ? header : body);
+  fitted.push(rules[rules.length - 1]);
+  return fitted;
+}
+
+/**
+ * The alignment the visual table gives each column: that of the first cell
+ * of the column that spans only it (a cell spanning several columns says
+ * nothing about each of them).
+ */
+function tableAligns(rows: JSONContent[], width: number): string[] {
+  const aligns: (string | null)[] = new Array<string | null>(width).fill(null);
+  const covered = new Array<number>(width).fill(0);
+  for (const row of rows) {
+    let column = 0;
+    for (const cell of row.content ?? []) {
+      while (column < width && covered[column] > 0) column++;
+      const colspan = Math.max(1, Number(cell.attrs?.colspan) || 1);
+      const rowspan = Math.max(1, Number(cell.attrs?.rowspan) || 1);
+      if (colspan === 1 && column < width && aligns[column] === null) {
+        const align = cell.content?.[0]?.attrs?.textAlign;
+        aligns[column] = align === "center" ? "c" : align === "right" ? "r" : "l";
+      }
+      for (let span = 0; span < colspan && column + span < width; span++) if (rowspan > 1) covered[column + span] = rowspan;
+      column += colspan;
+    }
+    for (let index = 0; index < width; index++) if (covered[index] > 0) covered[index]--;
+  }
+  return aligns.map((align) => align ?? "l");
 }
 
 function tabular(table: JSONContent, context: Context): string {
   const rows = table.content ?? [];
   const width = Math.max(1, ...rows.map((row) => (row.content ?? []).reduce((sum, cell) => sum + (Number(cell.attrs?.colspan) || 1), 0)));
-  const firstRow = rows[0]?.content ?? [];
-  const aligns: string[] = [];
-  for (const cell of firstRow) {
-    const align = cell.content?.[0]?.attrs?.textAlign;
-    const letter = align === "center" ? "c" : align === "right" ? "r" : "l";
-    for (let k = 0; k < (Number(cell.attrs?.colspan) || 1); k++) aligns.push(letter);
-  }
-  while (aligns.length < width) aligns.push("l");
+  const aligns = tableAligns(rows, width);
+  // The column spec the LaTeX source had (rules, p{} columns) stays while the
+  // table still has its columns and alignments.
+  const spec = attr(table, "latexSpec", "");
+  const specAligns = spec ? columnAligns(spec) : [];
+  const keepSpec = spec.length > 0 && specAligns.length === width && specAligns.every((letter, index) => letter === aligns[index]);
+  const rules = rows.length ? fitRules(attr<unknown>(table, "latexRules", null), rows.length) : null;
 
   // Cells covered by a rowspan from above must be emitted as empty cells.
   const covered = new Array<number>(width).fill(0);
@@ -354,7 +509,7 @@ function tabular(table: JSONContent, context: Context): string {
       }
       const colspan = Math.max(1, Number(cell.attrs?.colspan) || 1);
       const rowspan = Math.max(1, Number(cell.attrs?.rowspan) || 1);
-      let text = cellText(cell, context);
+      let text = cellText(cell, context, aligns[column] ?? "l");
       if (rowspan > 1) {
         context.usesRowspan = true;
         text = `\\multirow{${rowspan}}{*}{${text}}`;
@@ -364,35 +519,81 @@ function tabular(table: JSONContent, context: Context): string {
       out.push(text);
       column += colspan;
     }
+    if (rules?.[index]) lines.push(`    ${rules[index]}`);
+    else if (!rules && index === 0) lines.push("    \\toprule");
     lines.push(`    ${out.join(" & ")} \\\\`);
     const isHeader = (row.content ?? []).length > 0 && (row.content ?? []).every((cell) => cell.type === "tableHeader");
-    if (index === 0 && isHeader && rows.length > 1) lines.push("    \\midrule");
+    if (!rules && index === 0 && isHeader && rows.length > 1) lines.push("    \\midrule");
   });
-  return [`  \\begin{tabular}{${aligns.join("")}}`, "    \\toprule", ...lines, "    \\bottomrule", "  \\end{tabular}"].join("\n");
+  if (rules?.[rows.length]) lines.push(`    ${rules[rows.length]}`);
+  else if (!rules) lines.push("    \\bottomrule");
+  if (!rows.length && !rules) lines.unshift("    \\toprule");
+  return [`  \\begin{tabular}{${keepSpec ? spec : aligns.join("")}}`, ...lines, "  \\end{tabular}"].join("\n");
 }
 
 function tableFigure(node: JSONContent, context: Context): string {
   const caption = node.content?.find((child) => child.type === "figcaption");
   const table = node.content?.find((child) => child.type === "table");
-  const id = attr(node, "id", "");
-  const lines = ["\\begin{table}[htbp]", "  \\centering", `  \\caption{${inline(caption?.content, context)}}`];
-  if (id && (context.referenced.has(id) || isImportedLabel(id))) lines.push(`  \\label{${labelFor("tableFigure", id)}}`);
+  const env = attr<boolean>(node, "wide", false) ? "table*" : "table";
+  const lines = [`\\begin{${env}}[htbp]`, "  \\centering", `  \\caption{${inline(caption?.content, context)}}`];
+  if (writesLabel(node, context)) lines.push(`  \\label{${nodeLabel(node)}}`);
   if (table) lines.push(tabular(table, context));
-  lines.push("\\end{table}");
+  lines.push(`\\end{${env}}`);
   return lines.join("\n");
 }
 
+/** A description item's label: the bold text it starts with. */
+function descriptionItem(item: JSONContent, context: Context, depth: number): string {
+  const [first, ...rest] = item.content ?? [];
+  const content = joinText(first?.content);
+  const head = content[0];
+  let label = "";
+  let body = content;
+  if (head?.type === "text" && head.marks?.length === 1 && head.marks[0].type === "bold") {
+    label = escapeLatex(head.text ?? "").trim();
+    body = content.slice(1);
+    if (body[0]?.type === "text") body = [{ ...body[0], text: (body[0].text ?? "").replace(/^\s+/, "") }, ...body.slice(1)];
+  }
+  const blocks = [inline(body, context), ...rest.map((child) => block(child, context, depth + 1))].filter(Boolean).join("\n");
+  return label ? `\\item[${label}] ${blocks}` : `\\item ${blocks}`;
+}
+
 function list(node: JSONContent, context: Context, depth: number): string {
-  const env = node.type === "orderedList" ? "enumerate" : "itemize";
-  const lines = [`\\begin{${env}}`];
+  const description = node.type === "bulletList" && attr<string>(node, "latexEnv", "") === "description";
+  const env = description ? "description" : node.type === "orderedList" ? "enumerate" : "itemize";
+  const options = attr(node, "latexOptions", "");
+  const lines = [`\\begin{${env}}${options && !/[\]\n]/.test(options) ? `[${options}]` : ""}`];
   const start = Number(node.attrs?.start) || 1;
   if (env === "enumerate" && start !== 1) lines.push(`  \\setcounter{enum${["i", "ii", "iii", "iv"][Math.min(depth, 3)]}}{${start - 1}}`);
   for (const item of node.content ?? []) {
+    if (description) {
+      lines.push(`  ${descriptionItem(item, context, depth).replace(/\n/g, "\n  ")}`);
+      continue;
+    }
     const body = (item.content ?? []).map((child) => block(child, context, depth + 1)).filter(Boolean).join("\n");
     lines.push(`  \\item ${body.replace(/\n/g, "\n  ")}`);
   }
   lines.push(`\\end{${env}}`);
   return lines.join("\n");
+}
+
+/** A multi-line equation environment kept from LaTeX (align, gather, …). */
+function equationEnvironment(node: JSONContent, context: Context): string {
+  const base = attr(node, "env", "").replace(/\*$/, "");
+  const latex = attr(node, "latex", "").trim();
+  if (!latex) return "";
+  const env = attr<boolean>(node, "numbered", true) === false ? `${base}*` : base;
+  let argument = "";
+  if (base === "alignat") {
+    // alignat needs its number of column pairs.
+    const written = attr(node, "envArg", "").trim();
+    const tabs = (latex.split("\\\\")[0].match(/&/g) ?? []).length;
+    argument = `{${/^\d+$/.test(written) ? written : Math.max(1, Math.ceil((tabs + 1) / 2))}}`;
+  }
+  // The block's own label is written in its first row if no row has it.
+  const id = attr(node, "id", "");
+  const label = id && writesLabel(node, context) && !latex.includes(`\\label{${nodeLabel(node)}}`) ? `\\label{${nodeLabel(node)}}\n  ` : "";
+  return `\\begin{${env}}${argument}\n  ${label}${latex}\n\\end{${env}}`;
 }
 
 function block(node: JSONContent, context: Context, depth = 0): string {
@@ -405,8 +606,7 @@ function block(node: JSONContent, context: Context, depth = 0): string {
     case "heading": {
       const level = Math.min(Math.max(Number(node.attrs?.level) || 1, 1), 4);
       const numbered = context.settings.numberedHeadings && context.settings.theme !== "apa" && node.attrs?.numbered !== false && level <= 3;
-      const id = attr(node, "id", "");
-      const label = id && (context.referenced.has(id) || isImportedLabel(id)) ? `\\label{${labelFor("heading", id)}}` : "";
+      const label = writesLabel(node, context) ? `\\label{${nodeLabel(node)}}` : "";
       return `\\${HEADING_COMMANDS[level - 1]}${numbered ? "" : "*"}{${inline(node.content, context)}}${label}`;
     }
     case "paperTitle":
@@ -430,11 +630,11 @@ function block(node: JSONContent, context: Context, depth = 0): string {
       }
     }
     case "mathBlock": {
+      if (MULTILINE_MATH.has(attr(node, "env", "").replace(/\*$/, ""))) return equationEnvironment(node, context);
       const latex = wrapMultiline(attr(node, "latex", ""));
       if (!latex) return "";
-      const id = attr(node, "id", "");
       if (attr<boolean>(node, "numbered", true) === false) return `\\[\n  ${latex}\n\\]`;
-      const label = id && (context.referenced.has(id) || isImportedLabel(id)) ? `\\label{${labelFor("mathBlock", id)}}\n  ` : "";
+      const label = writesLabel(node, context) ? `\\label{${nodeLabel(node)}}\n  ` : "";
       return `\\begin{equation}\n  ${label}${latex}\n\\end{equation}`;
     }
     case "figure":
@@ -538,6 +738,8 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     usesRowspan: false,
     highlights: new Set(),
     raw: [],
+    inCell: false,
+    cellBreaks: 0,
   };
   collect(doc, context);
 
@@ -595,7 +797,9 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
   }
 
   const usesBibliography = /\\(cite|citep)\{/.test(body.join("\n")) || nodes.some((node) => node.type === "bibliography");
-  if (usesBibliography && !nodes.some((node) => node.type === "bibliography")) {
+  // A reference list kept as LaTeX (thebibliography, \bibliography) is the paper's own.
+  const ownList = context.raw.some((source) => /\\begin\{thebibliography\}|\\bibliography\{|\\printbibliography/.test(source));
+  if (usesBibliography && !ownList && !nodes.some((node) => node.type === "bibliography")) {
     body.push(block({ type: "bibliography" }, context));
   }
 
@@ -655,6 +859,7 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
   preamble.push(...packageLines(["graphicx"]), ...packageLines(["booktabs"]));
   // Raw LaTeX blocks and the author's preamble may need packages too.
   if (context.usesRowspan || wants("multirow") || /\\multirow\b/.test(usage)) preamble.push(...packageLines(["multirow"]));
+  if (context.packages.has("makecell") || wants("makecell") || /\\makecell\b/.test(usage)) preamble.push(...packageLines(["makecell"]));
   if (context.packages.has("ulem") || wants("ulem") || /\\(?:sout|uline|uwave|xout)\b/.test(usage)) preamble.push(...packageLines(["ulem"], "normalem"));
   const usesColour = /\\(?:textcolor|color|colorbox|fcolorbox|definecolor|colorlet|rowcolor|cellcolor|pagecolor)\b/.test(usage) && !loadsPackage(user.statements, "xcolor", "color");
   if (context.packages.has("xcolor") || wants("xcolor") || usesColour) preamble.push(...packageLines(["xcolor"]));
@@ -668,9 +873,10 @@ export function documentToLatex(doc: JSONContent, settings: PaperSettings, bib: 
     preamble.push(spacing === 2 ? "\\doublespacing" : `\\setstretch{${spacing}}`);
   }
   if (settings.paragraphStyle === "spaced" && !classLayout) preamble.push("\\usepackage{parskip}");
-  // REVTeX has natbib built in.
+  // REVTeX has natbib built in; natbib's own commands need it elsewhere.
   if (settings.citationStyle === "apa" && !revtex) preamble.push("\\usepackage[round]{natbib}");
   else if (ieee) preamble.push("\\usepackage{cite}");
+  else if (context.packages.has("natbib") && !revtex && !loadsPackage(user.statements, "natbib")) preamble.push("\\usepackage[numbers]{natbib}");
   if (preprint) preamble.push(`\\usepackage{${preprint}}`);
   // The author's statements, in their order, after every package they may
   // build on; hyperref goes before the first statement that needs it.

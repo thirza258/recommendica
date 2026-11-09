@@ -14,6 +14,8 @@ import "./write.css";
 // the documents list loads without either.
 const loadVisual = () => import("./visual/VisualWorkspace");
 const loadLatex = () => import("./source/LatexWorkspace");
+// The schema check for converted content comes with the visual editor's code.
+const loadContentCheck = () => import("./visual/contentCheck.ts");
 const VisualWorkspace = lazy(loadVisual);
 const LatexWorkspace = lazy(loadLatex);
 
@@ -64,7 +66,8 @@ function DocumentLoader({ id, store }: { id: string; store: DocumentStore }) {
 
   const switchMode = useCallback(
     async (current: PaperDocument, next: DocumentKind, at: ModeAnchor | null = null) => {
-      const result = next === "latex" ? await switchToLatex(current) : await switchToVisual(current);
+      const check = next === "visual" ? await loadContentCheck().catch(() => null) : null;
+      const result = next === "latex" ? await switchToLatex(current) : await switchToVisual(current, { validBlock: check?.validBlock });
       await store.put(result.document);
       // A transition keeps the current editor on screen until the other one is
       // ready, instead of flashing a loading screen in between.

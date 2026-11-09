@@ -236,6 +236,7 @@ const SILENT_COMMANDS = new Set([
   "bstctlcite",
   "protect",
   "relax",
+  "xspace",
   "null",
   "nobreak",
   "allowbreak",

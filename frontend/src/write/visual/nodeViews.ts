@@ -7,9 +7,10 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Decoration, NodeView } from "@tiptap/pm/view";
-import { renderLatex, renderMath } from "../latex/render.ts";
+import { htmlToText, renderLatex, renderMath } from "../latex/render.ts";
 import { safeImageSource } from "./schema.ts";
 import { wrapMultiline } from "./toLatex.ts";
+import { MULTILINE_MATH, environmentMath } from "./latexShapes.ts";
 
 /** What math and raw LaTeX need from a paper converted from LaTeX. */
 export interface PaperLatexContext {
@@ -17,6 +18,8 @@ export interface PaperLatexContext {
   preamble: string;
   /** Project files, for \input in that preamble. */
   files: Record<string, string>;
+  /** Project images by file name, for figures inside kept LaTeX. */
+  assets?: Record<string, string>;
   /** Its macros in KaTeX's format (\R, \argmax, …). */
   macros: Record<string, string>;
 }
@@ -50,6 +53,7 @@ function labelFrom(decorations: readonly Decoration[]): LabelSpec | null {
 function mathHtml(latex: string, display: boolean, macros: Record<string, string>): { html: string; error: string | null } {
   return renderMath(display ? wrapMultiline(latex) : latex, display, macros);
 }
+
 
 export class MathInlineView implements NodeView {
   dom: HTMLElement;
@@ -110,14 +114,19 @@ export class MathBlockView implements NodeView {
 
   private render(node: ProseMirrorNode) {
     this.dom.dataset.numbered = node.attrs.numbered === false ? "false" : "true";
+    const env = String(node.attrs.env ?? "");
     const latex = String(node.attrs.latex ?? "");
-    if (latex === this.latex) return;
-    this.latex = latex;
+    const key = `${env}\u0000${String(node.attrs.envArg ?? "")}\u0000${latex}`;
+    if (key === this.latex) return;
+    this.latex = key;
     if (!latex.trim()) {
       this.body.innerHTML = '<span class="paper-equation-empty">Empty equation — double-click to write it</span>';
       return;
     }
-    const { html, error } = mathHtml(latex, true, this.hooks.getLatex().macros);
+    const multiline = MULTILINE_MATH.has(env.replace(/\*$/, ""));
+    const { html, error } = multiline
+      ? renderMath(environmentMath(env, String(node.attrs.envArg ?? ""), latex), true, this.hooks.getLatex().macros)
+      : mathHtml(latex, true, this.hooks.getLatex().macros);
     this.dom.title = error ?? "";
     if (error) {
       this.body.className = "paper-equation-body ltx-math-error";
@@ -270,10 +279,19 @@ export class RawLatexView implements NodeView {
       this.dom.innerHTML = '<p class="paper-equation-empty">Empty LaTeX block — double-click to edit</p>';
       return;
     }
-    const { preamble, files } = this.hooks.getLatex();
-    const result = renderLatex(source, { bibliography: this.hooks.getBib(), idPrefix: "raw-", preamble, files });
+    const { preamble, files, assets } = this.hooks.getLatex();
+    const result = renderLatex(source, { bibliography: this.hooks.getBib(), idPrefix: "raw-", preamble, files, assets });
     const errors = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
     this.dom.title = errors ? `${errors} LaTeX ${errors === 1 ? "error" : "errors"}; double-click to edit` : "LaTeX block; double-click to edit";
+    // LaTeX that prints nothing (\appendix, \setlength, \FloatBarrier) shows as written.
+    if (!htmlToText(result.html).trim() && !/<(?:img|svg|table|hr)\b|class="katex/.test(result.html)) {
+      this.dom.innerHTML = "";
+      const code = document.createElement("pre");
+      code.className = "paper-raw-source";
+      code.textContent = source;
+      this.dom.append(code);
+      return;
+    }
     this.dom.innerHTML = result.html;
   }
 
@@ -292,6 +310,59 @@ export class RawLatexView implements NodeView {
     if (event.type === "click" && event.target instanceof Element && event.target.closest("a")) {
       event.preventDefault();
     }
+    return false;
+  }
+}
+
+/**
+ * LaTeX kept inside a paragraph: rendered like the LaTeX preview renders it
+ * when the preview can, otherwise shown as written.
+ */
+export class RawInlineView implements NodeView {
+  dom: HTMLElement;
+  private source: string | null = null;
+  private readonly hooks: PaperViewHooks;
+
+  constructor(node: ProseMirrorNode, hooks: PaperViewHooks) {
+    this.hooks = hooks;
+    this.dom = document.createElement("span");
+    this.dom.className = "paper-raw-inline";
+    this.dom.dataset.type = "raw-inline";
+    this.render(node);
+  }
+
+  private render(node: ProseMirrorNode) {
+    const source = String(node.attrs.source ?? "");
+    if (source === this.source) return;
+    this.source = source;
+    this.dom.title = `${source}\nLaTeX kept as written; double-click to edit`;
+    const { preamble, files, assets } = this.hooks.getLatex();
+    let html = "";
+    try {
+      const result = renderLatex(source, { bibliography: this.hooks.getBib(), idPrefix: "rawi-", preamble, files, assets });
+      const problems = result.diagnostics.some((diagnostic) => diagnostic.severity !== "info");
+      const inner = /^\s*<p[^>]*>([\s\S]*)<\/p>\s*$/.exec(result.html)?.[1] ?? "";
+      if (!problems && inner && !/<(?:p|div|h\d|table|ul|ol|figure)\b/.test(inner) && htmlToText(inner).trim()) html = inner;
+    } catch {
+      html = "";
+    }
+    this.dom.classList.toggle("is-source", !html);
+    if (html) this.dom.innerHTML = html;
+    else this.dom.textContent = source;
+  }
+
+  update(node: ProseMirrorNode): boolean {
+    if (node.type.name !== "rawInline") return false;
+    this.render(node);
+    return true;
+  }
+
+  ignoreMutation(): boolean {
+    return true;
+  }
+
+  stopEvent(event: Event): boolean {
+    if (event.type === "click" && event.target instanceof Element && event.target.closest("a")) event.preventDefault();
     return false;
   }
 }

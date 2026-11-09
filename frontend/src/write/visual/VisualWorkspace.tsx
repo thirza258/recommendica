@@ -21,7 +21,9 @@ import type { EditorHooks } from "./editorExtensions.ts";
 import { getAnalysis, updatePaperContext } from "./paperPlugin.ts";
 import { getFindState, replaceAll, replaceCurrent, setFind, stepFind } from "./findReplace.ts";
 import { documentToLatex } from "./toLatex.ts";
-import { importLatex } from "./fromLatex.ts";
+import { importLatex, latexText } from "./fromLatex.ts";
+import { validBlock } from "./contentCheck.ts";
+import { loadableContent } from "../modeSwitch.ts";
 import { parseLatex } from "../latex/parser.ts";
 import type { PaperLatexContext } from "./nodeViews.ts";
 import { THEMES } from "../themes.ts";
@@ -42,12 +44,12 @@ interface VisualWorkspaceProps {
 }
 
 type DialogState =
-  | { kind: "math"; display: boolean; pos: number | null; latex: string; numbered: boolean; range?: { from: number; to: number } }
+  | { kind: "math"; display: boolean; pos: number | null; latex: string; numbered: boolean; range?: { from: number; to: number }; env?: string; envArg?: string }
   | { kind: "citation"; pos: number | null; keys: string[] }
   | { kind: "crossRef"; pos: number | null; target: string }
-  | { kind: "footnote"; pos: number | null; text: string }
+  | { kind: "footnote"; pos: number | null; text: string; latex?: string }
   | { kind: "link"; url: string }
-  | { kind: "rawLatex"; pos: number | null; source: string }
+  | { kind: "rawLatex"; pos: number | null; source: string; inline?: boolean }
   | { kind: "alt"; pos: number; alt: string }
   | { kind: "pageSetup" }
   | { kind: "latexSource"; tex: string }
@@ -422,6 +424,7 @@ function ContextBar({ editor, onEdit, onAlt, onReplaceImage }: { editor: Editor;
         crossRef: "Cross-reference",
         footnote: "Footnote",
         rawLatex: "LaTeX block",
+        rawInline: "LaTeX",
       };
       return (
         <div className="write-contextbar" role="toolbar" aria-label={names[context.kind]}>
@@ -651,8 +654,10 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
 
   const latexContext = useMemo<PaperLatexContext>(() => {
     const files = Object.fromEntries(initial.files.map((file) => [file.name, file.content]));
-    return { preamble: latexPreamble, files, macros: latexPreamble.trim() ? parseLatex(latexPreamble, { files }).mathMacros : {} };
-  }, [latexPreamble, initial.files]);
+    // Pictures of the LaTeX project, for figures kept as LaTeX blocks.
+    const assets = Object.fromEntries(initial.assets.map((asset) => [asset.name, asset.dataUrl]));
+    return { preamble: latexPreamble, files, assets, macros: latexPreamble.trim() ? parseLatex(latexPreamble, { files }).mathMacros : {} };
+  }, [latexPreamble, initial.files, initial.assets]);
   const latexRef = useRef(latexContext);
   useEffect(() => {
     latexRef.current = latexContext;
@@ -681,14 +686,34 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   );
 
   const scheduleRef = useRef<() => void>(() => undefined);
+  // Content the editor could not load at all. TipTap then shows an empty
+  // page; that must never be saved, or switched back to LaTeX over the
+  // source, so the stored content is kept as it was. (Content that only
+  // breaks a nesting rule still loads in full and stays editable, as before.)
+  const [unloadable, setUnloadable] = useState(false);
+  const unloadableRef = useRef(false);
   const editor = useEditor({
     extensions,
     content: initial.content ?? { type: "doc", content: [{ type: "paperTitle" }, { type: "paragraph" }] },
+    enableContentCheck: true,
+    onContentError: ({ editor: loadedEditor }) => {
+      const stored = initial.content?.content ?? [];
+      const hadContent = plainText(initial.content).trim() !== "" || stored.some((block) => block.type !== "paragraph" || Boolean(block.content?.length));
+      if (!loadedEditor.isEmpty || !hadContent) return;
+      unloadableRef.current = true;
+      setUnloadable(true);
+    },
     editorProps: {
       attributes: { class: "paper-body", spellcheck: "true", "aria-label": "Paper", "aria-multiline": "true", role: "textbox" },
     },
     onUpdate: () => scheduleRef.current(),
   });
+
+  useEffect(() => {
+    if (!unloadable || !editor || editor.isDestroyed) return;
+    editor.setEditable(false);
+    setNotice("Part of this paper could not be opened in the visual editor, so it is read-only here. Switch to the LaTeX editor to edit it; its source is unchanged.");
+  }, [unloadable, editor]);
 
   const buildDoc = useCallback(
     (): PaperDocument => ({
@@ -696,7 +721,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       title: title.trim() || "Untitled paper",
       settings,
       bib,
-      content: editor ? editor.getJSON() : initial.content,
+      content: editor && !unloadableRef.current ? editor.getJSON() : initial.content,
       latexPreamble: latexPreamble || undefined,
     }),
     [initial, title, settings, bib, editor, latexPreamble],
@@ -706,7 +731,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
   // Changes made while a conversion is running belong to neither
   // representation, so they must not schedule a save over the converted file.
   const scheduleEdit = useCallback(() => {
-    if (!switchingRef.current) schedule();
+    if (!switchingRef.current && !unloadableRef.current) schedule();
   }, [schedule]);
 
   useEffect(() => {
@@ -782,9 +807,17 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
     const files: Record<string, string> = Object.fromEntries(initial.files.map((file) => [file.name, file.content]));
     const assets: Record<string, string> = Object.fromEntries(initial.assets.map((asset) => [asset.name, asset.dataUrl]));
     const imported = importLatex(latex, { files, assets, bib: bibRef.current });
-    editor.commands.setContent(imported.content);
+    const nextSettings = { ...settings, ...imported.settings };
+    // Anything the editor could not load stays as LaTeX instead of emptying the paper.
+    const loadable = loadableContent(imported.content, validBlock, nextSettings, imported.bib, imported.preamble);
+    try {
+      editor.commands.setContent(loadable.content, { errorOnInvalidContent: true });
+    } catch {
+      setNotice("The assistant's edit could not be applied to the visual editor; the paper is unchanged.");
+      return;
+    }
     setLatexPreamble(imported.preamble);
-    updateSettings({ ...settings, ...imported.settings });
+    updateSettings(nextSettings);
     updateBib(imported.bib);
     void flush();
     if (imported.warnings.length) {
@@ -916,7 +949,15 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       switch (node.type.name) {
         case "mathInline":
         case "mathBlock":
-          setDialog({ kind: "math", display: node.type.name === "mathBlock", pos, latex: String(node.attrs.latex ?? ""), numbered: node.attrs.numbered !== false });
+          setDialog({
+            kind: "math",
+            display: node.type.name === "mathBlock",
+            pos,
+            latex: String(node.attrs.latex ?? ""),
+            numbered: node.attrs.numbered !== false,
+            env: String(node.attrs.env ?? ""),
+            envArg: String(node.attrs.envArg ?? ""),
+          });
           break;
         case "citation":
           setDialog({ kind: "citation", pos, keys: Array.isArray(node.attrs.keys) ? node.attrs.keys.map(String) : [] });
@@ -924,11 +965,16 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
         case "crossRef":
           setDialog({ kind: "crossRef", pos, target: String(node.attrs.target ?? "") });
           break;
-        case "footnote":
-          setDialog({ kind: "footnote", pos, text: String(node.attrs.text ?? "") });
+        case "footnote": {
+          const latex = String(node.attrs.latex ?? "");
+          setDialog({ kind: "footnote", pos, text: String(node.attrs.text ?? ""), ...(latex ? { latex } : {}) });
           break;
+        }
         case "rawLatex":
           setDialog({ kind: "rawLatex", pos, source: String(node.attrs.source ?? "") });
+          break;
+        case "rawInline":
+          setDialog({ kind: "rawLatex", pos, source: String(node.attrs.source ?? ""), inline: true });
           break;
         default:
           break;
@@ -1327,11 +1373,16 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
           macros={latexContext.macros}
           initialLatex={dialog.latex}
           initialNumbered={dialog.numbered}
+          env={dialog.env}
+          envArg={dialog.envArg}
           isNew={dialog.pos === null || !String(editor.state.doc.nodeAt(dialog.pos)?.attrs.latex ?? "").trim()}
           onClose={() => setDialog(null)}
           onDelete={dialog.pos === null ? undefined : () => deleteNodeAt(dialog.pos as number)}
           onSubmit={(latex, numbered) => {
-            if (dialog.pos !== null) setNodeAttrs(dialog.pos, dialog.display ? { latex, numbered } : { latex });
+            // A multi-line environment is named after the first label in its rows.
+            const first = dialog.env ? /\\label\s*\{([^}]*)\}/.exec(latex)?.[1]?.trim() ?? "" : null;
+            const named = first === null ? {} : first ? { id: first, label: first } : { id: "", label: "" };
+            if (dialog.pos !== null) setNodeAttrs(dialog.pos, dialog.display ? { latex, numbered, ...named } : { latex });
             else {
               const json: JSONContent = dialog.display ? { type: "mathBlock", attrs: { latex, numbered, id: "" } } : { type: "mathInline", attrs: { latex } };
               if (dialog.range) editor.chain().focus().insertContentAt(dialog.range, json).run();
@@ -1377,16 +1428,18 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
       {dialog?.kind === "footnote" && (
         <TextDialog
           title={dialog.pos === null ? "Insert footnote" : "Edit footnote"}
-          label="Footnote text"
-          initial={dialog.text}
+          label={dialog.latex ? "Footnote (LaTeX)" : "Footnote text"}
+          initial={dialog.latex ?? dialog.text}
           multiline
+          hint={dialog.latex ? "This footnote holds math, citations or formatting, so it is edited as LaTeX." : undefined}
           submitLabel={dialog.pos === null ? "Insert" : "Update"}
           validate={(value) => (value.trim() ? null : "Write the footnote text.")}
           onClose={() => setDialog(null)}
           onDelete={dialog.pos === null ? undefined : () => deleteNodeAt(dialog.pos as number)}
-          onSubmit={(text) => {
-            if (dialog.pos !== null) setNodeAttrs(dialog.pos, { text });
-            else insertNode({ type: "footnote", attrs: { text } });
+          onSubmit={(value) => {
+            const attrs = dialog.latex ? { latex: value.trim(), text: latexText(value) || value.trim() } : { text: value };
+            if (dialog.pos !== null) setNodeAttrs(dialog.pos, attrs);
+            else insertNode({ type: "footnote", attrs });
             setDialog(null);
           }}
         />
@@ -1445,7 +1498,7 @@ export default function VisualWorkspace({ initial, store, onSwitchMode, initialN
           onDelete={dialog.pos === null ? undefined : () => deleteNodeAt(dialog.pos as number)}
           onSubmit={(source) => {
             if (dialog.pos !== null) setNodeAttrs(dialog.pos, { source });
-            else insertNode({ type: "rawLatex", attrs: { source } });
+            else insertNode({ type: dialog.inline ? "rawInline" : "rawLatex", attrs: { source } });
             setDialog(null);
           }}
         />

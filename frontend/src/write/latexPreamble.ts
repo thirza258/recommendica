@@ -322,6 +322,7 @@ export const MANAGED_PACKAGES: Record<string, string> = {
   graphicx: "",
   booktabs: "",
   multirow: "",
+  makecell: "",
   ulem: "normalem",
   xcolor: "",
   soul: "",
@@ -491,7 +492,7 @@ export function importPreamble(statements: PreambleStatement[]): ImportedPreambl
 // ── Export ──────────────────────────────────────────────────────────────────
 
 /** Packages the exporter loads in a fixed place, taking the author's options. */
-const ABSORBED = new Set(["inputenc", "fontenc", "amsmath", "amssymb", "graphicx", "booktabs", "multirow", "ulem", "xcolor", "soul", "geometry"]);
+const ABSORBED = new Set(["inputenc", "fontenc", "amsmath", "amssymb", "graphicx", "booktabs", "multirow", "makecell", "ulem", "xcolor", "soul", "geometry"]);
 
 /** Statements that only work after hyperref has been loaded. */
 function needsHyperref(statement: PreambleStatement): boolean {

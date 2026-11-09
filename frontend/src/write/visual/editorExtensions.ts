@@ -8,12 +8,13 @@ import { Extension } from "@tiptap/core";
 import type { AnyExtension } from "@tiptap/core";
 import { Placeholder } from "@tiptap/extensions";
 import { NodeSelection, Plugin } from "@tiptap/pm/state";
+import type { Selection } from "@tiptap/pm/state";
 import { baseExtensions } from "./extensions.ts";
-import { Bibliography, Citation, CrossRef, Figure, Footnote, MathBlock, MathInline, RawLatex } from "./schema.ts";
+import { Bibliography, Citation, CrossRef, Figure, Footnote, MathBlock, MathInline, RawInline, RawLatex } from "./schema.ts";
 import { PaperAnalysis } from "./paperPlugin.ts";
 import type { AnalysisContext } from "./analysis.ts";
 import { FindReplace } from "./findReplace.ts";
-import { BibliographyView, FigureView, LabelView, MathBlockView, MathInlineView, RawLatexView } from "./nodeViews.ts";
+import { BibliographyView, FigureView, LabelView, MathBlockView, MathInlineView, RawInlineView, RawLatexView } from "./nodeViews.ts";
 import type { PaperViewHooks } from "./nodeViews.ts";
 
 export interface EditorHooks extends PaperViewHooks {
@@ -22,10 +23,10 @@ export interface EditorHooks extends PaperViewHooks {
   imageFiles: (files: File[], pos: number | null) => void;
 }
 
-const VIEWED = new Set(["mathInline", "mathBlock", "citation", "crossRef", "footnote", "figure", "rawLatex", "bibliography"]);
+const VIEWED = new Set(["mathInline", "mathBlock", "citation", "crossRef", "footnote", "figure", "rawLatex", "rawInline", "bibliography"]);
 
 /** Atom nodes that open an editor dialog on double-click or Enter. */
-export const EDITABLE_ATOMS = new Set(["mathInline", "mathBlock", "citation", "crossRef", "footnote", "rawLatex"]);
+export const EDITABLE_ATOMS = new Set(["mathInline", "mathBlock", "citation", "crossRef", "footnote", "rawLatex", "rawInline"]);
 
 function imageFiles(data: DataTransfer | null): File[] {
   return Array.from(data?.files ?? []).filter((file) => file.type.startsWith("image/"));
@@ -42,8 +43,20 @@ export function editorExtensions(context: AnalysisContext, hooks: EditorHooks): 
     Footnote.extend({ addNodeView: () => ({ node, decorations }) => new LabelView(node, decorations, "sup", "paper-footnote-ref") }),
     Figure.extend({ addNodeView: () => ({ node, getPos }) => new FigureView(node, getPos, hooks) }),
     RawLatex.extend({ addNodeView: () => ({ node }) => new RawLatexView(node, hooks) }),
+    RawInline.extend({ addNodeView: () => ({ node }) => new RawInlineView(node, hooks) }),
     Bibliography.extend({ addNodeView: () => ({ decorations }) => new BibliographyView(decorations) }),
   ];
+
+  /**
+   * The first click of a double-click selects the atom it hits, and
+   * selecting shows the context bar, which moves the page before the second
+   * click lands. So the selected atom is the one the double-click meant.
+   */
+  const editSelectedAtom = (selection: Selection): boolean => {
+    if (!(selection instanceof NodeSelection) || !EDITABLE_ATOMS.has(selection.node.type.name)) return false;
+    hooks.edit(selection.from);
+    return true;
+  };
 
   const PaperBehaviour = Extension.create({
     name: "paperBehaviour",
@@ -76,11 +89,14 @@ export function editorExtensions(context: AnalysisContext, hooks: EditorHooks): 
       return [
         new Plugin({
           props: {
-            handleDoubleClickOn: (_view, _pos, node, nodePos) => {
+            handleDoubleClickOn: (view, _pos, node, nodePos) => {
+              if (editSelectedAtom(view.state.selection)) return true;
               if (!EDITABLE_ATOMS.has(node.type.name)) return false;
               hooks.edit(nodePos);
               return true;
             },
+            // Also when the second click lands outside any node.
+            handleDoubleClick: (view) => editSelectedAtom(view.state.selection),
             handlePaste: (_view, event) => {
               const files = imageFiles(event.clipboardData);
               if (!files.length) return false;

@@ -58,6 +58,16 @@ export interface CommandNode extends Span {
   name: string;
   star: boolean;
   args: (Argument | null)[];
+  /**
+   * The command as written, arguments included (`captureSource`). Unlike a
+   * slice of the root source at start…end, this is also exact for commands
+   * that come from a macro expansion or an included file.
+   */
+  source?: string;
+  /** Read from a macro expansion or an included file, so start…end is the call site. */
+  generated?: boolean;
+  /** A call of a user macro kept unexpanded (`keepMacro`); its arguments are raw. */
+  macro?: boolean;
 }
 export interface EnvironmentNode extends Span {
   type: "environment";
@@ -66,6 +76,10 @@ export interface EnvironmentNode extends Span {
   children: LatexNode[];
   /** Body source for verbatim-like environments; null otherwise. */
   raw: string | null;
+  /** `\begin{…}` to `\end{…}` as written (`captureSource`). */
+  source?: string;
+  /** Read from a macro expansion or an included file, so start…end is the call site. */
+  generated?: boolean;
 }
 export interface MathNode extends Span {
   type: "math";
@@ -112,6 +126,29 @@ export interface ParseOptions {
   maxExpansions?: number;
   /** Macros already defined, e.g. by the document a fragment belongs to. */
   macros?: Map<string, MacroDefinition>;
+  /** Record each command's and environment's source text (CommandNode.source). */
+  captureSource?: boolean;
+  /**
+   * User macros to leave unexpanded: their calls become command nodes with
+   * raw arguments and `macro: true`. The visual importer keeps text macros
+   * (`\method`, `\eg`) this way, so the LaTeX source keeps calling them.
+   */
+  keepMacro?: (name: string, definition: MacroDefinition) => boolean;
+  /**
+   * Return definitions (`\newcommand`, `\def`, `\let`, `\newenvironment`,
+   * `\DeclareMathOperator`) and skipped `\iffalse … \fi` text as command
+   * nodes named after the command, instead of nothing, so an importer can keep
+   * them. They are still defined (or skipped) as usual.
+   */
+  keepDefinitions?: boolean;
+  /**
+   * Commands without a known signature for which the `[…]` and `{…}` groups
+   * right after them are arguments (`\todo{fix}`, `\SI{5}{\meter}`), so the
+   * command keeps them when an importer keeps it as written.
+   */
+  greedyArgs?: (name: string) => boolean;
+  /** Leave `\newenvironment` environments unexpanded, as plain environments. */
+  keepEnvironments?: boolean;
 }
 
 export interface ParseResult {
@@ -548,6 +585,40 @@ class Reader {
     return this.frames.filter((frame) => frame.include).length;
   }
 
+  /** Whether the next character comes from a macro expansion or an included file. */
+  generated(): boolean {
+    this.top();
+    return this.frames.length > 1;
+  }
+
+  /**
+   * The next character of the current frame only, "" at its end. TeX reads a
+   * macro body as tokens of its own, so a control word at the end of a body
+   * ends there instead of running into the text after the macro call.
+   */
+  peekLocal(): string {
+    const frame = this.frames[this.frames.length - 1];
+    return frame.pos < frame.text.length ? frame.text[frame.pos] : "";
+  }
+
+  /** The current position, for `since`. */
+  mark(): { frame: Frame; pos: number; below: number[] } {
+    this.top();
+    const frame = this.frames[this.frames.length - 1];
+    return { frame, pos: frame.pos, below: this.frames.slice(0, -1).map((entry) => entry.pos) };
+  }
+
+  /**
+   * The text read since `mark`, as written in the frame it started in; null
+   * when reading went on into the text below that frame.
+   */
+  since(mark: { frame: Frame; pos: number; below: number[] }): string | null {
+    const index = this.frames.indexOf(mark.frame);
+    const below = index === -1 ? this.frames.slice(0, mark.below.length) : this.frames.slice(0, index);
+    if (below.length !== mark.below.length || below.some((frame, at) => frame.pos !== mark.below[at])) return null;
+    return mark.frame.text.slice(mark.pos, mark.frame.pos);
+  }
+
   push(text: string, anchor: Span, include = false): void {
     this.top();
     const outer = this.frames.length > 1 ? this.frames[1].anchor : null;
@@ -583,7 +654,10 @@ class Parser {
   private atLineStart = true;
   private finished = false;
 
+  private readonly options: ParseOptions;
+
   constructor(source: string, options: ParseOptions) {
+    this.options = options;
     this.reader = new Reader(source.replace(/\r\n?/g, "\n"));
     this.files = options.files ?? {};
     this.maxExpansions = options.maxExpansions ?? DEFAULT_MAX_EXPANSIONS;
@@ -720,8 +794,11 @@ class Parser {
       return first === "\n" || first === "\t" ? " " : first;
     }
     let name = "";
-    while (!reader.eof()) {
-      const c = reader.peek();
+    // The name ends with the text it is written in: `\xspace` at the end of
+    // a macro body does not continue into the word after the macro call.
+    // (eof() would drop the finished frame, so only peekLocal is asked.)
+    for (;;) {
+      const c = reader.peekLocal();
       if (isLetter(c) || (this.atLetter && c === "@")) {
         name += c;
         reader.advance();
@@ -731,18 +808,42 @@ class Parser {
     return name;
   }
 
-  /** TeX drops spaces, and one line end, after a control word. */
+  /**
+   * TeX drops spaces, and one line end, after a control word, in the text the
+   * word is written in: blanks after a macro call were dropped when the call
+   * was read, and blanks after its expansion are real spaces.
+   */
   private skipBlanksAfterWord(): void {
     const reader = this.reader;
-    while (!reader.eof() && (reader.peek() === " " || reader.peek() === "\t")) reader.advance();
-    if (reader.peek() === "\n") {
+    while (reader.peekLocal() === " " || reader.peekLocal() === "\t") reader.advance();
+    if (reader.peekLocal() === "\n") {
       reader.advance();
-      while (!reader.eof() && (reader.peek() === " " || reader.peek() === "\t")) reader.advance();
+      while (reader.peekLocal() === " " || reader.peekLocal() === "\t") reader.advance();
       this.atLineStart = true;
     }
   }
 
   private parseControl(start: number): LatexNode | null {
+    const mark = this.options.captureSource ? this.reader.mark() : null;
+    const generated = this.reader.generated();
+    const node = this.readControl(start);
+    if (node && (node.type === "command" || node.type === "environment")) {
+      if (generated) node.generated = true;
+      if (mark) {
+        const source = this.reader.since(mark);
+        if (source !== null) node.source = source;
+      }
+    }
+    return node;
+  }
+
+  /** With `keepDefinitions`, a node standing for a definition or skipped text. */
+  private kept(name: string, start: number): CommandNode | null {
+    if (!this.options.keepDefinitions) return null;
+    return { type: "command", name, star: false, args: [], start, end: this.reader.endOffset() };
+  }
+
+  private readControl(start: number): LatexNode | null {
     const reader = this.reader;
     const name = this.readControlName();
     if (name === "") return { type: "text", value: "\\", start, end: start + 1 };
@@ -750,6 +851,13 @@ class Parser {
     // A macro of the user's always wins, as in LaTeX after \renewcommand.
     const macro = this.macros.get(name);
     if (macro && !this.expansionStopped) {
+      if (this.options.keepMacro?.(name, macro)) {
+        const args = this.readMacroArgs(macro.params, macro.defaultArg).map((raw): Argument => ({ optional: false, children: [], raw }));
+        // `\method{} text`: the empty group keeps the space after the call,
+        // so it belongs to the call.
+        if (!args.length && reader.peek() === "{" && reader.peek(1) === "}") reader.advance(2);
+        return { type: "command", name, star: false, args, macro: true, start, end: reader.endOffset() };
+      }
       this.expandMacro(name, macro, start);
       return null;
     }
@@ -781,34 +889,34 @@ class Parser {
       case "providecommand":
       case "DeclareRobustCommand":
         this.parseNewCommand(name, start);
-        return null;
+        return this.kept(name, start);
       case "def":
       case "gdef":
       case "edef":
       case "xdef":
         this.parseDef(start);
-        return null;
+        return this.kept(name, start);
       case "let":
         this.parseLet();
-        return null;
+        return this.kept(name, start);
       case "newenvironment":
       case "renewenvironment":
         this.parseNewEnvironment(start);
-        return null;
+        return this.kept(name, start);
       case "newtheorem":
         return this.parseNewTheorem(start);
       case "DeclareMathOperator":
         this.parseMathOperator();
-        return null;
+        return this.kept(name, start);
       case "makeatletter":
         this.atLetter = true;
-        return null;
+        return this.kept(name, start);
       case "makeatother":
         this.atLetter = false;
-        return null;
+        return this.kept(name, start);
       case "iffalse":
         this.skipConditional(start);
-        return null;
+        return this.kept(name, start);
       case "fi":
       case "iftrue":
       case "else":
@@ -834,8 +942,11 @@ class Parser {
         break;
     }
 
-    const signature = COMMAND_SIGNATURES[name] ?? (ACCENT_NAMES.has(name) ? "m" : "");
-    const { star, args } = this.parseArgs(signature);
+    const known = COMMAND_SIGNATURES[name] ?? (ACCENT_NAMES.has(name) ? "m" : undefined);
+    if (known === undefined && isLetter(name[0] ?? "") && this.options.greedyArgs?.(name)) {
+      return { type: "command", name, star: false, args: this.greedyArgs(), start, end: reader.endOffset() };
+    }
+    const { star, args } = this.parseArgs(known ?? "");
     return { type: "command", name, star, args, start, end: reader.endOffset() };
   }
 
@@ -881,6 +992,18 @@ class Parser {
   }
 
   // ── Arguments ─────────────────────────────────────────────────────────────
+
+  /** Every `[…]` (raw) and `{…}` (parsed) group that follows, on the same line or the next. */
+  private greedyArgs(): Argument[] {
+    const args: Argument[] = [];
+    for (;;) {
+      const next = this.reader.peek(this.blankLength());
+      if (next === "[") args.push(...this.parseArgs("R").args.filter((value): value is Argument => value !== null));
+      else if (next === "{") args.push(this.parseMandatory());
+      else return args;
+      if (this.pendingEnd) return args;
+    }
+  }
 
   /** Offset of the next non-blank character, without crossing a blank line. */
   private blankLength(): number {
@@ -1177,7 +1300,7 @@ class Parser {
     }
 
     const userEnv = this.envDefs.get(name);
-    if (userEnv && !this.expansionStopped) {
+    if (userEnv && !this.expansionStopped && !this.options.keepEnvironments) {
       this.expandEnvironment(name, userEnv, start);
       return null;
     }
