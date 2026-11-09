@@ -128,13 +128,13 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://recommendica.nevatal.id/og-image.png</image:loc>
       <image:title>Research Courses &amp; Literature Discovery Tutorials — Recommendica</image:title>
-      <image:caption>Free, self-paced research courses on writing questions, literature reviews, evaluating methods, and paper reading.</image:caption>
+      <image:caption>Free, self-paced research courses on research questions, systematic reviews, statistics, paper reading, academic writing, LaTeX, publishing, and responsible AI use.</image:caption>
     </image:image>
   </url>
   <url>
@@ -447,7 +447,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -455,7 +455,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/research-question</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-question" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-question" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -463,7 +463,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/literature-review</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/literature-review" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/literature-review" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -471,7 +471,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/research-design</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-design" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-design" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -479,17 +479,33 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/project-proposal</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/project-proposal" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/project-proposal" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/create-research/research-ethics</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-ethics" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-ethics" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 2: Conduct research step by step ────────────────────────── -->
+  <!-- ── Course 2: Do research, step by step ────────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -497,7 +513,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -505,7 +521,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -513,7 +529,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -521,17 +537,33 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 3: How to use Recommendica ──────────────────────────────── -->
+  <!-- ── Course 3: Get started with Recommendica ────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -539,7 +571,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/first-search</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/first-search" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/first-search" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -547,7 +579,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/understand-answers</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/understand-answers" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/understand-answers" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -555,7 +587,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -563,17 +595,33 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/refine-search</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/refine-search" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/refine-search" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/website-tutorial/export-and-share</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/export-and-share" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/export-and-share" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 4: How to read a research paper ─────────────────────────── -->
+  <!-- ── Course 4: Read research with confidence ────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/read-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -581,7 +629,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/map-the-paper</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/map-the-paper" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/map-the-paper" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -589,7 +637,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/evaluate-methods</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/evaluate-methods" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/evaluate-methods" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -597,7 +645,7 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/interpret-results</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/interpret-results" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/interpret-results" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -605,7 +653,371 @@ SITEMAP_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/notes-and-citations</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/notes-and-citations" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/notes-and-citations" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/read-research/question-the-numbers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/question-the-numbers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/question-the-numbers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/read-research/venue-and-version</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/venue-and-version" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/venue-and-version" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 5: Review the literature systematically ─────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/choose-review-type</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/choose-review-type" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/choose-review-type" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/review-protocol</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/review-protocol" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/review-protocol" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/search-strategy</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/search-strategy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/search-strategy" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/screening</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/screening" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/screening" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 6: Make sense of statistics ─────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/describe-data</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/describe-data" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/describe-data" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/p-values</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/p-values" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/p-values" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 7: Write a research paper ───────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/one-message</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/one-message" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/one-message" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/write-introduction</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/write-introduction" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/write-introduction" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/methods-and-results</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/methods-and-results" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/methods-and-results" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/title-and-abstract</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/title-and-abstract" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/title-and-abstract" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/edit-for-readers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/edit-for-readers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/edit-for-readers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 8: Write papers in LaTeX ────────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-math</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-math" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-math" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-citations</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-citations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-citations" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-import</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-import" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-import" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 9: Publish and share your research ──────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/choose-a-venue</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/choose-a-venue" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/choose-a-venue" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/prepare-submission</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/prepare-submission" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/prepare-submission" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/peer-review-process</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/peer-review-process" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/peer-review-process" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 10: Use AI responsibly in research ──────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -621,13 +1033,13 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://recommendica.nevatal.id/og-image.png</image:loc>
       <image:title>Research Courses &amp; Literature Discovery Tutorials — Recommendica</image:title>
-      <image:caption>Free, self-paced research courses on writing questions, literature reviews, evaluating methods, and paper reading.</image:caption>
+      <image:caption>Free, self-paced research courses on research questions, systematic reviews, statistics, paper reading, academic writing, LaTeX, publishing, and responsible AI use.</image:caption>
     </image:image>
   </url>
 
@@ -636,7 +1048,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -644,7 +1056,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/research-question</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-question" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-question" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -652,7 +1064,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/literature-review</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/literature-review" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/literature-review" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -660,7 +1072,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/research-design</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-design" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-design" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -668,17 +1080,33 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/create-research/project-proposal</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/project-proposal" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/project-proposal" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/create-research/research-ethics</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/research-ethics" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/research-ethics" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/create-research/hypothesis-or-not" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 2: Conduct research step by step ────────────────────────── -->
+  <!-- ── Course 2: Do research, step by step ────────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -686,7 +1114,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/plan-and-pilot" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -694,7 +1122,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/collect-and-organize" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -702,7 +1130,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/analyze-and-interpret" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -710,17 +1138,33 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/write-and-share" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/qualitative-evidence" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/research-step-by-step/reproducible-analysis" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 3: How to use Recommendica ──────────────────────────────── -->
+  <!-- ── Course 3: Get started with Recommendica ────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -728,7 +1172,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/first-search</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/first-search" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/first-search" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -736,7 +1180,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/understand-answers</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/understand-answers" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/understand-answers" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -744,7 +1188,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/inspect-sources" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -752,17 +1196,33 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/website-tutorial/refine-search</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/refine-search" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/refine-search" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/write-your-paper" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/website-tutorial/export-and-share</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/website-tutorial/export-and-share" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/website-tutorial/export-and-share" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ── Course 4: How to read a research paper ─────────────────────────── -->
+  <!-- ── Course 4: Read research with confidence ────────────────────────── -->
   <url>
     <loc>https://recommendica.nevatal.id/courses/read-research</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -770,7 +1230,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/map-the-paper</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/map-the-paper" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/map-the-paper" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -778,7 +1238,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/evaluate-methods</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/evaluate-methods" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/evaluate-methods" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -786,7 +1246,7 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/interpret-results</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/interpret-results" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/interpret-results" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -794,7 +1254,371 @@ SITEMAP_COURSES_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <loc>https://recommendica.nevatal.id/courses/read-research/notes-and-citations</loc>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/notes-and-citations" />
     <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/notes-and-citations" />
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/read-research/question-the-numbers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/question-the-numbers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/question-the-numbers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/read-research/venue-and-version</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/read-research/venue-and-version" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/read-research/venue-and-version" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 5: Review the literature systematically ─────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/choose-review-type</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/choose-review-type" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/choose-review-type" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/review-protocol</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/review-protocol" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/review-protocol" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/search-strategy</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/search-strategy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/search-strategy" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/screening</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/screening" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/screening" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/extract-and-appraise" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/systematic-review/synthesize-and-report" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 6: Make sense of statistics ─────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/describe-data</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/describe-data" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/describe-data" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/samples-and-uncertainty" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/p-values</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/p-values" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/p-values" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/effect-size-and-power" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/correlation-and-regression" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/statistics-essentials/analysis-pitfalls" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 7: Write a research paper ───────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/one-message</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/one-message" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/one-message" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/write-introduction</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/write-introduction" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/write-introduction" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/methods-and-results</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/methods-and-results" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/methods-and-results" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/discussion-and-limitations" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/title-and-abstract</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/title-and-abstract" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/title-and-abstract" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/write-paper/edit-for-readers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/write-paper/edit-for-readers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/write-paper/edit-for-readers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 8: Write papers in LaTeX ────────────────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-anatomy" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-math</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-math" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-math" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-figures-tables" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-citations</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-citations" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-citations" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-import</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-import" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-import" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/latex-essentials/latex-troubleshooting" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 9: Publish and share your research ──────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/choose-a-venue</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/choose-a-venue" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/choose-a-venue" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/prepare-submission</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/prepare-submission" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/prepare-submission" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/authorship-and-credit" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/peer-review-process</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/peer-review-process" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/peer-review-process" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/respond-to-reviewers" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/publish-research/open-access-and-sharing" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Course 10: Use AI responsibly in research ──────────────────────── -->
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/match-tool-to-task" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/protect-confidential-data" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/disclose-ai-use" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/ai-in-methods" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality</loc>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://recommendica.nevatal.id/courses/ai-in-research/bias-and-originality" />
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -1060,11 +1884,11 @@ SITEMAP_INDEX_XML_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>https://recommendica.nevatal.id/sitemap.xml</loc>
-    <lastmod>2026-10-26T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
   </sitemap>
   <sitemap>
     <loc>https://recommendica.nevatal.id/sitemap-courses.xml</loc>
-    <lastmod>2026-09-18T00:00:00+00:00</lastmod>
+    <lastmod>2026-11-09T00:00:00+00:00</lastmod>
   </sitemap>
   <sitemap>
     <loc>https://recommendica.nevatal.id/sitemap-topics.xml</loc>

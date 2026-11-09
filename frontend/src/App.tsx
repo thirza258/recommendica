@@ -5,10 +5,9 @@ import HeroPanel from "./components/Hero";
 import ChunksList from "./components/ChunkList";
 import DonateDialog from "./components/DonateDialog";
 import EmptyState from "./components/EmptyState";
-import Courses from "./components/Courses";
 import Legal from "./components/Legal";
-import { viewFromHash } from "./learning";
-import type { View } from "./learning";
+import { viewFromHash } from "./views";
+import type { View } from "./views";
 import { AlertTriangleIcon } from "./components/Icons";
 import {
   ChunkResponse,
@@ -24,6 +23,8 @@ import { readSearchStream } from "./searchStream";
 
 // The paper editor carries TipTap, KaTeX and CodeMirror; load it only when used.
 const WriteApp = lazy(() => import("./write/WriteApp"));
+// The curriculum is large; load it only when someone opens the courses.
+const Courses = lazy(() => import("./components/Courses"));
 
 let backendHealthCheckSent = false;
 let donationConfigRequested = false;
@@ -420,18 +421,26 @@ function App() {
   if (view === "courses") {
     return (
       <>
-        <Courses
-          hash={hash}
-          onHome={() => {
-            if (window.location.pathname !== "/" && window.location.pathname !== "") {
-              window.history.pushState(null, "", "/");
-            }
-            window.location.hash = "home";
-            setHash("#home");
-          }}
-          onSearch={(initialPrompt) => handleStartFromLanding(initialPrompt)}
-          onDonate={openDonate}
-        />
+        <Suspense
+          fallback={
+            <div className="view-loading" role="status">
+              Opening the courses…
+            </div>
+          }
+        >
+          <Courses
+            hash={hash}
+            onHome={() => {
+              if (window.location.pathname !== "/" && window.location.pathname !== "") {
+                window.history.pushState(null, "", "/");
+              }
+              window.location.hash = "home";
+              setHash("#home");
+            }}
+            onSearch={(initialPrompt) => handleStartFromLanding(initialPrompt)}
+            onDonate={openDonate}
+          />
+        </Suspense>
         {donateDialog}
       </>
     );

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "courses:sync": "node --experimental-strip-types scripts/sync-courses.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

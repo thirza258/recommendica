@@ -2892,3 +2892,13 @@
     text-align: center;
   }
 }
+
+/* Placeholder while a lazily loaded view (such as the courses) downloads. */
+.view-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60dvh;
+  color: var(--ink-subtle);
+  font-size: var(--text-sm);
+}

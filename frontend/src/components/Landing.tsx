@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { COURSES } from "../data/courses.ts";
+import { COURSE_CATALOG } from "../data/courseCatalog.ts";
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
@@ -35,18 +35,9 @@ interface DomainTaxonomy {
   prompts: string[];
 }
 
-function courseMeta(id: string) {
-  const course = COURSES.find((course) => course.id === id);
-  const minutes = course ? course.lessons.reduce((sum, lesson) => sum + lesson.minutes, 0) : 0;
-  return { lessons: course?.lessons.length ?? 0, minutes };
-}
-
-const COURSE_CARDS = [
-  { id: "create-research", category: "Foundations" },
-  { id: "research-step-by-step", category: "Workflow" },
-  { id: "read-research", category: "Critical reading" },
-  { id: "website-tutorial", category: "Platform tutorial" },
-].map(({ id, category }) => ({ category, meta: courseMeta(id) }));
+// Counts come from the generated catalog summary, so the copy stays true as
+// courses are added without bundling the lessons into the landing page.
+const COURSE_COUNT = COURSE_CATALOG.length;
 
 const DOMAINS: DomainTaxonomy[] = [
   {
@@ -145,7 +136,7 @@ const NAV_LINKS = [
 const FAQS = [
   {
     q: "How free is Recommendica, and is there any catch or hidden fee?",
-    a: "Recommendica is 100% free with no catch, no paid tiers, and no trial periods. There are no credit card forms, no daily query quotas, and no token metering. You do not even need to create an account or provide an email address. The entire research platform—including literature discovery, arXiv federation, 4 full interactive courses, and the in-browser LaTeX manuscript editor—is freely available at $0 to everyone.",
+    a: `Recommendica is 100% free with no catch, no paid tiers, and no trial periods. There are no credit card forms, no daily query quotas, and no token metering. You do not even need to create an account or provide an email address. The entire research platform—including literature discovery, arXiv federation, ${COURSE_COUNT} full interactive courses, and the in-browser LaTeX manuscript editor—is freely available at $0 to everyone.`,
   },
   {
     q: "Why is there a Donate button if the platform is completely free?",
@@ -169,7 +160,7 @@ const FAQS = [
   },
   {
     q: "What do the research courses cover, and are they free?",
-    a: "Recommendica provides four free interactive courses covering project proposal design, systematic research workflows, critical paper evaluation, and literature synthesis. Each course includes bite-sized 5–8 minute lessons, real academic examples, and self-check quizzes. Progress is saved locally in your browser with zero accounts or fees required.",
+    a: `Recommendica provides ${COURSE_COUNT} free interactive courses covering research questions and proposals, the research workflow, critical paper reading, systematic literature reviews, statistics, academic writing, LaTeX, publishing and peer review, responsible use of AI, and a tutorial for Recommendica itself. Each course has short lessons with worked examples, exercises, further reading, and self-check quizzes. Progress is saved locally in your browser with zero accounts or fees required.`,
   },
   {
     q: "Does Recommendica search preprints and live arXiv literature?",
@@ -414,7 +405,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
           <div>
             <p className="section-label">Learn with Recommendica · Academic Courses</p>
             <h2 id="landing-learning-heading">Build your research skills, one lesson at a time.</h2>
-            <p>Four free, self-paced courses with interactive quizzes: develop viable questions, plan achievable protocols, read research critically, and master literature synthesis.</p>
+            <p>{COURSE_COUNT} free, self-paced courses with interactive quizzes: develop viable questions, review literature systematically, make sense of statistics, read research critically, and write, publish, and share your work.</p>
           </div>
           <a href="#courses-info" className="ghost-button landing-courses-link">Explore curriculum <ArrowRightIcon size={16} /></a>
         </section>
@@ -495,7 +486,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               </div>
               <h3 className="free-feature-title">All Three Academic Tools Included</h3>
               <p className="free-feature-desc">
-                Grounded multi-paper AI synthesis with verifiable citations, all 4 interactive research courses with self-check quizzes, and the full LaTeX paper studio with camera-ready PDF export.
+                Grounded multi-paper AI synthesis with verifiable citations, all {COURSE_COUNT} interactive research courses with self-check quizzes, and the full LaTeX paper studio with camera-ready PDF export.
               </p>
             </div>
 
@@ -538,7 +529,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               <span className="free-pill"><CheckIcon size={14} /> $0 Cost Forever</span>
               <span className="free-pill"><CheckIcon size={14} /> No Account Needed</span>
               <span className="free-pill"><CheckIcon size={14} /> Unlimited Searches</span>
-              <span className="free-pill"><CheckIcon size={14} /> 4 Free Courses</span>
+              <span className="free-pill"><CheckIcon size={14} /> {COURSE_COUNT} Free Courses</span>
               <span className="free-pill"><CheckIcon size={14} /> Free In-Browser LaTeX Studio</span>
               <span className="free-pill"><CheckIcon size={14} /> Zero Commercial Ads</span>
             </div>
@@ -933,68 +924,26 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
               Interactive research courses
             </h2>
             <p className="section-subtitle">
-              Beyond automated search, Recommendica provides four free, self-paced
-              courses to build research instincts—from question formulation to
-              peer-reviewed paper deconstruction.
+              Beyond automated search, Recommendica provides {COURSE_COUNT} free,
+              self-paced courses to build research instincts—from question
+              formulation and evidence synthesis to writing, publishing, and
+              responsible use of AI.
             </p>
           </div>
 
           <div className="pipeline-steps-grid">
-            <div className="pipeline-step-card">
-              <div className="step-num-badge">01</div>
-              <h3 className="pipeline-step-title">Create your first research project</h3>
-              <p className="pipeline-step-desc">
-                Turn an interesting topic into a focused question, a literature
-                review, and an actionable one-page project proposal.
-              </p>
-              <div className="step-meta">
-                <span>Foundations</span>
-                <span>{COURSE_CARDS[0].meta.lessons} lessons</span>
-                <span>~{COURSE_CARDS[0].meta.minutes} min</span>
+            {COURSE_CATALOG.map((course, index) => (
+              <div className="pipeline-step-card" key={course.id}>
+                <div className="step-num-badge">{String(index + 1).padStart(2, "0")}</div>
+                <h3 className="pipeline-step-title">{course.title}</h3>
+                <p className="pipeline-step-desc">{course.description}</p>
+                <div className="step-meta">
+                  <span>{course.category}</span>
+                  <span>{course.lessons} lessons</span>
+                  <span>~{course.minutes} min</span>
+                </div>
               </div>
-            </div>
-
-            <div className="pipeline-step-card">
-              <div className="step-num-badge">02</div>
-              <h3 className="pipeline-step-title">Do research, step by step</h3>
-              <p className="pipeline-step-desc">
-                Follow a research workflow from protocol drafting and pilot trials
-                to organized evidence collection, analysis, and polished reporting.
-              </p>
-              <div className="step-meta">
-                <span>Workflow</span>
-                <span>{COURSE_CARDS[1].meta.lessons} lessons</span>
-                <span>~{COURSE_CARDS[1].meta.minutes} min</span>
-              </div>
-            </div>
-
-            <div className="pipeline-step-card">
-              <div className="step-num-badge">03</div>
-              <h3 className="pipeline-step-title">Read research with confidence</h3>
-              <p className="pipeline-step-desc">
-                Deconstruct paper structure (IMRaD), evaluate whether methodology
-                supports claims, read figures and statistical uncertainty, and cite responsibly.
-              </p>
-              <div className="step-meta">
-                <span>Critical reading</span>
-                <span>{COURSE_CARDS[2].meta.lessons} lessons</span>
-                <span>~{COURSE_CARDS[2].meta.minutes} min</span>
-              </div>
-            </div>
-
-            <div className="pipeline-step-card">
-              <div className="step-num-badge">04</div>
-              <h3 className="pipeline-step-title">Get started with Recommendica</h3>
-              <p className="pipeline-step-desc">
-                Master literature search: formulate high-yield inquiries, interpret
-                synthesis drafts and claim checks, and organize notes.
-              </p>
-              <div className="step-meta">
-                <span>Platform tutorial</span>
-                <span>{COURSE_CARDS[3].meta.lessons} lessons</span>
-                <span>~{COURSE_CARDS[3].meta.minutes} min</span>
-              </div>
-            </div>
+            ))}
           </div>
 
           <div className="landing-courses-action">
@@ -1238,7 +1187,7 @@ function Landing({ onStart, onDonate, totalPapers: initialTotalPapers }: Landing
                   <td className="col-highlight">
                     <div className="comp-cell-val val-positive">
                       <CheckIcon size={16} />
-                      <span>4 Free interactive courses with quizzes</span>
+                      <span>{COURSE_COUNT} Free interactive courses with quizzes</span>
                     </div>
                   </td>
                   <td>

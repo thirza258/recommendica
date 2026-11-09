@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
 import { COURSES } from "../data/courses";
 import {
   COURSE_PROGRESS_KEY,
@@ -13,14 +14,42 @@ import TopBar from "./Topbar";
 import {
   ArrowRightIcon,
   BookMarkIcon,
+  ChartIcon,
   CheckIcon,
   GraduationCapIcon,
   LayersIcon,
+  ListFilterIcon,
+  PenLineIcon,
   SearchIcon,
+  SendIcon,
+  SigmaIcon,
+  SparklesIcon,
 } from "./Icons";
 import "./Courses.css";
 
-const COURSE_ICONS = [BookMarkIcon, LayersIcon, SearchIcon, GraduationCapIcon];
+type CourseIcon = ComponentType<{ size?: number; className?: string }>;
+
+/** Each course keeps its own icon; a course without one cycles the originals. */
+const COURSE_ICONS: Record<string, CourseIcon> = {
+  "create-research": BookMarkIcon,
+  "research-step-by-step": LayersIcon,
+  "website-tutorial": SearchIcon,
+  "read-research": GraduationCapIcon,
+  "systematic-review": ListFilterIcon,
+  "statistics-essentials": ChartIcon,
+  "write-paper": PenLineIcon,
+  "latex-essentials": SigmaIcon,
+  "publish-research": SendIcon,
+  "ai-in-research": SparklesIcon,
+};
+const FALLBACK_ICONS: CourseIcon[] = [
+  BookMarkIcon,
+  LayersIcon,
+  SearchIcon,
+  GraduationCapIcon,
+];
+/** Courses.css tints `.course-icon--0` to `--3`; later cards reuse them in turn. */
+const ICON_TONES = 4;
 const totalLessons = COURSES.reduce(
   (sum, course) => sum + course.lessons.length,
   0,
@@ -131,12 +160,12 @@ function Courses({ hash, onHome, onSearch, onDonate }: CoursesProps) {
                   with a little practice.
                 </h1>
                 <p className="learning-intro">
-                  From your first question to your final citation. Build the
-                  skills to create research, use Recommendica, and make sense of
-                  the evidence.
+                  From your first question to your published paper. Build the
+                  skills to plan research, review and analyze evidence, write it
+                  up, and use Recommendica and AI tools well.
                 </p>
                 <div className="learning-meta">
-                  <span>4 free courses</span>
+                  <span>{COURSES.length} free courses</span>
                   <span>{totalLessons} practical lessons</span>
                   <span>Learn at your own pace</span>
                 </div>
@@ -191,7 +220,9 @@ function Courses({ hash, onHome, onSearch, onDonate }: CoursesProps) {
               </div>
               <div className="course-grid">
                 {COURSES.map((course, index) => {
-                  const Icon = COURSE_ICONS[index];
+                  const Icon =
+                    COURSE_ICONS[course.id] ??
+                    FALLBACK_ICONS[index % FALLBACK_ICONS.length];
                   const count = course.lessons.filter((lesson) =>
                     completed.includes(lessonKey(course.id, lesson.id)),
                   ).length;
@@ -200,7 +231,9 @@ function Courses({ hash, onHome, onSearch, onDonate }: CoursesProps) {
                   return (
                     <article className="course-card" key={course.id}>
                       <div className="course-card-top">
-                        <span className={`course-icon course-icon--${index}`}>
+                        <span
+                          className={`course-icon course-icon--${index % ICON_TONES}`}
+                        >
                           <Icon size={24} />
                         </span>
                         <span className="learning-eyebrow">

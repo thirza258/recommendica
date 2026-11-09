@@ -511,26 +511,41 @@ explaining what the tool does. **Open Console** opens the search view at
 dependency. Existing landing section links still work.
 
 **Courses**, available from the landing page and search console, opens the
-learning hub at `#courses`. It contains four free courses with 16 lessons:
+learning hub at `#courses`. It contains ten free courses with 60 lessons:
 
-- Create your first research project: question, literature review, design, proposal.
-- Do research, step by step: protocol and pilot, evidence collection, analysis, reporting.
-- Get started with Recommendica: search, answer status, source inspection, refinement.
-- Read research with confidence: reading passes, methods, results, notes and citations.
+- Create your first research project: question, literature review, design, proposal, ethics, hypotheses.
+- Do research, step by step: protocol and pilot, evidence collection, analysis, reporting, qualitative evidence, reproducibility.
+- Get started with Recommendica: search, answer status, source inspection, refinement, the Write editor, export.
+- Read research with confidence: reading passes, methods, results, notes and citations, numbers, venues and versions.
+- Review the literature systematically: review types, protocols, search strategies, screening, risk of bias, synthesis and PRISMA 2020.
+- Make sense of statistics: describing data, uncertainty and confidence intervals, p-values, effect sizes and power, regression and confounding, analysis pitfalls.
+- Write a research paper: the central message, introduction, methods and results, discussion and limitations, title and abstract, editing.
+- Write papers in LaTeX: document structure, equations, figures and tables, BibTeX, importing into Write, troubleshooting.
+- Publish and share your research: choosing a venue, submissions, authorship, peer review, responding to reviewers, open access.
+- Use AI responsibly in research: matching tools to tasks, verifying output, confidential data, disclosure, AI in methods, bias and originality.
 
 Each lesson includes teaching content, a worked example, an exercise, and a
-knowledge check with feedback. Answering correctly enables **Mark lesson
+knowledge check with feedback; most also offer a practice search, and every
+course lists further reading. Answering correctly enables **Mark lesson
 complete**. Completion is saved under `recommendica.course-progress.v1` in
 this browser's local storage; unavailable storage leaves the lessons usable
 and displays a notice. There are no accounts or server-side progress records.
 Course cards resume at the first incomplete lesson and allow completed courses
 to be reviewed. **Try this in search** prefills the console without submitting.
 
-Course content and further-reading links live in `frontend/src/data/courses.ts`.
-Stable course and lesson IDs form links such as
-`#courses/website-tutorial/first-search` and are also used for saved progress.
-Unknown lesson links show a notice and the catalog. Run `cd frontend && npm test`
-for curriculum navigation and progress regressions alongside the stream tests.
+Course content and further-reading links live in one file per course under
+`frontend/src/data/curriculum/`; `frontend/src/data/courses.ts` sets the catalog
+order. Stable course and lesson IDs form links such as
+`#courses/website-tutorial/first-search` and are also used for saved progress,
+so published IDs must never be renamed or removed. The courses view loads lazily;
+the landing page reads a generated summary (`frontend/src/data/courseCatalog.ts`)
+instead of the full curriculum. After adding or changing courses, lessons, or
+reading times, run `cd frontend && npm run courses:sync` to regenerate that
+summary and the course entries in `public/sitemap.xml`,
+`public/sitemap-courses.xml`, and the backend sitemap strings. Unknown lesson
+links show a notice and the catalog. Run `cd frontend && npm test` for
+curriculum completeness, navigation, progress, and sitemap-sync checks
+alongside the other tests.
 
 **Write**, available from the topbar, landing page, and search result paper cards, opens
 the paper editor at `#write`. It provides an in-browser academic writing workspace:
@@ -570,7 +585,7 @@ changes:
 | --- | --- |
 | `frontend/index.html` | canonical URL, Open Graph / Twitter card tags, JSON-LD (`WebSite` + `WebApplication`), noscript curriculum fallback |
 | `frontend/public/robots.txt` | crawl rules (`/api/` excluded) and sitemap references |
-| `frontend/public/sitemap.xml` | master indexable sitemap (landing, search, sections, 6 disciplines, 19 curated inquiry URLs, 4 courses, and 16 lessons) with priorities, `lastmod`, and image metadata |
+| `frontend/public/sitemap.xml` | master indexable sitemap (landing, search, sections, 6 disciplines, 19 curated inquiry URLs, 10 courses, and 60 lessons) with priorities, `lastmod`, and image metadata |
 | `frontend/public/sitemap-courses.xml` | dedicated curriculum sitemap containing all course and lesson URLs |
 | `frontend/public/sitemap-topics.xml` | dedicated taxonomy sitemap containing scientific disciplines and curated research inquiries |
 | `frontend/public/sitemap-index.xml` | sitemap index referencing the individual sitemap files |

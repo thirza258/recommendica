@@ -43,7 +43,7 @@ class TestSeoEndpoints(SimpleTestCase):
         }
 
         urls = [elem.text for elem in root.findall("sm:url/sm:loc", namespaces)]
-        self.assertEqual(len(urls), 54)
+        self.assertEqual(len(urls), 104)
 
         expected_urls = [
             # Core Application
@@ -89,6 +89,16 @@ class TestSeoEndpoints(SimpleTestCase):
             "https://recommendica.nevatal.id/courses/read-research/evaluate-methods",
             "https://recommendica.nevatal.id/courses/read-research/interpret-results",
             "https://recommendica.nevatal.id/courses/read-research/notes-and-citations",
+            "https://recommendica.nevatal.id/courses/read-research/venue-and-version",
+            "https://recommendica.nevatal.id/courses/systematic-review",
+            "https://recommendica.nevatal.id/courses/systematic-review/search-strategy",
+            "https://recommendica.nevatal.id/courses/statistics-essentials",
+            "https://recommendica.nevatal.id/courses/statistics-essentials/p-values",
+            "https://recommendica.nevatal.id/courses/write-paper",
+            "https://recommendica.nevatal.id/courses/latex-essentials",
+            "https://recommendica.nevatal.id/courses/publish-research",
+            "https://recommendica.nevatal.id/courses/ai-in-research",
+            "https://recommendica.nevatal.id/courses/ai-in-research/verify-ai-output",
         ]
 
         for expected in expected_urls:
@@ -112,7 +122,7 @@ class TestSeoEndpoints(SimpleTestCase):
             "sm": "http://www.sitemaps.org/schemas/sitemap/0.9",
         }
         urls = [elem.text for elem in root.findall("sm:url/sm:loc", namespaces)]
-        self.assertEqual(len(urls), 21)
+        self.assertEqual(len(urls), 71)
         self.assertIn("https://recommendica.nevatal.id/courses", urls)
         self.assertIn("https://recommendica.nevatal.id/courses/create-research/research-question", urls)
         self.assertNotIn("https://recommendica.nevatal.id/", urls)
