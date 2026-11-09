@@ -5,6 +5,7 @@ import { openDocumentStore } from "./storage.ts";
 import type { DocumentStore } from "./storage.ts";
 import type { DocumentKind, PaperDocument } from "./documents.ts";
 import { switchToLatex, switchToVisual } from "./modeSwitch.ts";
+import { takePendingNotice } from "./pendingNotice.ts";
 import type { ModeAnchor } from "./modeAnchor.ts";
 import "katex/dist/katex.min.css";
 import "./paper.css";
@@ -42,7 +43,13 @@ function DocumentLoader({ id, store }: { id: string; store: DocumentStore }) {
     let active = true;
     store
       .get(id)
-      .then((found) => active && setDoc(found))
+      .then((found) => {
+        if (!active) return;
+        // What an import approximated, shown once as the paper opens.
+        const pending = takePendingNotice(id);
+        if (pending) setNotice(pending);
+        setDoc(found);
+      })
       .catch(() => active && setDoc(null));
     return () => {
       active = false;

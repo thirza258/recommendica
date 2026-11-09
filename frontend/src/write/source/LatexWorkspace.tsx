@@ -58,6 +58,28 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type });
 }
 
+/**
+ * What the preview loads for each project picture: its URL, or (with
+ * `blobs`) a blob: URL for an inline one. PDF and EPS figures are kept for
+ * export only; the preview cannot show them.
+ */
+function assetLinks(assets: ProjectAsset[], blobs: boolean): Record<string, string> {
+  const urls: Record<string, string> = {};
+  for (const asset of assets) {
+    if (!asset.dataUrl.startsWith("data:")) {
+      urls[asset.name] = asset.dataUrl;
+      continue;
+    }
+    if (!blobs || !asset.dataUrl.startsWith("data:image/")) continue;
+    try {
+      urls[asset.name] = URL.createObjectURL(dataUrlToBlob(asset.dataUrl));
+    } catch {
+      // A corrupt asset shows as a missing image in the preview.
+    }
+  }
+  return urls;
+}
+
 function uniqueName(name: string, taken: Set<string>): string {
   if (!taken.has(name)) return name;
   const dot = name.lastIndexOf(".");
@@ -194,6 +216,7 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
     if (handle) editorRef.current = handle;
   }, []);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const projectUploadRef = useRef<HTMLInputElement>(null);
   const texts = useRef(new Map<string, string>([[MAIN_FILE, initial.source], ...initial.files.map((file) => [file.name, file.content] as [string, string])]));
   const service = useMemo(() => new RenderService(), []);
   const inFlight = useRef(false);
@@ -215,25 +238,17 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
     return texts.current.get(name) ?? "";
   }, []);
 
-  const assetUrls = useMemo(() => {
-    const urls: Record<string, string> = {};
-    for (const asset of assets) {
-      if (!asset.dataUrl.startsWith("data:")) {
-        urls[asset.name] = asset.dataUrl;
-        continue;
-      }
-      try {
-        urls[asset.name] = URL.createObjectURL(dataUrlToBlob(asset.dataUrl));
-      } catch {
-        // A corrupt asset shows as a missing image in the preview.
-      }
-    }
-    return urls;
+  // Blob URLs for inline pictures, made and revoked by the same effect: an
+  // effect that runs twice (React's development mode) must not revoke URLs
+  // that are still shown.
+  const [assetUrls, setAssetUrls] = useState<Record<string, string>>(() => assetLinks(initial.assets, false));
+  useEffect(() => {
+    const urls = assetLinks(assets, true);
+    setAssetUrls(urls);
+    return () => Object.values(urls).forEach((url) => {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
   }, [assets]);
-
-  useEffect(() => () => Object.values(assetUrls).forEach((url) => {
-    if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-  }), [assetUrls]);
 
   const buildDoc = useCallback((): PaperDocument => {
     for (const name of fileNames) texts.current.set(name, getText(name));
@@ -428,6 +443,44 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
       setNotice(error instanceof Error ? error.message : "The image could not be added.");
     } finally {
       if (uploadRef.current) uploadRef.current.value = "";
+    }
+  };
+
+  /**
+   * Files added to the project: text files, pictures, PDF figures, .zip
+   * archives, and Word or Markdown documents (converted to a .tex file).
+   * Nothing in the project is overwritten.
+   */
+  const uploadProjectFiles = async (list: FileList | null) => {
+    if (!list?.length) return;
+    const uploads = Array.from(list).map((file) => ({ path: file.name, file }));
+    if (uploadRef.current) uploadRef.current.value = "";
+    if (projectUploadRef.current) projectUploadRef.current.value = "";
+    setNotice("Adding files…");
+    try {
+      const importing = await import("../importing/index.ts");
+      const existing = [...fileNames, ...assets.map((asset) => asset.name)];
+      const added = await importing.addToProject(uploads, existing, getText(MAIN_FILE), (status) => setNotice(status));
+      for (const file of added.files) texts.current.set(file.name, file.content);
+      if (added.files.length) setFileNames((names) => [...names, ...added.files.map((file) => file.name)]);
+      if (added.assets.length) setAssets((current) => [...current, ...added.assets]);
+      // A converted document's citations join the project's references.
+      if (added.bib) {
+        const bibName = fileNames.find((name) => name.toLowerCase().endsWith(".bib")) ?? BIB_FILE;
+        const current = fileNames.includes(bibName) ? getText(bibName) : "";
+        const entries = importing.newEntries(current, added.bib);
+        if (entries) {
+          const merged = current.trim() ? `${current.trimEnd()}\n\n${entries}\n` : `${entries}\n`;
+          texts.current.set(bibName, merged);
+          if (!editorRef.current?.setText(bibName, merged)) texts.current.set(bibName, merged);
+          if (!fileNames.includes(bibName)) setFileNames((names) => [...names, bibName]);
+        }
+      }
+      setNotice(added.notice);
+      scheduleEdit();
+      requestRender();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "The files could not be added.");
     }
   };
 
@@ -650,14 +703,33 @@ export default function LatexWorkspace({ initial, store, onSwitchMode, initialNo
             <div className="write-panel-body">
               <p className="write-panel-subhead">
                 Files
-                <button type="button" className="write-icon-button" aria-label="New file" title="New file" onClick={() => {
-                  setNewFileName("");
-                  setNewFileError("");
-                  setDialog("new-file");
-                }}>
-                  <Icon name="plus" size={16} />
-                </button>
+                <span className="write-panel-actions">
+                  <button
+                    type="button"
+                    className="write-icon-button"
+                    aria-label="Upload files"
+                    title="Upload files: .tex, .bib, figures, a .zip, or a Word or Markdown document to convert"
+                    onClick={() => projectUploadRef.current?.click()}
+                  >
+                    <Icon name="upload" size={16} />
+                  </button>
+                  <button type="button" className="write-icon-button" aria-label="New file" title="New file" onClick={() => {
+                    setNewFileName("");
+                    setNewFileError("");
+                    setDialog("new-file");
+                  }}>
+                    <Icon name="plus" size={16} />
+                  </button>
+                </span>
               </p>
+              <input
+                ref={projectUploadRef}
+                type="file"
+                hidden
+                multiple
+                accept=".tex,.ltx,.bib,.bbl,.sty,.cls,.bst,.txt,.csv,.dat,.zip,.docx,.md,.markdown,.pdf,.eps,image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
+                onChange={(event) => void uploadProjectFiles(event.target.files)}
+              />
               <ul className="write-file-list">
                 {fileNames.map((name) => (
                   <li key={name}>

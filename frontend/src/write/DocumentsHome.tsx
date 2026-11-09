@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DragEvent } from "react";
 import TopBar from "../components/Topbar";
 import { Icon } from "./icons";
 import { Dialog, MenuButton } from "./ui";
-import { BIB_FILE, MAIN_FILE, newDocumentId, relativeTime } from "./documents.ts";
-import type { DocumentSummary, PaperDocument, ProjectAsset, ProjectFile } from "./documents.ts";
+import { newDocumentId, relativeTime } from "./documents.ts";
+import type { DocumentSummary } from "./documents.ts";
 import { createFromTemplate, DESIGN_GROUPS, DESIGNS, TEMPLATES } from "./templates.ts";
 import type { TemplateDesign, TemplateInfo } from "./templates.ts";
 import { documentHref } from "./routes.ts";
 import type { DocumentStore } from "./storage.ts";
-import { readImageFile } from "./images.ts";
-import { storeImage } from "./assetClient.ts";
+import { setPendingNotice } from "./pendingNotice.ts";
+import type { Upload } from "./importing/index.ts";
 
 interface DocumentsHomeProps {
   store: DocumentStore;
@@ -72,12 +73,6 @@ function TemplateThumb({ template }: { template: TemplateInfo }) {
   );
 }
 
-function titleFromLatex(source: string, fallback: string): string {
-  const match = /\\title\s*(?:\[[^\]]*\])?\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/.exec(source);
-  const title = match?.[1].replace(/\\\\/g, " ").replace(/\\[a-zA-Z]+\*?/g, "").replace(/[{}~]/g, " ").replace(/\s+/g, " ").trim();
-  return title || fallback;
-}
-
 export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
   const [docs, setDocs] = useState<DocumentSummary[] | null>(null);
   const [error, setError] = useState("");
@@ -87,7 +82,11 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
   const [renameValue, setRenameValue] = useState("");
   const [deleting, setDeleting] = useState<DocumentSummary | null>(null);
   const [busy, setBusy] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const documentInput = useRef<HTMLInputElement>(null);
+  const projectInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -122,49 +121,45 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
     }
   };
 
-  const importFiles = async (list: FileList | null) => {
-    if (!list?.length) return;
+  /** Imports a document (as a LaTeX paper) or a LaTeX project, then opens it. */
+  const runImport = async (collect: () => Promise<Upload[]>) => {
+    if (busy) return;
     setBusy(true);
     setError("");
+    setImporting("Reading the files…");
     try {
-      const files: ProjectFile[] = [];
-      const assets: ProjectAsset[] = [];
-      for (const file of Array.from(list)) {
-        if (/\.(tex|bib|sty|cls|bst|txt)$/i.test(file.name)) {
-          files.push({ name: file.name, content: await file.text() });
-        } else if (file.type.startsWith("image/")) {
-          const image = await readImageFile(file);
-          const stored = await storeImage(image, file.name);
-          assets.push({ name: file.name, type: image.type, dataUrl: stored.src, size: image.size });
-        }
-      }
-      const texFiles = files.filter((file) => file.name.toLowerCase().endsWith(".tex"));
-      if (!texFiles.length) {
-        setError("Choose at least one .tex file. You can add .bib files and images in the same selection.");
-        return;
-      }
-      const main = texFiles.find((file) => /\\documentclass/.test(file.content)) ?? texFiles[0];
-      const now = Date.now();
-      const base = createFromTemplate("latex-blank", now);
-      const others = files.filter((file) => file !== main);
-      if (!others.some((file) => file.name.toLowerCase().endsWith(".bib"))) others.push({ name: BIB_FILE, content: "" });
-      const doc: PaperDocument = {
-        ...base,
-        id: newDocumentId(),
-        title: titleFromLatex(main.content, main.name.replace(/\.tex$/i, "")),
-        template: "import",
-        source: main.content,
-        files: others.map((file) => (file.name === MAIN_FILE ? { ...file, name: `imported-${file.name}` } : file)),
-        assets,
-      };
-      await store.put(doc);
-      open(doc.id);
+      const importing = await import("./importing/index.ts");
+      const uploads = await collect();
+      const outcome = await importing.importUploads(uploads, setImporting);
+      setImporting("Saving…");
+      await store.put(outcome.doc);
+      setPendingNotice(outcome.doc.id, outcome.notice);
+      open(outcome.doc.id);
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "Those files could not be imported.");
     } finally {
       setBusy(false);
-      if (fileInput.current) fileInput.current.value = "";
+      setImporting("");
+      for (const input of [documentInput.current, projectInput.current, folderInput.current]) if (input) input.value = "";
     }
+  };
+
+  const importFromInput = (list: FileList | null) => {
+    if (!list?.length) return;
+    const uploads: Upload[] = Array.from(list).map((file) => ({ path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name, file }));
+    void runImport(async () => uploads);
+  };
+
+  const onDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    // Folder entries are only available while the drop event runs.
+    const entries = Array.from(event.dataTransfer.items ?? [])
+      .map((item) => item.webkitGetAsEntry?.() ?? null)
+      .filter((entry): entry is FileSystemEntry => entry !== null);
+    const files = Array.from(event.dataTransfer.files);
+    if (!entries.length && !files.length) return;
+    void runImport(async () => (await import("./importing/index.ts")).uploadsFromEntries(entries, files));
   };
 
   const duplicate = async (summary: DocumentSummary) => {
@@ -224,7 +219,25 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
         }}
         isWriting
       />
-      <main className="write-home-main">
+      <main
+        className="write-home-main"
+        onDragOver={(event) => {
+          if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          if (!dragging) setDragging(true);
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget === event.target || !event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={onDrop}
+      >
+        {dragging && (
+          <div className="write-drop-overlay" aria-hidden="true">
+            <Icon name="upload" size={28} />
+            Drop a Word or Markdown document, a LaTeX .zip or a project folder
+          </div>
+        )}
         <section className="write-start" aria-labelledby="write-start-heading">
           <div className="write-start-head">
             <div>
@@ -238,20 +251,44 @@ export default function DocumentsHome({ store, onHome }: DocumentsHomeProps) {
               </p>
             </div>
             <div className="write-start-actions">
-              <button type="button" className="ghost-button" onClick={() => fileInput.current?.click()} disabled={busy}>
+              <button type="button" className="ghost-button" onClick={() => documentInput.current?.click()} disabled={busy} title="Word (.docx), Markdown or text: converted to a LaTeX paper">
+                <Icon name="fileText" size={16} />
+                Import a document
+              </button>
+              <button type="button" className="ghost-button" onClick={() => projectInput.current?.click()} disabled={busy} title="A .zip of a LaTeX project (for example from Overleaf), or its .tex, .bib and figure files">
                 <Icon name="upload" size={16} />
-                Open .tex files
+                Upload a LaTeX project
+              </button>
+              <button type="button" className="write-link-button" onClick={() => folderInput.current?.click()} disabled={busy}>
+                or a project folder
               </button>
               <input
-                ref={fileInput}
+                ref={documentInput}
+                type="file"
+                hidden
+                accept=".docx,.md,.markdown,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain"
+                onChange={(event) => importFromInput(event.target.files)}
+              />
+              <input
+                ref={projectInput}
                 type="file"
                 hidden
                 multiple
-                accept=".tex,.bib,.sty,.cls,.bst,image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
-                onChange={(event) => void importFiles(event.target.files)}
+                accept=".zip,.tex,.ltx,.bib,.bbl,.sty,.cls,.bst,.txt,.pdf,.eps,image/png,image/jpeg,image/gif,image/svg+xml,image/webp,application/zip"
+                onChange={(event) => importFromInput(event.target.files)}
               />
+              <input ref={folderInput} type="file" hidden multiple {...{ webkitdirectory: "" }} onChange={(event) => importFromInput(event.target.files)} />
             </div>
           </div>
+          <p className="write-import-hint">
+            Word documents keep their headings, lists, tables, equations, pictures, footnotes and Zotero or Mendeley citations. You can also drop
+            files or a folder anywhere on this page.
+          </p>
+          {importing && (
+            <p className="write-import-status" role="status">
+              <span className="write-spinner" aria-hidden="true" /> {importing}
+            </p>
+          )}
           {error && (
             <p className="write-error" role="alert">
               <Icon name="alertCircle" size={16} /> {error}

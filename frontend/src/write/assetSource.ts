@@ -32,6 +32,14 @@ export function isEmbeddableImageSource(value: unknown): value is string {
   return isDataImageSource(value) || isAssetUrl(value);
 }
 
+/**
+ * Files a LaTeX project keeps besides pictures: PDF and EPS figures, which
+ * the preview cannot show but the exported project needs.
+ */
+export function isProjectFigureSource(value: unknown): value is string {
+  return typeof value === "string" && /^data:application\/(?:pdf|postscript);base64,/i.test(value);
+}
+
 /** Best-effort MIME type from a data URL or a file extension. */
 export function mimeForImageSource(source: string): string {
   const data = /^data:(image\/[a-z0-9.+-]+);/i.exec(source);
