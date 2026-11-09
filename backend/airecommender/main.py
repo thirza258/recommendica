@@ -34,6 +34,7 @@ from airecommender.pipeline.query_transform.hyde_rag import generate_hypothetica
 from airecommender.pipeline.query_transform.rag_fusion import generate_query_variants
 from airecommender.pipeline.query_transform.step_back import step_back
 from airecommender.pipeline.sources.arxiv_api import ArxivClient, ArxivUnavailable
+from airecommender.pipeline.sources.recycle import ArxivRecycler
 from airecommender.pipeline.verification import QueryVerdict, verify_query, verify_results
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,20 @@ class RAGIndex:
                 "grade what it returns."
             )
 
+        # ── Recycling live papers into ChromaDB ───────────────────────────
+        # Papers the live search fetches are written back into the connected
+        # collection, so the next question on the topic finds them locally.
+        # Built once and shared by the for_mode() copies.  Construction does
+        # no I/O, and the DenseRAG attributes are read only when a write runs.
+        self.arxiv_recycler = None
+        if bool(_setting("ENABLE_ARXIV_RECYCLE", True)):
+            self.arxiv_recycler = ArxivRecycler(
+                collection_fn=lambda: self.dense_rag.collection,
+                embed_fn=lambda texts: self.dense_rag.embed_documents(texts),
+                embedding_model=getattr(self.dense_rag, "embedding_model", None),
+                is_ephemeral_fn=chroma_settings.is_ephemeral,
+            )
+
         # ── Boundary checks ───────────────────────────────────────────────
         self.enable_query_verification = bool(_setting("ENABLE_QUERY_VERIFICATION", True))
         self.query_verification_timeout = int(_setting("QUERY_VERIFICATION_TIMEOUT", 15))
@@ -132,7 +147,8 @@ class RAGIndex:
             "[PIPELINE] RAGIndex ready — transforms(hyde=%s step_back=%s fusion=%s) "
             "max_context_docs=%s chunk_size=%s generation_workers=%s "
             "relevance_agent=%s(model=%r iterations=%s min_relevant=%s) "
-            "answer_evaluation=%s arxiv_fallback=%s query_check=%s result_check=%s",
+            "answer_evaluation=%s arxiv_fallback=%s arxiv_recycle=%s "
+            "query_check=%s result_check=%s",
             self.enable_hyde,
             self.enable_step_back,
             self.enable_rag_fusion,
@@ -145,6 +161,7 @@ class RAGIndex:
             self.agent_min_relevant,
             self.enable_answer_evaluation,
             self._fallback_enabled,
+            self.arxiv_recycler is not None,
             self.enable_query_verification,
             self.enable_result_verification,
         )
@@ -522,7 +539,21 @@ class RAGIndex:
         """
         if self.arxiv_client is None:
             raise ArxivUnavailable("the arXiv client is not configured")
-        return self.arxiv_client.search(query, budget=budget)
+        candidates = self.arxiv_client.search(query, budget=budget)
+
+        if candidates and self.arxiv_recycler is not None:
+            # Every fetched paper is a real arXiv record the collection could
+            # not supply, so all of them are recycled, graded or not.
+            # Relevance to *this* question says nothing about whether a paper
+            # belongs in an arXiv corpus.  submit() returns at once; the write
+            # happens on the recycler's own thread.
+            try:
+                self.arxiv_recycler.submit(candidates)
+            except Exception:  # noqa: BLE001
+                # Anything raised here would reach the agent as "arXiv could
+                # not be reached" and cost the user papers that did arrive.
+                logger.exception("[PIPELINE] Could not queue arXiv papers for recycling")
+        return candidates
 
     # ── Boundary checks ───────────────────────────────────────────────────────
 

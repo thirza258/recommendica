@@ -247,6 +247,28 @@ class DenseRAG:
 
         return embeddings  # type: ignore[return-value]
 
+    def embed_documents(
+        self, texts: List[str], batch_size: Optional[int] = None
+    ) -> List[List[float]]:
+        """
+        Embed documents for *storage*, exactly as the collection was indexed.
+
+        The query path above flattens newlines and caches by text, and neither
+        belongs here.  A stored vector has to come from the same input the
+        original ingestion embedded: ``Title: …\\n\\nAbstract: …`` with its
+        newlines intact (CHROMA_INGESTION_HANDOVER.md §3.3).  Caching document
+        vectors would also evict the query vectors the cache is there for.
+
+        Raises :class:`EmbeddingUnavailable`, like the query path.
+        """
+        if not texts:
+            return []
+        size = max(1, int(batch_size or settings.EMBEDDING_BATCH_SIZE))
+        vectors: List[List[float]] = []
+        for start in range(0, len(texts), size):
+            vectors.extend(self._embed_batch(list(texts[start : start + size])))
+        return vectors
+
     def index_documents(self, documents: List[str]) -> None:
         self.documents = list(documents)
         logger.info(f"[DENSE] Indexed {len(self.documents)} documents in memory.")

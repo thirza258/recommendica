@@ -213,6 +213,25 @@ class FakeArxivClient:
         return [dict(result) for result in self.results]
 
 
+class FakeRecycler:
+    """
+    Stands in for the ArxivRecycler.
+
+    Patched in by default, so no pipeline test spawns a writer thread or
+    reaches a real ChromaDB.  It records what the fallback hands over.
+    """
+
+    def __init__(self, error=None):
+        self.error = error
+        self.submitted = []
+
+    def submit(self, candidates):
+        self.submitted.append([dict(candidate) for candidate in candidates])
+        if self.error:
+            raise self.error
+        return len(candidates)
+
+
 def arxiv_paper(title, summary="a summary"):
     """A live-source candidate, shaped exactly like a collection document."""
     return {
@@ -244,16 +263,19 @@ class PipelineTestCase(TestCase):
     fusion = staticmethod(lambda query, **kwargs: ["variant one", "variant two"])
 
     def make_index(
-        self, dense=None, llm=None, hyde=None, step_back=None, fusion=None, arxiv=None
+        self, dense=None, llm=None, hyde=None, step_back=None, fusion=None, arxiv=None,
+        recycler=None,
     ):
         self.dense = dense or FakeDenseRAG()
         self.llm = llm or FakeLLMService()
         self.arxiv = arxiv or FakeArxivClient()
+        self.recycler = recycler or FakeRecycler()
 
         patches = [
             mock.patch("airecommender.main.DenseRAG", return_value=self.dense),
             mock.patch("airecommender.main.get_llm_service", return_value=self.llm),
             mock.patch("airecommender.main.ArxivClient", return_value=self.arxiv),
+            mock.patch("airecommender.main.ArxivRecycler", return_value=self.recycler),
             mock.patch("airecommender.main.generate_hypothetical_abstract", hyde or self.hyde),
             mock.patch("airecommender.main.step_back", step_back or self.step_back),
             mock.patch("airecommender.main.generate_query_variants", fusion or self.fusion),
@@ -1162,6 +1184,119 @@ class ArxivFallbackPipelineTests(PipelineTestCase):
 
         self.assertFalse(index._fallback_enabled)
         self.assertEqual(arxiv.calls, [])
+
+
+# ── Recycling live papers into ChromaDB, end to end ──────────────────────────
+
+
+@override_settings(
+    MAX_CONTEXT_DOCS=12,
+    CHUNK_SIZE=5,
+    ENABLE_RELEVANCE_AGENT=True,
+    ENABLE_ARXIV_FALLBACK=True,
+    ENABLE_ARXIV_RECYCLE=True,
+    ENABLE_QUERY_VERIFICATION=False,
+    AGENT_MIN_RELEVANT_DOCS=6,
+    AGENT_MAX_ITERATIONS=1,
+)
+class ArxivRecyclePipelineTests(PipelineTestCase):
+    """As above, the collection supplies five papers and the agent wants six."""
+
+    @staticmethod
+    def titles(batch):
+        return [prompting.document_title(c["document"], meta=c.get("meta")) for c in batch]
+
+    def test_every_fetched_paper_is_handed_over_graded_or_not(self):
+        # Relevance to this question says nothing about whether a real arXiv
+        # paper belongs in an arXiv corpus.
+        arxiv = FakeArxivClient([arxiv_paper("Live Paper"), arxiv_paper("Irrelevant Live Paper")])
+        index = self.make_index(
+            llm=FakeLLMService(unrelated={"Irrelevant Live Paper"}), arxiv=arxiv
+        )
+
+        self.collect(index)
+
+        self.assertEqual(len(self.recycler.submitted), 1)
+        self.assertEqual(
+            self.titles(self.recycler.submitted[0]), ["Live Paper", "Irrelevant Live Paper"]
+        )
+
+    def test_nothing_is_recycled_when_arxiv_is_unreachable(self):
+        index = self.make_index(arxiv=FakeArxivClient(error=OSError("connection refused")))
+
+        self.collect(index)
+
+        self.assertEqual(self.recycler.submitted, [])
+
+    @override_settings(AGENT_MIN_RELEVANT_DOCS=2)
+    def test_nothing_is_recycled_when_the_collection_suffices(self):
+        index = self.make_index(arxiv=FakeArxivClient([arxiv_paper("Live Paper")]))
+
+        self.collect(index)
+
+        self.assertEqual(self.recycler.submitted, [])
+
+    def test_a_failing_recycler_never_costs_the_answer(self):
+        """
+        A recycler error reaching the agent would read as "arXiv could not be
+        reached" and drop papers that did arrive.
+        """
+        index = self.make_index(
+            arxiv=FakeArxivClient([arxiv_paper("Live Paper")]),
+            recycler=FakeRecycler(error=RuntimeError("chroma write failed")),
+        )
+
+        events = self.collect(index)
+
+        statuses = [
+            event["status"]
+            for event in events
+            if event["type"] == "progress" and event["step"] == "relevance"
+        ]
+        self.assertIn("fallback_graded", statuses)
+        self.assertNotIn("fallback_unavailable", statuses)
+        self.assertEqual(events[-1]["total_docs_retrieved"], 6)
+
+    @override_settings(ENABLE_ARXIV_RECYCLE=False)
+    def test_recycling_can_be_switched_off(self):
+        index = self.make_index(arxiv=FakeArxivClient([arxiv_paper("Live Paper")]))
+
+        events = self.collect(index)
+
+        self.assertIsNone(index.arxiv_recycler)
+        self.assertEqual(self.recycler.submitted, [])
+        self.assertEqual(events[-1]["total_docs_retrieved"], 6)
+
+    def test_the_real_recycler_stores_papers_that_stay_labelled_live(self):
+        """
+        End to end with the real ArxivRecycler over a fake collection.  The
+        paper lands in the store without ``source``, while this answer still
+        shows it as live.
+        """
+        from airecommender.pipeline.sources.recycle import ArxivRecycler
+        from airecommender.tests_recycle import FakeCollection, FakeEmbedder
+
+        collection = FakeCollection()
+        recycler = ArxivRecycler(collection_fn=lambda: collection, embed_fn=FakeEmbedder())
+        paper = arxiv_paper("Live Paper")
+        paper["meta"].update(id="2511.01234v2", arxiv_id="2511.01234v2")
+        index = self.make_index(arxiv=FakeArxivClient([paper]), recycler=recycler)
+
+        events = self.collect(index)
+
+        self.assertTrue(recycler.flush(5))
+        document, metadata = collection.stored["2511.01234"]
+        self.assertEqual(document, "Title: Live Paper\n\nAbstract: a summary")
+        self.assertNotIn("source", metadata)
+        served = [
+            d
+            for event in events
+            if event["type"] == "chunk_end"
+            for d in event["docs"]
+            if "Live Paper" in d["document"]
+        ]
+        self.assertEqual(served[0]["meta"]["source"], "arxiv_api")
+        self.assertEqual(served[0]["meta"]["id"], "2511.01234v2")
 
 
 # ── Boundary verification, end to end ────────────────────────────────────────

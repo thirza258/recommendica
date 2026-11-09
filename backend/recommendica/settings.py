@@ -200,6 +200,13 @@ ARXIV_MAX_QUERY_TERMS = int(os.getenv("ARXIV_MAX_QUERY_TERMS", "6"))
 ARXIV_SORT_BY = os.getenv("ARXIV_SORT_BY", "relevance")
 ARXIV_BREAKER_THRESHOLD = int(os.getenv("ARXIV_BREAKER_THRESHOLD", "3"))
 ARXIV_BREAKER_COOLDOWN = float(os.getenv("ARXIV_BREAKER_COOLDOWN", "300"))
+# Recycle what the live search fetches. Every paper arXiv returns is embedded
+# and written into COLLECTION_NAME on the connected Chroma server, on a
+# background thread, so the next question on the topic is answered from the
+# collection directly. Records already present are never overwritten, and
+# nothing is written to the in-memory fallback store or to a collection whose
+# embedding_model metadata names a different model.
+ENABLE_ARXIV_RECYCLE = _env_bool("ENABLE_ARXIV_RECYCLE", True)
 
 # ── Boundary verification ───────────────────────────────────────────────────
 # Query check: one cheap LLM classification before the pipeline spends

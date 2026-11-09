@@ -326,6 +326,26 @@ def ingest_records(records: list[dict]):
     )
 ```
 
+### 5.1 Records Written Back by Recommendica (live arXiv recycling)
+
+With `ENABLE_ARXIV_RECYCLE=True` (the default), Recommendica adds every paper its live arXiv search fetches to `arxiv_embeddings`, following the rules above:
+
+* **ID**: the bare arXiv ID, version dropped (`2301.12345`, `hep-th/9901001`), so it lines up with snapshot IDs.
+* **Document and embedding**: `Title: …\n\nAbstract: …`, embedded unchanged with `embeddinggemma` (`truncate: true`).
+* **Never overwrites**: IDs already in the collection are skipped, so snapshot records keep their full metadata. Nothing is written if the collection's `embedding_model` metadata names a different model.
+* **Metadata**:
+  * Same as §3.4: `id`, `title`, `abstract`, `authors`, `categories`, `update_date`, `authors_parsed`.
+  * When arXiv supplies them: `doi`, `journal-ref`, `comments`.
+  * Absent: the live API does not return `submitter`, `license`, `versions` or `report-no`, so these are never synthesised.
+  * Extra keys: `primary_category`; `published` and `updated` (ISO 8601); `ingested_with` = `"recommendica-arxiv-recycle"`; `ingested_at` (ISO 8601, UTC).
+
+To select these records, or roll them back:
+
+```python
+collection.get(where={"ingested_with": "recommendica-arxiv-recycle"}, include=["metadatas"])
+collection.delete(where={"ingested_with": "recommendica-arxiv-recycle"})  # removes only recycled records
+```
+
 ---
 
 ## 6. Integration Best Practices & Constraints

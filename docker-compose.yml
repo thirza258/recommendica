@@ -91,6 +91,9 @@ services:
       ARXIV_SORT_BY: "${ARXIV_SORT_BY:-relevance}"
       ARXIV_BREAKER_THRESHOLD: "${ARXIV_BREAKER_THRESHOLD:-3}"
       ARXIV_BREAKER_COOLDOWN: "${ARXIV_BREAKER_COOLDOWN:-300}"
+      # Write the papers the live search fetches back into COLLECTION_NAME on
+      # the Chroma server above, so later searches find them locally.
+      ENABLE_ARXIV_RECYCLE: "${ENABLE_ARXIV_RECYCLE:-True}"
       # Boundary checks: screen the query before spending on it, and report
       # what the answer is built from afterwards.
       ENABLE_QUERY_VERIFICATION: "${ENABLE_QUERY_VERIFICATION:-True}"
