@@ -171,8 +171,12 @@ export default function CodeEditor({ file, initialText, onChange, onCursorLine, 
     const view = viewRef.current;
     if (!view || activeFile.current === file) return;
     states.current.set(activeFile.current, view.state);
+    // Resolve the next state while the old file is still marked active:
+    // stateFor treats the active file as the one already in the view, so
+    // marking the new file active first would just hand back the old state.
+    const next = stateFor(file);
     activeFile.current = file;
-    view.setState(stateFor(file));
+    view.setState(next);
     // Saved states keep the editability they had when they were left, so a
     // file opened during a conversion must be locked again explicitly.
     view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(!callbacks.current.readOnly)) });
